@@ -9,6 +9,9 @@
 .. image:: https://travis-ci.org/mpi-array/mpi_array.svg?branch=dev
    :target: https://travis-ci.org/mpi-array/mpi_array
    :alt: Build Status
+.. image:: https://coveralls.io/repos/github/mpi-array/mpi_array/badge.svg
+   :target: https://coveralls.io/github/mpi-array/mpi_array
+   :alt: Coveralls Status
 
 The `mpi_array <http://mpi-array.readthedocs.io/en/latest>`_ python package provides
 a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_
