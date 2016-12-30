@@ -32,8 +32,8 @@ script:
   - cd docs
   - python -m mpi_array.tests
   - cd ..
-  - travis-sphinx build
+  - if [[ $TRAVIS_PYTHON_VERSION != '3.3'* ]]; then travis-sphinx build; fi
 
 after_success:
-  - travis-sphinx --branches=dev deploy
+  - if [[ $TRAVIS_PYTHON_VERSION != '3.3'* ]]; then travis-sphinx --branches=dev deploy; fi
   - coveralls
