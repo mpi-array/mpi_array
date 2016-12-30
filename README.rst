@@ -90,6 +90,10 @@ Latest sphinx generated documentation is at:
 
     http://mpi-array.readthedocs.io/en/latest
 
+and
+
+    https://mpi-array.github.io/mpi_array/
+
 Latest source code
 ==================
 
