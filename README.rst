@@ -1,0 +1,105 @@
+
+===========
+`mpi_array`
+===========
+
+.. Start of sphinx doc include.
+.. start long description.
+
+.. image:: https://travis-ci.org/mpi-array/mpi_array.svg?branch=dev
+   :target: https://travis-ci.org/mpi-array/mpi_array
+   :alt: Build Status
+
+The `mpi_array <http://mpi-array.readthedocs.io/en/latest>`_ python package provides
+a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_
+*distributed array* which utilizes
+`MPI <https://en.wikipedia.org/wiki/Message_Passing_Interface>`_
+(via `mpi4py <http://pythonhosted.org/mpi4py/>`_) for parallelism.
+
+
+Quick Start Example
+===================
+
+
+   >>> import mpi_array as mpia
+   >>>
+   >>> dary = mpia.zeros((1000, 1000, 1000), type="uint16") # creates zero-initialized distributed array
+   >>> 
+
+Related Work
+============
+
+   - `DistArray <http://distarray.readthedocs.io/en/latest/>`_
+   - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
+   - `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
+   - `bolt <http://bolt-project.org/>`_
+   - `pnumpy <https://github.com/pletzer/pnumpy>`_
+   - `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_ and
+     `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_ python bindings.
+
+Installation
+============
+
+Using ``pip``::
+
+   pip install mpi_array # with root access
+   
+or::
+   
+   pip install --user mpi_array # no root/sudo permissions required
+
+From latest github source::
+
+    git clone https://github.com/mpi-array/mpi_array.git
+    cd mpi_array
+    python setup.py install --user
+
+Requirements
+============
+
+Requires:
+
+   - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.1.3`,
+   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.6`,
+   - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`,
+   - python-2 version `>= 2.7` or python-3 version `>= 3.3`.
+
+Testing
+=======
+
+Run tests (unit-tests and doctest module docstring tests) using::
+
+   python -m mpi_array.tests
+
+or, from the source tree, run::
+
+   python setup.py test
+
+
+Travis CI at:
+
+    https://travis-ci.org/mpi-array/mpi_array/
+
+
+Documentation
+=============
+
+Latest sphinx generated documentation is at:
+
+    http://mpi-array.readthedocs.io/en/latest
+
+Latest source code
+==================
+
+Source at github:
+
+    https://github.com/mpi-array/mpi_array
+
+
+License information
+===================
+
+See the file `LICENSE.txt <https://github.com/mpi-array/mpi_array/blob/dev/LICENSE.txt>`_
+for terms & conditions, for usage and a DISCLAIMER OF ALL WARRANTIES.
+
+.. end long description.
