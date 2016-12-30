@@ -26,9 +26,7 @@ install:
   - python ./setup.py install
 
 script:
-  - pwd
-  - ls -al `pwd`/*
-  - flake8 mpi_split
+  - flake8 mpi_array
   - coverage run --source=mpi_array --omit='*logging*,*unittest*' -m mpi_array.tests;
   - # run tests on installed mpi_array
   - cd docs
