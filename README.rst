@@ -29,13 +29,15 @@ Quick Start Example
 Related Work
 ============
 
-   - `DistArray <http://distarray.readthedocs.io/en/latest/>`_
-   - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
-   - `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
-   - `bolt <http://bolt-project.org/>`_
-   - `pnumpy <https://github.com/pletzer/pnumpy>`_
-   - `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_ and
-     `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_ python bindings.
+Related distributed array implementations with python API:
+
+- `DistArray <http://distarray.readthedocs.io/en/latest/>`_
+- `pnumpy <https://github.com/pletzer/pnumpy>`_
+- `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_ and
+  `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_ python bindings.
+- `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
+- `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
+- `bolt <http://bolt-project.org/>`_
 
 Installation
 ============
