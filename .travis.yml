@@ -1,0 +1,30 @@
+language: python
+git:
+  depth: 200
+python:
+  - '2.7'
+  - '3.3'
+  - '3.4'
+  - '3.5'
+
+install:
+  - git config --global user.name mpi-split
+  - git config --global user.email mpi-split@users.noreply.github.com
+  - pip install flake8
+  - pip install 'sphinx>=1.4'
+  - pip install travis-sphinx
+  - pip install coveralls
+  - python ./setup.py install
+
+script:
+  - flake8 mpi_split
+  - coverage run --source=mpi_array --omit='*logging*,*unittest*' -m mpi_array.tests;
+  - # run tests on installed mpi_array
+  - cd docs
+  - python -m mpi_array.tests
+  - cd ..
+  - travis-sphinx build
+
+after_success:
+  - travis-sphinx --branches=dev deploy
+  - coveralls

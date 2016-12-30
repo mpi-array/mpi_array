@@ -30,7 +30,7 @@ __copyright__ = _copyright()
 __version__ = _mpi_array.__version__
 
 
-class ndarray(_np.ndarray):
+class ndarray(object):
     """
     Multi-dimensional distributed array.
     """

@@ -11,7 +11,6 @@ Execute as::
    python -m mpi_array.array_test
 
 
-
 Classes
 =======
 

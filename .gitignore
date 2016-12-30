@@ -94,3 +94,5 @@ ENV/
 .pydevproject
 .settings
 
+# Generated
+mpi_array/git_describe.txt
