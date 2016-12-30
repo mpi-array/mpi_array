@@ -6,6 +6,15 @@ python:
   - '3.3'
   - '3.4'
   - '3.5'
+  - '3.6-dev'
+
+sudo: required
+os: linux
+cache:
+  apt: true
+
+before_install:
+  - sh utils/travis_ci/travis_ci_install_mpi.sh openmpi
 
 install:
   - git config --global user.name mpi-split
