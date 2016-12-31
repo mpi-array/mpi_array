@@ -32,7 +32,7 @@ install:
 
 script:
   - flake8 mpi_array
-  - coverage run --source=mpi_array --omit='*logging*,*unittest*' -m mpi_array.tests;
+  - coverage run --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
   - # run tests on installed mpi_array
   - cd docs
   - python -m mpi_array.tests
