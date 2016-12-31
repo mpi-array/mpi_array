@@ -35,6 +35,11 @@ def initialise_mock_modules(module_name_list):
     """
     Updates system modules (:func:`sys.modules.update`) with
     :samp:`unittest.mock.MagicMock` objects.
+    
+    :type module_name_list: sequence of :obj:`str`
+    :param module_name_list: List of module names to be replaced/initialised
+       with :samp:`MagicMock` instances in :obj:`sys.modules`.
+       
     """
     import sys as _sys
     try:
@@ -48,7 +53,7 @@ def initialise_mock_modules(module_name_list):
         def __getattr__(cls, name):
             return _MagicMock()
 
-    _sys.modules.update((mod_name, Mock()) for mod_name in MOCK_MODULES)
+    _sys.modules.update((mod_name, Mock()) for mod_name in module_name_list)
 
 
 if "READTHEDOCS" in _os.environ.keys():
