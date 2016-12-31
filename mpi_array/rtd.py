@@ -35,16 +35,16 @@ def initialise_mock_modules(module_name_list):
     """
     Updates system modules (:func:`sys.modules.update`) with
     :samp:`unittest.mock.MagicMock` objects.
-    
+
     :type module_name_list: sequence of :obj:`str`
     :param module_name_list: List of module names to be replaced/initialised
        with :samp:`MagicMock` instances in :obj:`sys.modules`.
-       
+
     """
     import sys as _sys
     try:
         from unittest.mock import MagicMock as _MagicMock
-    except (ImportError,) as e:
+    except (ImportError,):
         from mock import Mock as _MagicMock
 
     class Mock(_MagicMock):
@@ -58,7 +58,6 @@ def initialise_mock_modules(module_name_list):
 
 if "READTHEDOCS" in _os.environ.keys():
     initialise_mock_modules(MOCK_MODULES)
-
 
 from .license import license as _license, copyright as _copyright  # noqa: E402,F401
 
