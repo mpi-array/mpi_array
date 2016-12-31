@@ -8,10 +8,17 @@ python:
   - '3.5'
   - '3.6-dev'
 
-sudo: required
+sudo: false
 os: linux
 cache:
+  pip: true
   apt: true
+
+addons:
+  apt:
+    packages:
+      - openmpi-bin
+      - libopenmpi-dev
 
 env:
   matrix:
