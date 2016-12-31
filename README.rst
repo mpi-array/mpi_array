@@ -12,7 +12,13 @@
 .. image:: https://coveralls.io/repos/github/mpi-array/mpi_array/badge.svg
    :target: https://coveralls.io/github/mpi-array/mpi_array
    :alt: Coveralls Status
-
+.. image:: https://readthedocs.org/projects/mpi-array/badge/?version=latest
+   :target: http://mpi-array.readthedocs.io/en/latest/?badge=latest
+   :alt: Documentation Status
+.. image:: https://img.shields.io/github/license/mashape/apistatus.svg
+   :target: https://github.com/mpi-array/mpi_array/blob/dev/LICENSE.txt
+   :alt: MIT License
+   
 The `mpi_array <http://mpi-array.readthedocs.io/en/latest>`_ python package provides
 a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_
 *distributed array* which utilizes
@@ -26,7 +32,7 @@ Quick Start Example
 
    >>> import mpi_array as mpia
    >>>
-   >>> dary = mpia.zeros((1000, 1000, 1000), type="uint16") # creates zero-initialized distributed array
+   >>> dary = mpia.zeros((1000, 1000, 1000), dtype="uint16") # creates zero-initialized distributed array
    >>> 
 
 Related Work
@@ -89,11 +95,11 @@ Travis CI at:
 Documentation
 =============
 
-Latest sphinx generated documentation is at:
+Latest sphinx generated documentation at `readthedocs.org <readthedocs.org>`_:
 
     http://mpi-array.readthedocs.io/en/latest
 
-and
+and at github *gh-pages*:
 
     https://mpi-array.github.io/mpi_array/
 
