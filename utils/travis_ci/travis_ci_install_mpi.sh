@@ -28,9 +28,11 @@ Linux)
     openmpi) set -x;
       if [ ! -d "$DIRECTORY" ]; then
         wget https://www.open-mpi.org/software/ompi/v${MPI_IMPL_MAJ_DOT_MIN}/downloads/openmpi-${MPI_IMPL_VERSION}.tar.bz2;
-        tar -xvjf openmpi-${MPI_IMPL_VERSION}.tar.bz2;
+        tar -xjf openmpi-${MPI_IMPL_VERSION}.tar.bz2;
       fi; 
-      cd openmpi-${MPI_IMPL_VERSION} && ./configure --prefix=${INSTALL_PREFIX} && make && make install
+      cd openmpi-${MPI_IMPL_VERSION} && \
+      ./configure --quiet --enable-silent-rules --prefix=${INSTALL_PREFIX} && \
+      make V=0 && make install
       ;;
     *)
       echo "Unknown MPI implementation:" $1
