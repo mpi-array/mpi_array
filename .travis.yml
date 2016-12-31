@@ -8,6 +8,7 @@ python:
   - '3.5'
   - '3.6-dev'
 
+dist: trusty
 sudo: false
 os: linux
 cache:
