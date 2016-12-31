@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 import os
+import sys
 import subprocess
 
 
@@ -62,6 +63,18 @@ create_git_describe()
 
 _long_description = read_readme()
 
+mpi4py_dependency = ["mpi4py>=2.0", ]
+mock_dependency = []
+
+if "READTHEDOCS" in os.environ.keys():
+    # Skip mpi4py dependency, can't install an MPI implementation
+    # in readthedocs.org virtual machine.
+    mpi4py_dependency = []
+    if sys.version_info < (3,3,0):
+        mock_dependency = ["mock"]
+
+other_dependencies = mpi4py_dependency + mock_dependency
+
 setup(
     name="mpi_array",
     version=open("mpi_array/version.txt", "rt").read().strip(),
@@ -106,7 +119,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    install_requires=["numpy>=1.6", "mpi4py>=2.0", "array_split>=0.1.3"],
+    install_requires=["numpy>=1.6", "array_split>=0.1.3"] + other_dependencies,
     package_data={
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]
     },

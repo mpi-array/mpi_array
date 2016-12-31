@@ -20,7 +20,8 @@ Attributes
 
 
 """
-from __future__ import absolute_import
+from __future__ import absolute_import  # noqa: E402,F401
+from . import rtd as _rtd  # noqa: E402,F401
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 

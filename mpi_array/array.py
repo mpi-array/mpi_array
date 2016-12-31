@@ -39,3 +39,6 @@ class ndarray(object):
 
 def zeros(*args, **kwargs):
     pass
+
+
+__all__ = [s for s in dir() if not s.startswith('_')]

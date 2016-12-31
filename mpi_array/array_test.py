@@ -43,3 +43,6 @@ class NdarrayTest(_unittest.TestCase):
 
 
 _unittest.main(__name__)
+
+
+__all__ = [s for s in dir() if not s.startswith('_')]

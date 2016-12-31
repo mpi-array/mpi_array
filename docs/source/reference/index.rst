@@ -13,5 +13,6 @@ API Reference
    mpi_array_tests
    mpi_array_logging
    mpi_array_unittest
+   mpi_array_rtd
    mpi_array_license
 
