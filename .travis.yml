@@ -11,25 +11,35 @@ python:
 dist: trusty
 sudo: false
 os: linux
+
 cache:
   pip: true
   apt: true
+  directories:
+    - $HOME/src/builds
 
 addons:
   apt:
     packages:
-      - openmpi-bin
-      - libopenmpi-dev
 
 env:
+  global:
+    - INSTALL_PREFIX=$HOME/local
+    - BUILD_PREFIX=$HOME/src/builds
   matrix:
-    - MPI=openmpi
+    - MPI=openmpi-1.10.5
 
 before_install:
-  - echo skipping travis_ci_install_mpi.sh # sh utils/travis_ci/travis_ci_install_mpi.sh $MPI
+  - mkdir -p $INSTALL_PREFIX
+  - mkdir -p $BUILD_PREFIX
+  - bash utils/travis_ci/travis_ci_install_mpi.sh $MPI $INSTALL_PREFIX $BUILD_PREFIX
+  - export PATH=${INSTALL_PREFIX}/bin:$PATH
+  - export LIBRARY_PATH=${INSTALL_PREFIX}/lib:${INSTALL_PREFIX}/lib64:$LIBRARY_PATH
+  - export LD_LIBRARY_PATH=${INSTALL_PREFIX}/lib:${INSTALL_PREFIX}/lib64:$LD_LIBRARY_PATH
+  - export CPATH=${INSTALL_PREFIX}/include:$CPATH
+  - ompi_info
 
 install:
-  - if [[ $MPI == 'openmpi' ]]; then ompi_info; fi
   - git config --global user.name mpi-array
   - git config --global user.email mpi-array@users.noreply.github.com
   - pip install flake8

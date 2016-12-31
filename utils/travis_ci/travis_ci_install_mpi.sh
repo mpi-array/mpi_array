@@ -1,18 +1,36 @@
-#!/usr/bin/env sh
-# Borrowed from mpi4py:
-# https://github.com/mpi4py/mpi4py/blob/master/conf/ci/travis-ci/install-mpi.sh
-#
+#!/usr/bin/env bash
 
 set -e
+export MPI_IMPL_AND_VERSION=${1}
+export MPI_IMPL=${MPI_IMPL_AND_VERSION%-*} # retain the part before the last dash
+export MPI_IMPL_VERSION=${MPI_IMPL_AND_VERSION##*-} # retain the part after the last dash
+export MPI_IMPL_MAJ_DOT_MIN=${MPI_IMPL_VERSION%.*} # retain the part before the last dot
+
+export INSTALL_PREFIX=${2}
+export BUILD_PREFIX=${3}
+
+echo MPI_IMPL_AND_VERSION = ${MPI_IMPL_AND_VERSION}
+echo MPI_IMPL             = ${MPI_IMPL}
+echo MPI_IMPL_VERSION     = ${MPI_IMPL_VERSION}
+echo MPI_IMPL_MAJ_DOT_MIN = ${MPI_IMPL_MAJ_DOT_MIN}
+echo INSTALL_PREFIX       = ${INSTALL_PREFIX}
+echo BUILD_PREFIX         = ${BUILD_PREFIX}
+
+cd ${BUILD_PREFIX}
+
 case `uname` in
 Linux)
-  sudo apt-get update -q
-  case $1 in
+  case ${MPI_IMPL} in
     mpich) set -x;
-      sudo apt-get install -y -q mpich libmpich-dev
+      echo "Building mpich from source not implemented."
+      exit 1
       ;;
     openmpi) set -x;
-      sudo apt-get install -y -q openmpi-bin libopenmpi-dev
+      if [ ! -d "$DIRECTORY" ]; then
+        wget https://www.open-mpi.org/software/ompi/v${MPI_IMPL_MAJ_DOT_MIN}/downloads/openmpi-${MPI_IMPL_VERSION}.tar.bz2;
+        tar -xvjf openmpi-${MPI_IMPL_VERSION}.tar.bz2;
+      fi; 
+      cd openmpi-${MPI_IMPL_VERSION} && ./configure --prefix=${INSTALL_PREFIX} && make && make install
       ;;
     *)
       echo "Unknown MPI implementation:" $1
