@@ -26,7 +26,7 @@ Linux)
       exit 1
       ;;
     openmpi) set -x;
-      if [ ! -d "$DIRECTORY" ]; then
+      if [ ! -d "openmpi-${MPI_IMPL_VERSION}" ]; then
         wget https://www.open-mpi.org/software/ompi/v${MPI_IMPL_MAJ_DOT_MIN}/downloads/openmpi-${MPI_IMPL_VERSION}.tar.bz2;
         tar -xjf openmpi-${MPI_IMPL_VERSION}.tar.bz2;
       fi; 
@@ -35,7 +35,7 @@ Linux)
       make V=0 && make install
       ;;
     *)
-      echo "Unknown MPI implementation:" $1
+      echo "Unknown MPI implementation:" ${MPI_IMPL} \(${MPI_IMPL_AND_VERSION}\)
       exit 1
       ;;
   esac
