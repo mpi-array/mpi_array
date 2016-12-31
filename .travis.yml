@@ -25,7 +25,7 @@ env:
     - MPI=openmpi
 
 before_install:
-  - sh utils/travis_ci/travis_ci_install_mpi.sh $MPI
+  - echo skipping travis_ci_install_mpi.sh # sh utils/travis_ci/travis_ci_install_mpi.sh $MPI
 
 install:
   - if [[ $MPI == 'openmpi' ]]; then ompi_info; fi
