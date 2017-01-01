@@ -13,10 +13,8 @@ sudo: false
 os: linux
 
 cache:
-  pip: true
-  apt: true
   directories:
-    - $HOME/src/builds
+    - $HOME/local
 
 addons:
   apt:
@@ -35,11 +33,12 @@ before_install:
   - mkdir -p $INSTALL_PREFIX
   - mkdir -p $BUILD_PREFIX
   - bash utils/travis_ci/travis_ci_install_mpi.sh $MPI $INSTALL_PREFIX $BUILD_PREFIX
-  - export PATH=${INSTALL_PREFIX}/bin:$PATH
-  - export LIBRARY_PATH=${INSTALL_PREFIX}/lib:${INSTALL_PREFIX}/lib64:$LIBRARY_PATH
-  - export LD_LIBRARY_PATH=${INSTALL_PREFIX}/lib:${INSTALL_PREFIX}/lib64:$LD_LIBRARY_PATH
-  - export CPATH=${INSTALL_PREFIX}/include:$CPATH
-  - ompi_info
+  - export MPI_PREFIX=${INSTALL_PREFIX}/${MPI}
+  - export PATH=${MPI_PREFIX}/bin:$PATH
+  - export LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LIBRARY_PATH
+  - export LD_LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LD_LIBRARY_PATH
+  - export CPATH=${MPI_PREFIX}/include:$CPATH
+  - which ompi_info
 
 install:
   - git config --global user.name mpi-array
@@ -51,6 +50,8 @@ install:
   - python ./setup.py install
 
 script:
+  - ompi_info
+  - utils/mpi4py_info.py
   - flake8 mpi_array
   - coverage run --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
   - # run tests on installed mpi_array

@@ -8,15 +8,23 @@ export MPI_IMPL_MAJ_DOT_MIN=${MPI_IMPL_VERSION%.*} # retain the part before the 
 
 export INSTALL_PREFIX=${2}
 export BUILD_PREFIX=${3}
+export MPI_INSTALL_PREFIX=${INSTALL_PREFIX}/${MPI_IMPL_AND_VERSION}
 
 echo MPI_IMPL_AND_VERSION = ${MPI_IMPL_AND_VERSION}
 echo MPI_IMPL             = ${MPI_IMPL}
 echo MPI_IMPL_VERSION     = ${MPI_IMPL_VERSION}
 echo MPI_IMPL_MAJ_DOT_MIN = ${MPI_IMPL_MAJ_DOT_MIN}
 echo INSTALL_PREFIX       = ${INSTALL_PREFIX}
+echo MPI_INSTALL_PREFIX   = ${MPI_INSTALL_PREFIX}
 echo BUILD_PREFIX         = ${BUILD_PREFIX}
 
 cd ${BUILD_PREFIX}
+
+export MPI_PREFIX=${INSTALL_PREFIX}/${MPI}
+export PATH=${MPI_PREFIX}/bin:$PATH
+export LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LIBRARY_PATH
+export LD_LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LD_LIBRARY_PATH
+export CPATH=${MPI_PREFIX}/include:$CPATH
 
 case `uname` in
 Linux)
@@ -26,14 +34,14 @@ Linux)
       exit 1
       ;;
     openmpi) set -x;
-      if [ ! -d "openmpi-${MPI_IMPL_VERSION}" ]; then
-        wget https://www.open-mpi.org/software/ompi/v${MPI_IMPL_MAJ_DOT_MIN}/downloads/openmpi-${MPI_IMPL_VERSION}.tar.bz2;
-        tar -xjf openmpi-${MPI_IMPL_VERSION}.tar.bz2;
+      if [ ! -f "${MPI_INSTALL_PREFIX}/bin/ompi_info" ] || ! "${MPI_INSTALL_PREFIX}/bin/ompi_info"; then
+        rm -rf ${MPI_INSTALL_PREFIX};
+        wget https://www.open-mpi.org/software/ompi/v${MPI_IMPL_MAJ_DOT_MIN}/downloads/openmpi-${MPI_IMPL_VERSION}.tar.bz2 && \
+        tar -xjf openmpi-${MPI_IMPL_VERSION}.tar.bz2 && \
+        cd openmpi-${MPI_IMPL_VERSION} && \
+        ./configure --quiet --enable-silent-rules --prefix=${MPI_INSTALL_PREFIX} && \
+        make V=0 && make install
       fi;
-      ls;
-      cd openmpi-${MPI_IMPL_VERSION} && \
-      ./configure --quiet --enable-silent-rules --prefix=${INSTALL_PREFIX} && \
-      make V=0 && make install
       ;;
     *)
       echo "Unknown MPI implementation:" ${MPI_IMPL} \(${MPI_IMPL_AND_VERSION}\)
