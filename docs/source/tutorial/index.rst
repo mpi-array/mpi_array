@@ -1,9 +1,5 @@
 .. _mpi_array-tutorial:
 
-+++++++++++++++++++++++++
-:mod:`mpi_array` Tutorial
-+++++++++++++++++++++++++
-
 .. sectionauthor:: Shane J. Latham
 
 .. toctree::

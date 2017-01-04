@@ -1,11 +1,9 @@
-+++++++++++++
-API Reference
-+++++++++++++
+:tocdepth: 2
 
 .. sectionauthor:: Shane J. Latham
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
 
    mpi_array
    mpi_array_array
