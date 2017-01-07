@@ -119,7 +119,7 @@ setup(
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
     ],
-    install_requires=["numpy>=1.6", "array_split>=0.1.3"] + other_dependencies,
+    install_requires=["numpy>=1.6", "array_split>=0.1.3", "sphinx_rtd_theme"] + other_dependencies,
     package_data={
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]
     },
