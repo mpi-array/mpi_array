@@ -19,11 +19,13 @@ import shlex
 # on_rtd is whether we are on readthedocs.org, this line of code grabbed from docs.readthedocs.org
 on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
 
-have_rtd_theme = False
-if not on_rtd:
+have_rtd_theme = True
+rtd_theme_path = None
+if (not on_rtd) and (not have_rtd_theme):
     try:
         import sphinx_rtd_theme
         have_rtd_theme = True
+        rtd_theme_path = sphinx_rtd_theme.get_html_theme_path()
     except:
         pass
 
@@ -152,7 +154,8 @@ if not on_rtd:
     html_theme = 'nature'
     if have_rtd_theme:
         html_theme = "sphinx_rtd_theme"
-        html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
+        if rtd_theme_path is not None:
+            html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
         html_theme_options.update(rtd_html_theme_options)
 else:
     html_theme = 'default'
