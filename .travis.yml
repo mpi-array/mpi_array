@@ -3,10 +3,9 @@ git:
   depth: 200
 python:
   - '2.7'
-  - '3.3'
   - '3.4'
   - '3.5'
-  - '3.6-dev'
+  - '3.6'
 
 dist: trusty
 sudo: false
@@ -58,8 +57,8 @@ script:
   - cd docs
   - python -m mpi_array.tests
   - cd ..
-  - if [[ $TRAVIS_PYTHON_VERSION != '3.3'* ]]; then travis-sphinx build; fi
+  - travis-sphinx build
 
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION != '3.3'* ]]; then travis-sphinx --branches=dev deploy; fi
+  - travis-sphinx --branches=dev deploy
   - coveralls
