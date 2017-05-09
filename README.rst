@@ -103,6 +103,13 @@ and at github *gh-pages*:
 
     https://mpi-array.github.io/mpi_array/
 
+Sphinx documentation can be built from the source::
+
+   python setup.py build_sphinx
+     
+with the HTML generated in `docs/_build/html`.
+
+
 Latest source code
 ==================
 
