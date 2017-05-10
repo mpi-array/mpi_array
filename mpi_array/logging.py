@@ -19,14 +19,25 @@ Classes and Functions
 
    SplitStreamHandler - A :obj:`logging.StreamHandler` which splits errors and warnings to *stderr*.
    initialise_loggers - Initialises handlers and formatters for loggers.
-   get_formatter - "Returns :obj:`logging.Formatter` with time prefix string.
+   get_rank_logger - Returns :obj:`logging.Logger` for MPI ranks.
+   LoggerFactory - Factory class for generating :obj:`logging.Logger` objects.
+
+Attributes
+==========
+
+.. autodata:: logger_factory
+
 """
 
 from __future__ import absolute_import
 
+import mpi4py.MPI as _mpi
 import sys
 import logging as _builtin_logging
 from logging import *  # noqa: F401,F403
+
+if (sys.version_info[0] <= 2):
+    from sets import Set as set
 
 
 class _Python2SplitStreamHandler(_builtin_logging.Handler):
@@ -164,25 +175,183 @@ else:
         pass
 
 
-def get_formatter(prefix_string="ARRSPLT| "):
+def get_handlers(logger):
     """
-    Returns :obj:`logging.Formatter` object which produces messages
-    with *time* and :samp:`prefix_string` prefix.
+    Returns the handler objects for the specified :obj:`logging.Logger`
+    object. Searches up the parent tree to find handlers.
 
-    :type prefix_string: :obj:`str` or :samp:`None`
-    :param prefix_string: Prefix for all logging messages.
-    :rtype: :obj:`logging.Formatter`
-    :return: Regular formatter for logging.
+    :type logger: :obj:`logging.Logger`
+    :param logger: Searches this :obj:`logging.Logger` and parents
+       to find :obj:`logging.Handler` objects.
+
+    :rtype: :obj:`list`
+    :return: :obj:`list` of :obj:`logging.Handler` instance objects.
     """
-    if (prefix_string is None):
-        prefix_string = ""
-    formatter = \
-        _builtin_logging.Formatter(
-            "%(asctime)s|" + prefix_string + "%(message)s",
-            "%H:%M:%S"
-        )
+    handler_list = logger.handlers
+    if logger.propagate and (not isinstance(logger, _builtin_logging.RootLogger)):
+        handler_list += \
+            get_handlers(_builtin_logging.getLogger(".".join(logger.name.split(".")[:-1])))
+    return handler_list
 
-    return formatter
+
+def get_handler_classes(logger):
+    """
+    Returns the handler classes of handler objects associated with the
+    specified :obj:`logging.Logger` object. Searches up the parent tree
+    to find handlers.
+
+    :type logger: :obj:`logging.Logger`
+    :param logger: Searches this :obj:`logging.Logger` and parents
+       to find :obj:`logging.Handler` objects.
+
+    :rtype: :obj:`list`
+    :return: :obj:`list` of :obj:`logging.Handler` class objects.
+    """
+    return list(set([h.__class__ for h in get_handlers(logger)]))
+
+
+class LoggerFactory (object):
+    """
+    Factory for generating :obj:`logging.Logger` instances.
+    """
+
+    def __init__(self):
+        """
+        """
+        pass
+
+    def get_formatter(self, prefix_string="MPIARY|"):
+        """
+        Returns :obj:`logging.Formatter` object which produces messages
+        with *time* and :samp:`prefix_string` prefix.
+
+        :type prefix_string: :obj:`str` or :samp:`None`
+        :param prefix_string: Prefix for all logging messages.
+        :rtype: :obj:`logging.Formatter`
+        :return: Regular formatter for logging.
+        """
+        if (prefix_string is None):
+            prefix_string = ""
+        formatter = \
+            _builtin_logging.Formatter(
+                "%(asctime)s|" + prefix_string + "%(message)s",
+                "%H:%M:%S"
+            )
+
+        return formatter
+
+    def get_rank_logger(self, name, comm=None, ranks=None, rank_string="rank"):
+        """
+        Returns a :obj:`logging.Logger` object with time-stamp, :samp:`{comm}.Get_name()`
+        and :samp:`{comm}.Get_rank()` in the message.
+
+        :type name: :obj:`str`
+        :param name: Name of logger (note that the name of logger actuallycreated will
+           be :samp:`{name} + "." + {comm}.Get_name() + ".rank." + ("%04d" % {comm}.Get_rank())`).
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: MPI communicator. Used for determining the rank of this process.
+            If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
+        :type ranks: :obj:`None` or :obj:`list`-of-:obj:`int`
+        :param ranks: Limits logging output to ranks specified in this list.
+            If :samp:`None`, all ranks produce logging output.
+        :rtype: :obj:`logging.Logger`
+        :return: Logger object.
+        """
+        if comm is None:
+            comm = _mpi.COMM_WORLD
+
+        rank_logger = \
+            _builtin_logging.getLogger(
+                name + "." + comm.Get_name() + "." + rank_string + "." + ("%04d" % comm.Get_rank())
+            )
+        # First search for handler classes.
+        tmp_logger = _builtin_logging.getLogger(name)
+        hander_classes = get_handler_classes(tmp_logger)
+        # Don't propagate, new handler object instances are assigned at the leaf.
+        rank_logger.propagate = False
+        rank_logger.handlers = []
+        f = \
+            self.get_formatter(
+                prefix_string="%s|%s%04d|" % (comm.Get_name(), rank_string, comm.Get_rank())
+            )
+        if (ranks is None) or (comm.Get_rank() in ranks):
+            for handler_class in hander_classes:
+                h = handler_class()
+                h.setFormatter(f)
+                rank_logger.addHandler(h)
+        else:
+            # NullHandler is always silent
+            rank_logger.addHandler(_builtin_logging.NullHandler())
+
+        return rank_logger
+
+    def get_root_logger(self, name, comm=None, root_rank=0):
+        """
+        Returns a :obj:`logging.Logger` object with time-stamp, :samp:`{comm}.Get_name()`
+        and :samp:`{comm}.Get_rank()` in the message. Logging output limited to
+        the MPI rank specified by :samp:`{root_rank}`.
+
+        :type name: :obj:`str`
+        :param name: Name of logger (note that the name of logger actually
+           created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: MPI communicator. Used for determining the rank of this process.
+            If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
+        :type root_rank: :obj:`int`
+        :param root_rank: Logging output is limited to this rank,
+            the returned :obj:`logging.Logger` objects on
+            other ranks have a :obj:`logging.NullHandler`.
+        :rtype: :obj:`logging.Logger`
+        :return: Logger object.
+        """
+        return self.get_rank_logger(name, comm, ranks=[root_rank, ], rank_string="root")
+
+
+#: Factory for creating :obj:`logging.Logger` objects.
+#: Can set value to different instance in order to
+#: customise logging output.
+logger_factory = LoggerFactory()
+
+
+def get_rank_logger(name, comm=None, ranks=None):
+    """
+    Returns :obj:`logging.Logger` object for message logging.
+
+    :type name: :obj:`str`
+    :param name: Name of logger (note that the name of logger actually
+       created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: MPI communicator. Used for determining the rank of this process.
+        If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
+    :type ranks: :obj:`None` or :obj:`list`-of-:obj:`int`
+    :param ranks: Limits logging output to ranks specified in this list.
+        If :samp:`None`, all ranks produce logging output.
+    :rtype: :obj:`logging.Logger`
+    :return: Logger object.
+    """
+    return logger_factory.get_rank_logger(name=name, comm=comm, ranks=ranks)
+
+
+def get_root_logger(name, comm=None, root_rank=0):
+    """
+    Returns a :obj:`logging.Logger` object with time-stamp, :samp:`{comm}.Get_name()`
+    and :samp:`{comm}.Get_rank()` in the message. Logging output limited to
+    the MPI rank specified by :samp:`{root_rank}`.
+
+    :type name: :obj:`str`
+    :param name: Name of logger (note that the name of logger actually
+       created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: MPI communicator. Used for determining the rank of this process.
+        If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
+    :type root_rank: :obj:`int`
+    :param root_rank: Logging output is limited to this rank,
+        the returned :obj:`logging.Logger` objects on
+        other ranks have a :obj:`logging.NullHandler`.
+    :rtype: :obj:`logging.Logger`
+    :return: Logger object.
+    """
+    return logger_factory.get_root_logger(name=name, comm=comm, root_rank=root_rank)
 
 
 def initialise_loggers(names, log_level=_builtin_logging.WARNING, handler_class=SplitStreamHandler):
@@ -203,10 +372,8 @@ def initialise_loggers(names, log_level=_builtin_logging.WARNING, handler_class=
        for example :obj:`SplitStreamHandler` or :obj:`logging.StreamHandler`.
 
     """
-    frmttr = get_formatter()
     for name in names:
         logr = _builtin_logging.getLogger(name)
         handler = handler_class()
-        handler.setFormatter(frmttr)
         logr.addHandler(handler)
         logr.setLevel(log_level)
