@@ -37,6 +37,7 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _mpi_array.__version__
 
+
 class MemNodeTopologyTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :mod:`mpi_array.decomposition.MemNodeTopology`.
@@ -50,9 +51,9 @@ class MemNodeTopologyTest(_unittest.TestCase):
         with self.assertRaises(ValueError):
             mnt = MemNodeTopology(dims=tuple(), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(dims=tuple([0,2]), ndims=1)
+            mnt = MemNodeTopology(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(dims=tuple([1,2]), ndims=3)
+            mnt = MemNodeTopology(dims=tuple([1, 2]), ndims=3)
 
     def testConstructShared(self):
         mnt = MemNodeTopology(ndims=1)
@@ -70,10 +71,12 @@ class MemNodeTopologyTest(_unittest.TestCase):
         mnt = MemNodeTopology(dims=(0, 0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
+
 class DecompositionTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :mod:`mpi_array.decomposition.Decomposition`.
     """
+
     def testConstructInvalidDims(self):
         pass
 

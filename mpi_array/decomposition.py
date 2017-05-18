@@ -41,11 +41,11 @@ class SharedMemInfo(object):
                 shared_mem_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
             else:
                 shared_mem_comm = comm.Split(comm.rank, key=comm.rank)
-        
+
         self.shared_mem_comm = shared_mem_comm
-        
+
         # Count the number of self.shared_mem_comm rank-0 processes
-        # to work out how many communicators comm was split into. 
+        # to work out how many communicators comm was split into.
         self.num_shared_mem_nodes = comm.allreduce((self.shared_mem_comm.rank,), _mpi.SUM).count(0)
 
 
@@ -64,7 +64,7 @@ class MemNodeTopology(object):
     ):
         """
         Create a partitioning of :samp:`{shape}` over mem-nodes.
-        
+
         :type dims: sequence of :obj:`int`
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
@@ -109,7 +109,7 @@ class Decomposition(object):
     ):
         """
         Create a partitioning of :samp:`{shape}` over mem-nodes.
-        
+
         :type shape: sequence of :obj:`int`
         :param shape: The shape of the array which is to be partitioned into smaller *sub-shapes*.
         :type dims: sequence of :obj:`int`
