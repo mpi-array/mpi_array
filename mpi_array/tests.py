@@ -47,7 +47,13 @@ class DocTestTestSuite(_unittest.TestSuite):
 
 
 def load_tests(loader, tests, pattern):
-    suite = loader.loadTestsFromNames(["mpi_array.array_test", ])
+    suite = \
+        loader.loadTestsFromNames(
+            [
+                "mpi_array.array_test",
+                "mpi_array.decomposition_test",
+            ]
+        )
     suite.addTests(DocTestTestSuite())
     return suite
 
