@@ -44,6 +44,7 @@ class MemNodeTopologyTest(_unittest.TestCase):
     """
 
     def testConstructInvalidDims(self):
+        mnt = None
         with self.assertRaises(ValueError):
             mnt = MemNodeTopology()
         with self.assertRaises(ValueError):
@@ -54,6 +55,8 @@ class MemNodeTopologyTest(_unittest.TestCase):
             mnt = MemNodeTopology(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
             mnt = MemNodeTopology(dims=tuple([1, 2]), ndims=3)
+
+        self.assertEqual(None, mnt)
 
     def testConstructShared(self):
         mnt = MemNodeTopology(ndims=1)
@@ -71,14 +74,27 @@ class MemNodeTopologyTest(_unittest.TestCase):
         mnt = MemNodeTopology(dims=(0, 0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
+    def testConstructNoShared(self):
+        mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        self.assertEqual(1, mnt.shared_mem_info.shared_mem_comm.size)
+
 
 class DecompositionTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :mod:`mpi_array.decomposition.Decomposition`.
     """
 
-    def testConstructInvalidDims(self):
-        pass
+    def testConstruct(self):
+        """
+        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        """
+        decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
+        self.assertNotEqual(None, decomp.mem_node_topology)
+
+        decomp = \
+            Decomposition((8 * _mpi.COMM_WORLD.size,))
+
 
 _unittest.main(__name__)
 

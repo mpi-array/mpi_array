@@ -22,6 +22,7 @@ from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import array_split as _array_split
+import array_split.split  # noqa: F401
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -32,7 +33,7 @@ __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode(
 
 class SharedMemInfo(object):
     """
-    Info on possible shared memory allocation for a specified MPI communicator. 
+    Info on possible shared memory allocation for a specified MPI communicator.
     """
 
     def __init__(self, comm, shared_mem_comm=None):
@@ -46,12 +47,15 @@ class SharedMemInfo(object):
 
         # Count the number of self.shared_mem_comm rank-0 processes
         # to work out how many communicators comm was split into.
-        self.num_shared_mem_nodes = comm.allreduce((self.shared_mem_comm.rank,), _mpi.SUM).count(0)
+        is_rank_zero = 0
+        if self.shared_mem_comm.rank == 0:
+            is_rank_zero = 1
+        self.num_shared_mem_nodes = comm.allreduce(is_rank_zero, _mpi.SUM)
 
 
 class MemNodeTopology(object):
     """
-    Defines cartesian communication topology for MPI processes. 
+    Defines cartesian communication topology for MPI processes.
     """
 
     def __init__(
@@ -95,29 +99,60 @@ class MemNodeTopology(object):
 
         self.rank_comm = rank_comm
         self.shared_mem_info = SharedMemInfo(self.rank_comm, shared_mem_comm)
+        self.cart_comm = None
+
+        self.dims = \
+            _array_split.split.calculate_num_slices_per_axis(
+                dims,
+                self.shared_mem_info.num_shared_mem_nodes
+            )
+
+        # Create a cartesian grid communicator
+        if self.shared_mem_info.num_shared_mem_nodes > 1:
+            color = _mpi.UNDEFINED
+            if self.shared_mem_info.shared_mem_comm.rank == 0:
+                color = 0
+            splt_comm = self.rank_comm.Split(color, self.rank_comm.rank)
+            if splt_comm != _mpi.COMM_NULL:
+                self.cart_comm = splt_comm.Create_cart(self.dims, periods, reorder=True)
+            else:
+                self.cart_comm = _mpi.COMM_NULL
 
 
 class Decomposition(object):
     """
-    Partitions an array shape over MPI processes and/or mem-nodes. 
+    Partitions an array shape over MPI processes and/or mem-nodes.
     """
 
     def __init__(
         self,
         shape,
-        mem_node_topology,
+        halo=0,
+        mem_node_topology=None,
     ):
         """
         Create a partitioning of :samp:`{shape}` over mem-nodes.
 
         :type shape: sequence of :obj:`int`
         :param shape: The shape of the array which is to be partitioned into smaller *sub-shapes*.
-        :type dims: sequence of :obj:`int`
+        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len(shape), 2)` shaped array.
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
            that :samp:`numpy.product({dims}) == {rank_comm}.size`.
         """
         self.shape = _np.array(shape)
+        if mem_node_topology is None:
+            mem_node_topology = MemNodeTopology(ndims=self.shape.size)
+
         self.mem_node_topology = mem_node_topology
+        shape_spliter = \
+            _array_split.ShapeSplitter(
+                array_shape=self.shape,
+                axis=self.mem_node_topology.dims,
+                halo=halo
+            )
+
+        self.shape_decomp = shape_spliter.calculate_split()
+
 
 __all__ = [s for s in dir() if not s.startswith('_')]
