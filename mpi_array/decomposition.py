@@ -38,7 +38,7 @@ class SharedMemInfo(object):
 
     def __init__(self, comm, shared_mem_comm=None):
         if shared_mem_comm is None:
-            if hasattr(_mpi, "COMM_TYPE_SHARED"):
+            if _mpi.VERSION >= 3:
                 shared_mem_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
             else:
                 shared_mem_comm = comm.Split(comm.rank, key=comm.rank)
