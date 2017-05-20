@@ -418,6 +418,6 @@ import glob
 autosummary_generate = \
     glob.glob("*.rst") + glob.glob("reference/*.rst") + glob.glob("tutorial/*.rst")
 
-autodoc_default_flags = [ ]
+autodoc_default_flags = ["show-inheritance"]
 
 autoclass_content = "class" # classes should include just the class docstring.
