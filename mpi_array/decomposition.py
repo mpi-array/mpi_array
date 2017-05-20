@@ -20,6 +20,7 @@ Classes and Functions
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
+import sys as _sys
 import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
@@ -163,16 +164,23 @@ class MemNodeTopology(object):
 
     @property
     def num_shared_mem_nodes(self):
+        """
+        See :attribute:`SharedMemInfo.num_shared_mem_nodes`.
+        """
         return self._shared_mem_info.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
+        """
+        See :attribute:`SharedMemInfo.shared_mem_comm`.
+        """
         return self._shared_mem_info.shared_mem_comm
 
 
-# Set docstring for properties.
-MemNodeTopology.num_shared_mem_nodes.__doc__ = SharedMemInfo.num_shared_mem_nodes.__doc__
-MemNodeTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    # Set docstring for properties.
+    MemNodeTopology.num_shared_mem_nodes.__doc__ = SharedMemInfo.num_shared_mem_nodes.__doc__
+    MemNodeTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
 
 
 class Decomposition(object):
@@ -252,25 +260,38 @@ class Decomposition(object):
 
     @property
     def num_shared_mem_nodes(self):
+        """
+        See :attribute:`MemNodeTopology.num_shared_mem_nodes`.
+        """
         return self._mem_node_topology.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
+        """
+        See :attribute:`MemNodeTopology.shared_mem_comm`.
+        """
         return self._mem_node_topology.shared_mem_comm
 
     @property
     def cart_comm(self):
+        """
+        See :attribute:`MemNodeTopology.cart_comm`.
+        """
         return self._mem_node_topology.cart_comm
 
     @property
     def rank_comm(self):
+        """
+        See :attribute:`MemNodeTopology.rank_comm`.
+        """
         return self._mem_node_topology.rank_comm
 
 
-# Set docstring for properties.
-Decomposition.num_shared_mem_nodes.__doc__ = MemNodeTopology.num_shared_mem_nodes.__doc__
-Decomposition.shared_mem_comm.__doc__ = MemNodeTopology.shared_mem_comm.__doc__
-Decomposition.cart_comm.__doc__ = MemNodeTopology.cart_comm.__doc__
-Decomposition.rank_comm.__doc__ = MemNodeTopology.rank_comm.__doc__
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    # Set docstring for properties.
+    Decomposition.num_shared_mem_nodes.__doc__ = MemNodeTopology.num_shared_mem_nodes.__doc__
+    Decomposition.shared_mem_comm.__doc__ = MemNodeTopology.shared_mem_comm.__doc__
+    Decomposition.cart_comm.__doc__ = MemNodeTopology.cart_comm.__doc__
+    Decomposition.rank_comm.__doc__ = MemNodeTopology.rank_comm.__doc__
 
 __all__ = [s for s in dir() if not s.startswith('_')]
