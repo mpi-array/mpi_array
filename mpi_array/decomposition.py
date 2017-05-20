@@ -246,7 +246,7 @@ class Decomposition(object):
     @property
     def shape_decomp(self):
         """
-        The partition of :samp:`self.shape` over memory nodes. 
+        The partition of :samp:`self.shape` over memory nodes.
         """
         return self._shape_decomp
 
