@@ -77,7 +77,7 @@ class MemNodeTopologyTest(_unittest.TestCase):
     def testConstructNoShared(self):
         mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
-        self.assertEqual(1, mnt.shared_mem_info.shared_mem_comm.size)
+        self.assertEqual(1, mnt.shared_mem_comm.size)
 
 
 class DecompositionTest(_unittest.TestCase):
@@ -90,7 +90,7 @@ class DecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
-        self.assertNotEqual(None, decomp.mem_node_topology)
+        self.assertNotEqual(None, decomp._mem_node_topology)
 
         decomp = \
             Decomposition((8 * _mpi.COMM_WORLD.size,))
