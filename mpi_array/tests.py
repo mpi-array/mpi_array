@@ -9,8 +9,6 @@ Execute as::
 
    python -m mpi_array.tests
 
-.. currentmodule:: mpi_array.tests
-
 """
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright

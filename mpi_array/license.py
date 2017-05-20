@@ -40,8 +40,6 @@ The :mod:`mpi_array.license` Module
 
 License and copyright info.
 
-.. currentmodule:: mpi_array.license
-
 License
 =======
 

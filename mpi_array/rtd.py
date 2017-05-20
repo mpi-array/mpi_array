@@ -3,8 +3,6 @@
 The :mod:`mpi_array.rtd` Module
 ======================================
 
-.. currentmodule:: mpi_array.rtd
-
 Sets up :samp:`mock` modules for readthedocs.org sphinx builds.
 See `this FAQ <http://read-the-docs.readthedocs.io/en/latest/faq.html
 #i-get-import-errors-on-libraries-that-depend-on-c-modules>`_.

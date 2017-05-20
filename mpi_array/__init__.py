@@ -3,8 +3,6 @@
 The :mod:`mpi_array` Package
 ==============================
 
-.. currentmodule:: mpi_array
-
 Python package for multi-dimensional distributed arrays like
 :obj:`numpy.ndarray`.
 

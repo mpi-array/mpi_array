@@ -6,8 +6,6 @@ The :mod:`mpi_array.unittest` Module
 Some simple wrappers of python built-in :mod:`unittest` module
 for :mod:`mpi_array` unit-tests.
 
-.. currentmodule:: mpi_array.unittest
-
 Classes and Functions
 =====================
 

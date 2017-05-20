@@ -3,8 +3,6 @@
 The :mod:`mpi_array.array` Module
 =================================
 
-.. currentmodule:: mpi_array.array
-
 Defines multi-dimensional distributed array class.
 
 Classes and Functions

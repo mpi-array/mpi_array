@@ -3,8 +3,6 @@
 The :mod:`mpi_array.decomposition_test` Module
 ==============================================
 
-.. currentmodule:: mpi_array.decomposition_test
-
 Module defining :mod:`mpi_array.decomposition` unit-tests.
 Execute as::
 
