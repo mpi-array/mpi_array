@@ -44,7 +44,7 @@ install:
   - git config --global user.name mpi-array
   - git config --global user.email mpi-array@users.noreply.github.com
   - pip install flake8
-  - pip install 'sphinx>=1.4'
+  - pip install 'sphinx>=1.4,<1.6'
   - pip install travis-sphinx
   - pip install coveralls
   - python ./setup.py install
