@@ -40,7 +40,7 @@ class SharedMemInfo(object):
     def __init__(self, comm=None, shared_mem_comm=None):
         """
         Construct.
-        
+
         :type comm: :obj:`mpi4py.MPI.Comm`
         :param comm: Communicator used to split according to
            shared memory allocation (uses :meth:`mpi4py.MPI.Comm.Split_type`).
@@ -174,14 +174,14 @@ class MemNodeTopology(object):
     @property
     def num_shared_mem_nodes(self):
         """
-        See :data:`SharedMemInfo.num_shared_mem_nodes`.
+        See :attr:`SharedMemInfo.num_shared_mem_nodes`.
         """
         return self._shared_mem_info.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
-        See :data:`SharedMemInfo.shared_mem_comm`.
+        See :attr:`SharedMemInfo.shared_mem_comm`.
         """
         return self._shared_mem_info.shared_mem_comm
 
@@ -270,28 +270,28 @@ class Decomposition(object):
     @property
     def num_shared_mem_nodes(self):
         """
-        See :data:`MemNodeTopology.num_shared_mem_nodes`.
+        See :attr:`MemNodeTopology.num_shared_mem_nodes`.
         """
         return self._mem_node_topology.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
-        See :data:`MemNodeTopology.shared_mem_comm`.
+        See :attr:`MemNodeTopology.shared_mem_comm`.
         """
         return self._mem_node_topology.shared_mem_comm
 
     @property
     def cart_comm(self):
         """
-        See :data:`MemNodeTopology.cart_comm`.
+        See :attr:`MemNodeTopology.cart_comm`.
         """
         return self._mem_node_topology.cart_comm
 
     @property
     def rank_comm(self):
         """
-        See :data:`MemNodeTopology.rank_comm`.
+        See :attr:`MemNodeTopology.rank_comm`.
         """
         return self._mem_node_topology.rank_comm
 
