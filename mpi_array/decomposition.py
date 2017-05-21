@@ -38,6 +38,17 @@ class SharedMemInfo(object):
     """
 
     def __init__(self, comm=None, shared_mem_comm=None):
+        """
+        Construct.
+        
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: Communicator used to split according to
+           shared memory allocation (uses :meth:`mpi4py.MPI.Comm.Split_type`).
+        :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
+        :param shared_mem_comm: Shared memory communicator, can explicitly
+           specify (should be a subset of processes returned
+           by :samp:`{comm}.Split_type(_mpi.COMM_TYPE_SHARED)`.
+        """
         if comm is None:
             comm = _mpi.COMM_WORLD
         if shared_mem_comm is None:
@@ -91,8 +102,6 @@ class MemNodeTopology(object):
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
            that :samp:`numpy.product({dims}) == {rank_comm}.size`.
-        :type periods: sequence of :obj:`bool`
-        :param periods: Indicates the axes which are periodic.
         :type rank_comm: :obj:`mpi4py.MPI.Comm`
         :param rank_comm: The MPI processes over which an array is to be distributed.
         :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
@@ -165,14 +174,14 @@ class MemNodeTopology(object):
     @property
     def num_shared_mem_nodes(self):
         """
-        See :attribute:`SharedMemInfo.num_shared_mem_nodes`.
+        See :data:`SharedMemInfo.num_shared_mem_nodes`.
         """
         return self._shared_mem_info.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
-        See :attribute:`SharedMemInfo.shared_mem_comm`.
+        See :data:`SharedMemInfo.shared_mem_comm`.
         """
         return self._shared_mem_info.shared_mem_comm
 
@@ -261,28 +270,28 @@ class Decomposition(object):
     @property
     def num_shared_mem_nodes(self):
         """
-        See :attribute:`MemNodeTopology.num_shared_mem_nodes`.
+        See :data:`MemNodeTopology.num_shared_mem_nodes`.
         """
         return self._mem_node_topology.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
-        See :attribute:`MemNodeTopology.shared_mem_comm`.
+        See :data:`MemNodeTopology.shared_mem_comm`.
         """
         return self._mem_node_topology.shared_mem_comm
 
     @property
     def cart_comm(self):
         """
-        See :attribute:`MemNodeTopology.cart_comm`.
+        See :data:`MemNodeTopology.cart_comm`.
         """
         return self._mem_node_topology.cart_comm
 
     @property
     def rank_comm(self):
         """
-        See :attribute:`MemNodeTopology.rank_comm`.
+        See :data:`MemNodeTopology.rank_comm`.
         """
         return self._mem_node_topology.rank_comm
 
