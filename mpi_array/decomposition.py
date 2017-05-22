@@ -48,6 +48,8 @@ class SharedMemInfo(object):
         :param shared_mem_comm: Shared memory communicator, can explicitly
            specify (should be a subset of processes returned
            by :samp:`{comm}.Split_type(_mpi.COMM_TYPE_SHARED)`.
+           If :samp:`None`, :samp:`{comm}` is *split* into groups
+           which can use a MPI window to allocate shared memory.
         """
         if comm is None:
             comm = _mpi.COMM_WORLD
@@ -77,7 +79,7 @@ class SharedMemInfo(object):
     def shared_mem_comm(self):
         """
         A :obj:`mpi4py.MPI.Comm` object which defines the group of processes
-        which can allocate (and access) shared memory
+        which can allocate (and access) MPI window shared memory
         (via  :meth:`mpi4py.MPI.Win.Allocate_shared`).
         """
         return self._shared_mem_comm
@@ -96,14 +98,21 @@ class MemNodeTopology(object):
         shared_mem_comm=None
     ):
         """
-        Create a partitioning of :samp:`{shape}` over mem-nodes.
+        Initialises cartesian communicator mem-nodes.
+        Need to specify at least one of the :samp:`{ndims}` or :samp:`{dims}`.
+        to indicate the dimension of the cartesian partitioning.
 
+        :type ndims: :obj:`int`
+        :param ndims: Dimension of the cartesian partitioning, e.g. 1D, 2D, 3D, etc.
+           If :samp:`None`, :samp:`{ndims}=len({dims})`.
         :type dims: sequence of :obj:`int`
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
            that :samp:`numpy.product({dims}) == {rank_comm}.size`.
+           If :samp:`None`, :samp:`{dims} = (0,)*{ndims}`.
         :type rank_comm: :obj:`mpi4py.MPI.Comm`
         :param rank_comm: The MPI processes over which an array is to be distributed.
+           If :samp:`None` uses :obj:`mpi4py.MPI.COMM_WORLD`.
         :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
         :param shared_mem_comm: The MPI communicator used to create a window which
             can be used to allocate shared memory
@@ -194,7 +203,7 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
 
 class Decomposition(object):
     """
-    Partitions an array shape over MPI processes and/or mem-nodes.
+    Partitions an array-shape over MPI memory-nodes.
     """
 
     def __init__(
@@ -204,13 +213,18 @@ class Decomposition(object):
         mem_node_topology=None,
     ):
         """
-        Create a partitioning of :samp:`{shape}` over mem-nodes.
+        Create a partitioning of :samp:`{shape}` over memory-nodes.
 
         :type shape: sequence of :obj:`int`
         :param shape: The shape of the array which is to be partitioned into smaller *sub-shapes*.
-        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len(shape), 2)` shaped array.
+        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low and high indices can be different).
+        :type mem_node_topology: :obj:`MemNodeTopology`
+        :param mem_node_topology: Object which defines how array
+           memory is allocated (distributed) over memory nodes and
+           the cartesian topology communicator used to exchange (halo)
+           data. If :samp:`None` uses :samp:`MemNodeTopology(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
         self._shape = None
