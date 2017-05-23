@@ -76,6 +76,7 @@ class MemNodeTopologyTest(_unittest.TestCase):
         mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
         self.assertEqual(1, mnt.shared_mem_comm.size)
+        self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
 class DecompositionTest(_unittest.TestCase):
@@ -83,15 +84,36 @@ class DecompositionTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :mod:`mpi_array.decomposition.Decomposition`.
     """
 
-    def testConstruct(self):
+    def testConstruct1D(self):
         """
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._mem_node_topology)
 
+        mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition((8 * _mpi.COMM_WORLD.size,))
+            Decomposition((8 * _mpi.COMM_WORLD.size,), mem_node_topology=mnt)
+
+        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
+        root_logger.info(str(decomp))
+
+    def testConstruct2D(self):
+        """
+        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        """
+        decomp = Decomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
+        self.assertNotEqual(None, decomp._mem_node_topology)
+
+        mnt = MemNodeTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = \
+            Decomposition(
+                (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
+                mem_node_topology=mnt
+            )
+
+        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
+        root_logger.info(str(decomp))
 
 
 _unittest.main(__name__)

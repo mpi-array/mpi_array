@@ -166,6 +166,19 @@ class MemNodeTopology(object):
         return self._dims
 
     @property
+    def have_valid_cart_comm(self):
+        """
+        Is :samp:`True` if this rank has :samp:`{self}.cart_comm`
+        which is not :samp:`None` and is not :obj:`mpi4py.MPI.COMM_NULL`.
+        """
+        return \
+            (
+                (self.cart_comm is not None)
+                and
+                (self.cart_comm != _mpi.COMM_NULL)
+            )
+
+    @property
     def rank_comm(self):
         """
         The group of all MPI processes which have access to array elements.
@@ -231,12 +244,71 @@ class Decomposition(object):
         self._mem_node_topology = mem_node_topology
         self._shape_decomp = None
 
-        self.shape = shape
+        self.recalculate(shape, halo)
+
+    def recalculate(self, new_shape, new_halo):
+        """
+        Recomputes decomposition for :samp:`{new_shape}` and :samp:`{new_halo}`.
+
+        :type new_shape: sequence of :obj:`int`
+        :param new_shape: New partition calculated for this shape.
+        :type new_halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len{new_shape, 2))` array.
+        :param new_halo: New partition calculated for this shape.
+        """
+        if self._mem_node_topology is None:
+            self._mem_node_topology = MemNodeTopology(ndims=len(new_shape))
+        elif (self._shape is not None) and (len(self._shape) != len(new_shape)):
+            self._shape = _np.array(new_shape)
+            self._mem_node_topology = MemNodeTopology(ndims=self._shape.size)
+        self._shape = _np.array(new_shape)
+        self._halo = new_halo
+
+        shape_splitter = \
+            _array_split.ShapeSplitter(
+                array_shape=self._shape,
+                axis=self._mem_node_topology.dims,
+                halo=self._halo
+            )
+
+        self._halo = shape_splitter.halo
+
+        self._shape_decomp = shape_splitter.calculate_split()
+
+        if self.have_valid_cart_comm:
+            self._cart_rank_to_extents_dict = dict()
+            for cart_rank in range(0, self.cart_comm.size):
+                self._cart_rank_to_extents_dict[cart_rank] = \
+                    self._shape_decomp[tuple(self.cart_comm.Get_coords(cart_rank))]
+                self._cart_rank_to_extents_dict[cart_rank] = \
+                    _np.array(
+                        [
+                            [s.start for s in self._cart_rank_to_extents_dict[cart_rank]],
+                            [s.stop for s in self._cart_rank_to_extents_dict[cart_rank]],
+                        ]
+                )
+
+    def __str__(self):
+        """
+        """
+        s = []
+        if self.have_valid_cart_comm:
+            for cart_rank in range(0, self.cart_comm.size):
+                s += \
+                    [
+                        "{cart_rank = %s, cart_coord = %s, extents=%s}"
+                        %
+                        (
+                            cart_rank,
+                            self.cart_comm.Get_coords(cart_rank),
+                            self._cart_rank_to_extents_dict[cart_rank],
+                        )
+                    ]
+        return ", ".join(s)
 
     @property
     def halo(self):
         """
-        Number of *ghost* elements added per axis to array shape.
+        Number of *ghost* elements per axis padding array shape.
         """
         return self._halo
 
@@ -245,7 +317,7 @@ class Decomposition(object):
         if halo is None:
             halo = 0
 
-        self._halo = halo
+        self.recalculate(self._shape, halo)
 
     @property
     def shape(self):
@@ -256,23 +328,7 @@ class Decomposition(object):
 
     @shape.setter
     def shape(self, new_shape):
-        if self._mem_node_topology is None:
-            self._shape = _np.array(new_shape)
-            self._mem_node_topology = MemNodeTopology(ndims=self._shape.size)
-        elif self._shape is None:
-            self._shape = _np.array(new_shape)
-        elif len(self._shape) != len(new_shape):
-            self._shape = _np.array(new_shape)
-            self._mem_node_topology = MemNodeTopology(ndims=self._shape.size)
-
-        shape_spliter = \
-            _array_split.ShapeSplitter(
-                array_shape=self._shape,
-                axis=self._mem_node_topology.dims,
-                halo=self._halo
-            )
-
-        self._shape_decomp = shape_spliter.calculate_split()
+        self.recalculate(new_shape, self._halo)
 
     @property
     def shape_decomp(self):
@@ -303,6 +359,13 @@ class Decomposition(object):
         return self._mem_node_topology.cart_comm
 
     @property
+    def have_valid_cart_comm(self):
+        """
+        See :attr:`MemNodeTopology.have_valid_cart_comm`.
+        """
+        return self._mem_node_topology.have_valid_cart_comm
+
+    @property
     def rank_comm(self):
         """
         See :attr:`MemNodeTopology.rank_comm`.
@@ -315,6 +378,7 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     Decomposition.num_shared_mem_nodes.__doc__ = MemNodeTopology.num_shared_mem_nodes.__doc__
     Decomposition.shared_mem_comm.__doc__ = MemNodeTopology.shared_mem_comm.__doc__
     Decomposition.cart_comm.__doc__ = MemNodeTopology.cart_comm.__doc__
+    Decomposition.have_valid_cart_comm.__doc__ = MemNodeTopology.have_valid_cart_comm.__doc__
     Decomposition.rank_comm.__doc__ = MemNodeTopology.rank_comm.__doc__
 
 __all__ = [s for s in dir() if not s.startswith('_')]
