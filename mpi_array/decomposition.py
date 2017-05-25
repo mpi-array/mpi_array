@@ -11,6 +11,8 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
+   IndexingExtent - Index range for a tile of a decomposition.
+   DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    SharedMemInfo - Shared-memory communicator generation.
    MemNodeTopology - Topology of MPI processes which allocate shared memory.
    Decomposition - Partition of an array *shape* overs MPI processes and/or nodes.
@@ -24,6 +26,7 @@ import sys as _sys
 import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
+from array_split import ARRAY_BOUNDS
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -214,6 +217,102 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     MemNodeTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
 
 
+class IndexingExtent(object):
+    """
+    Index bounding box for a single tile of domain decomposition.
+    """
+
+    def __init__(self, split, halo=None):
+        """
+        Construct.
+
+        :type split: sequence of :obj:`slice`
+        :param split: Per axis start and stop indices defining the extent.
+        :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
+        :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
+           per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
+           of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
+           elements on the high-index *side*.
+
+        """
+        object.__init__(self)
+        self._beg = _np.array([s.start for s in split])
+        self._end = _np.array([s.stop for s in split])
+        if halo is None:
+            halo = _np.zeros((self.beg_.shape[0], 2), dtype=self._beg.dtype)
+        self._halo = halo
+
+    @property
+    def start(self):
+        """
+        Sequence of :obj:`int` indicating the per-axis start indices of this extent
+        (including halo).
+        """
+        return self._beg
+
+    @property
+    def stop(self):
+        """
+        Sequence of :obj:`int` indicating the per-axis stop indices of this extent
+        (including halo).
+        """
+        return self._end
+
+    @property
+    def halo(self):
+        """
+        A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
+        per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
+        of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
+        elements on the high-index *side*.
+        """
+        return self._end
+
+    @property
+    def shape(self):
+        """
+        Sequence of :obj:`int` indicating the shape of this extent
+        (including halo).
+        """
+        return self._end - self._beg
+
+
+class DecompExtent(IndexingExtent):
+    """
+    Indexing extents for single tile of cartesian domain decomposition.
+    """
+
+    def __init__(self, cart_coord, cart_shape, slice, halo, bounds_policy=ARRAY_BOUNDS):
+        """
+        Construct.
+
+        :type cart_coord: sequence of :obj:`int`
+        :param cart_coord: Coordinate index of this tile in the domain decomposition.
+        :type cart_shape: sequence of :obj:`int`
+        :param cart_shape: Number of tiles in each axis direction.
+        :type slice: sequence of :obj:`slice`
+        :param slice: Per-axis start and stop indices (including ghost elements).
+        :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
+        :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
+           per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
+           of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
+           elements on the high-index *side*.
+        """
+        if (bounds_policy == ARRAY_BOUNDS):
+            # Make the halo
+            halo *= \
+                _np.where(
+                    _np.logical_and(
+                        (cart_coord - 1) >= 0,
+                        (cart_coord + 1) < cart_shape
+                    ),
+                    1,
+                    0
+                ).reshape((halo.shape[0], 1))
+
+        IndexingExtent.__init__(self, slice, halo)
+
+
 class Decomposition(object):
     """
     Partitions an array-shape over MPI memory-nodes.
@@ -275,17 +374,18 @@ class Decomposition(object):
         self._shape_decomp = shape_splitter.calculate_split()
 
         if self.have_valid_cart_comm:
+            cart_dims = _np.array(self.cart_comm.dims)
             self._cart_rank_to_extents_dict = dict()
             for cart_rank in range(0, self.cart_comm.size):
+                cart_coords = _np.array(self.cart_comm.Get_coords(cart_rank))
                 self._cart_rank_to_extents_dict[cart_rank] = \
-                    self._shape_decomp[tuple(self.cart_comm.Get_coords(cart_rank))]
-                self._cart_rank_to_extents_dict[cart_rank] = \
-                    _np.array(
-                        [
-                            [s.start for s in self._cart_rank_to_extents_dict[cart_rank]],
-                            [s.stop for s in self._cart_rank_to_extents_dict[cart_rank]],
-                        ]
-                )
+                    DecompExtent(
+                        cart_coord=cart_coords,
+                        cart_shape=cart_dims,
+                        slice=self._shape_decomp[tuple(cart_coords)],
+                        halo=self._halo,
+                        bounds_policy=shape_splitter.tile_bounds_policy
+                    )  # noqa: E123
 
     def __str__(self):
         """
