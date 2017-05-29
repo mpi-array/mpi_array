@@ -12,7 +12,7 @@ Classes and Functions
    :toctree: generated/
 
    IndexingExtent - Index range for a tile of a decomposition.
-   HaloIndexingExtent - Index range, including ghost elements, for a tile of a decomposition.
+   HaloIndexingExtent - Index range, with ghost elements, for a tile of a decomposition.
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    SharedMemInfo - Shared-memory communicator generation.
    MemNodeTopology - Topology of MPI processes which allocate shared memory.
@@ -28,6 +28,7 @@ import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
+from array_split.split import is_scalar
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -243,6 +244,12 @@ class IndexingExtent(object):
             self._beg = _np.array(start, dtype="int64")
             self._end = _np.array(stop, dtype="int64")
 
+    def __eq__(self, other):
+        """
+        Return :samp:`True` for identical :attr:`start` and :attr:`stop`.
+        """
+        return _np.all(self._beg == other._beg) and _np.all(self._end == other._end)
+
     @property
     def start(self):
         """
@@ -295,10 +302,21 @@ class IndexingExtent(object):
 
         return intersection_extent
 
+    def __repr__(self):
+        """
+        Stringize.
+        """
+        return "IndexingExtent(start=%s, stop=%s)" % (tuple(self._beg), tuple(self._end))
+
+    def __str__(self):
+        """
+        """
+        return self.__repr__()
+
 
 class HaloIndexingExtent(IndexingExtent):
     """
-    Indexing bounds, including ghost elements, for a single tile of domain decomposition.
+    Indexing bounds with ghost (halo) elements, for a single tile of domain decomposition.
     """
 
     #: The "low index" indices.
@@ -312,7 +330,8 @@ class HaloIndexingExtent(IndexingExtent):
         Construct.
 
         :type split: sequence of :obj:`slice`
-        :param split: Per axis start and stop indices defining the extent.
+        :param split: Per axis start and stop indices defining the extent (**not including ghost
+           elements**).
         :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
         :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
            per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
@@ -322,7 +341,7 @@ class HaloIndexingExtent(IndexingExtent):
         """
         IndexingExtent.__init__(self, split)
         if halo is None:
-            halo = _np.zeros((self.beg_.shape[0], 2), dtype=self._beg.dtype)
+            halo = _np.zeros((self._beg.shape[0], 2), dtype=self._beg.dtype)
         self._halo = halo
 
     @property
@@ -340,42 +359,58 @@ class HaloIndexingExtent(IndexingExtent):
         """
         The start index of the tile with "halo" elements.
         """
-        return self._beg
+        return self._beg - self._halo[:, self.LO]
 
     @property
     def start_n(self):
         """
         The start index of the tile without "halo" elements ("no halo").
         """
-        return self._beg + self._halo[:, self.LO]
+        return self._beg
 
     @property
     def stop_h(self):
         """
         The stop index of the tile with "halo" elements.
         """
-        return self._end
+        return self._end + self._halo[:, self.HI]
 
     @property
     def stop_n(self):
         """
         The stop index of the tile without "halo" elements ("no halo").
         """
-        return self._end - self._halo[:, self.HI]
+        return self._end
 
     @property
     def shape_h(self):
         """
         The shape of the tile with "halo" elements.
         """
-        return self._end - self._beg
+        return self._end + self._halo[:, self.HI] - self._beg + self._halo[:, self.LO]
 
     @property
     def shape_n(self):
         """
-        The stop index of the tile without "halo" elements ("no halo").
+        The shape of the tile without "halo" elements ("no halo").
         """
-        return self._end - self._halo[:, self.HI] - self._beg - self._halo[:, self.LO]
+        return self._end - self._beg
+
+    def __repr__(self):
+        """
+        Stringize.
+        """
+        return \
+            (
+                "HaloIndexingExtent(start=%s, stop=%s, halo=%s)"
+                %
+                (tuple(self._beg), tuple(self._end), tuple(self._halo))
+            )
+
+    def __str__(self):
+        """
+        """
+        return self.__repr__()
 
 
 class DecompExtent(HaloIndexingExtent):
@@ -383,7 +418,16 @@ class DecompExtent(HaloIndexingExtent):
     Indexing extents for single tile of cartesian domain decomposition.
     """
 
-    def __init__(self, cart_rank, cart_coord, cart_shape, slice, halo, bounds_policy=ARRAY_BOUNDS):
+    def __init__(
+        self,
+        cart_rank,
+        cart_coord,
+        cart_shape,
+        array_shape,
+        slice,
+        halo,
+        bounds_policy=ARRAY_BOUNDS
+    ):
         """
         Construct.
 
@@ -392,7 +436,7 @@ class DecompExtent(HaloIndexingExtent):
         :type cart_shape: sequence of :obj:`int`
         :param cart_shape: Number of tiles in each axis direction.
         :type slice: sequence of :obj:`slice`
-        :param slice: Per-axis start and stop indices (including ghost elements).
+        :param slice: Per-axis start and stop indices (**not including ghost elements**).
         :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
         :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
            per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
@@ -402,26 +446,26 @@ class DecompExtent(HaloIndexingExtent):
         self._cart_rank = cart_rank
         self._cart_coord = _np.array(cart_coord, dtype="int64")
         self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
-        halo = _np.array(halo)
+        self._array_shape = _np.array(array_shape, dtype=self._cart_coord.dtype)
+        HaloIndexingExtent.__init__(self, slice, halo=None)
+        halo = convert_halo_to_array_form(halo, ndim=self._cart_coord.ndim)
         if (bounds_policy == ARRAY_BOUNDS):
             # Make the halo
-            halo *= \
+            halo = \
                 _np.array(
                     (
-                        _np.where(
-                            (self._cart_coord - 1) >= 0,
-                            1,
-                            0
+                        _np.minimum(
+                            self.start_n,
+                            halo[:, self.LO]
                         ),
-                        _np.where(
-                            (self._cart_coord + 1) < self._cart_shape,
-                            1,
-                            0
+                        _np.minimum(
+                            self._array_shape - self.stop_n,
+                            halo[:, self.HI]
                         ),
-                    )
+                    ),
+                    dtype=halo.dtype
                 ).reshape((halo.shape[0], 2))
-
-        HaloIndexingExtent.__init__(self, slice, halo)
+        self._halo = halo
 
     @property
     def cart_rank(self):
@@ -455,12 +499,14 @@ class DecompExtent(HaloIndexingExtent):
         :rtype: :obj:`IndexingExtent`
         :return: Indexing extent for halo slab.
         """
-        start = self._beg.copy()
-        stop = self._end.copy()
+        start = self.start_n.copy()
+        stop = self.stop_n.copy()
         if dir == self.LO:
-            stop[axis] = start[axis] + self._halo[axis, self.LO]
+            stop[axis] = start[axis]
+            start[axis] -= self.halo[axis, self.LO]
         else:
-            start[axis] = stop[axis] - self._halo[axis, self.HI]
+            start[axis] = stop[axis]
+            stop[axis] += self.halo[axis, self.HI]
 
         return \
             IndexingExtent(
@@ -473,15 +519,16 @@ class DecompExtent(HaloIndexingExtent):
         Returns the indexing extent identical to this extent, except
         has the halo trimmed from the axis specified by :samp:`{axis}`.
 
-        :type axis: :obj:`int`
-        :param axis: Axis for which halo is trimmed.
+        :type axis: :obj:`int` or sequence of :obj:`int`
+        :param axis: Axis (or axes) for which halo is trimmed.
         :rtype: :obj:`IndexingExtent`
-        :return: Indexing extent with halo trimmed from axis :samp:`{axis}`.
+        :return: Indexing extent with halo trimmed from specified axis (or axes) :samp:`{axis}`.
         """
-        start = self._beg.copy()
-        start[axis] += self._halo[axis, self.LO]
-        stop = self._end.copy()
-        stop[axis] -= self._halo[axis, self.HI]
+        start = self.start_h.copy()
+        stop = self.stop_h.copy()
+        if axis is not None:
+            start[axis] += self.halo[axis, self.LO]
+            stop[axis] -= self.halo[axis, self.HI]
 
         return \
             IndexingExtent(
@@ -611,6 +658,35 @@ class HalosUpdate(object):
                         break
 
 
+def convert_halo_to_array_form(halo, ndim):
+    """
+    Converts the :samp:`{halo}` argument to a :samp:`(ndim, 2)`
+    shaped array.
+
+    :type halo: :samp:`None`, :obj:`int`, an :samp:`{ndim}` length sequence
+        of :samp:`int` or :samp:`({ndim}, 2)` shaped array
+        of :samp:`int`
+    :param halo: Halo to be converted to :samp:`({ndim}, 2)` shaped array form.
+    :type ndim: :obj:`int`
+    :param ndim: Number of dimensions.
+    :rtype: :obj:`numpy.ndarray`
+    :return: A :samp:`({ndim}, 2)` shaped array of :obj:`numpy.int64` elements.
+    """
+    dtyp = _np.int64
+    if halo is None:
+        halo = _np.zeros((ndim, 2), dtype=dtyp)
+    elif is_scalar(halo):
+        halo = _np.zeros((ndim, 2), dtype=dtyp) + halo
+    elif (ndim == 1) and (_np.array(halo).shape == (2,)):
+        halo = _np.array([halo, ], copy=True, dtype=dtyp)
+    elif len(_np.array(halo).shape) == 1:
+        halo = _np.array([halo, halo], dtype=dtyp).T.copy()
+    else:
+        halo = _np.array(halo, copy=True, dtype=dtyp)
+
+    return halo
+
+
 class Decomposition(object):
     """
     Partitions an array-shape over MPI memory-nodes.
@@ -664,10 +740,10 @@ class Decomposition(object):
             _array_split.ShapeSplitter(
                 array_shape=self._shape,
                 axis=self._mem_node_topology.dims,
-                halo=self._halo
+                halo=0
             )
 
-        self._halo = shape_splitter.halo
+        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=self.shape.shape[0])
 
         self._shape_decomp = shape_splitter.calculate_split()
 
@@ -684,6 +760,7 @@ class Decomposition(object):
                         cart_rank=cart_rank,
                         cart_coord=cart_coords,
                         cart_shape=cart_dims,
+                        array_shape=self._shape,
                         slice=self._shape_decomp[tuple(cart_coords)],
                         halo=self._halo,
                         bounds_policy=shape_splitter.tile_bounds_policy
@@ -713,7 +790,7 @@ class Decomposition(object):
     @property
     def halo(self):
         """
-        Number of *ghost* elements per axis padding array shape.
+        Number of *ghost* elements per axis to pad array shape.
         """
         return self._halo
 

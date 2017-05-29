@@ -30,6 +30,7 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.decomposition import IndexingExtent, DecompExtent, MemNodeTopology, Decomposition
+import array_split as _array_split
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -119,12 +120,14 @@ class DecompExtentTest(_unittest.TestCase):
 
     def testConstructAttribs(self):
         """
+        Assertions for properties.
         """
         de = \
             DecompExtent(
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(1,),
+                array_shape=(100,),
                 slice=(slice(0, 100),),
                 halo=((10, 10),)
             )
@@ -134,35 +137,183 @@ class DecompExtentTest(_unittest.TestCase):
         self.assertTrue(_np.all(de.cart_shape == (1,)))
         self.assertTrue(_np.all(de.halo == 0))
 
-    def testExtentCalcs(self):
+    def testExtentCalcs1dThickTiles(self):
         """
+        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        when halo size is smaller than the tile size.
         """
+        halo = ((10, 10),)
+        splt = _array_split.shape_split((300,), axis=(3,), halo=0)
         de = \
             [
                 DecompExtent(
                     cart_rank=r,
                     cart_coord=(r,),
-                    cart_shape=(3,),
-                    slice=(slice(r * 100, r * 100 + 100),),
-                    halo=((10, 10),)
+                    cart_shape=(splt.shape[0],),
+                    array_shape=(300,),
+                    slice=splt[r],
+                    halo=halo
                 )
-                for r in range(0, 3)
+                for r in range(0, splt.shape[0])
             ]
 
         self.assertEqual(0, de[0].cart_rank)
         self.assertTrue(_np.all(de[0].cart_coord == (0,)))
         self.assertTrue(_np.all(de[0].cart_shape == (3,)))
         self.assertTrue(_np.all(de[0].halo == ((0, 10),)))
+        self.assertEqual(
+            IndexingExtent(start=(0,), stop=(0,)),
+            de[0].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100,), stop=(110,)),
+            de[0].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0,), stop=(100,)),
+            de[0].no_halo_extent(0)
+        )
 
         self.assertEqual(1, de[1].cart_rank)
         self.assertTrue(_np.all(de[1].cart_coord == (1,)))
         self.assertTrue(_np.all(de[1].cart_shape == (3,)))
         self.assertTrue(_np.all(de[1].halo == ((10, 10),)))
+        self.assertEqual(
+            IndexingExtent(start=(90,), stop=(100,)),
+            de[1].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200,), stop=(210,)),
+            de[1].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100,), stop=(200,)),
+            de[1].no_halo_extent(0)
+        )
 
         self.assertEqual(2, de[2].cart_rank)
         self.assertTrue(_np.all(de[2].cart_coord == (2,)))
         self.assertTrue(_np.all(de[2].cart_shape == (3,)))
         self.assertTrue(_np.all(de[2].halo == ((10, 0),)))
+        self.assertEqual(
+            IndexingExtent(start=(190,), stop=(200,)),
+            de[2].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(300,), stop=(300,)),
+            de[2].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200,), stop=(300,)),
+            de[2].no_halo_extent(0)
+        )
+
+    def testExtentCalcs1dThinTiles(self):
+        """
+        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        when halo size is larger than the tile size.
+        """
+        halo = ((5, 5),)
+        splt = _array_split.shape_split((15,), axis=(5,), halo=0)
+        de = \
+            [
+                DecompExtent(
+                    cart_rank=r,
+                    cart_coord=(r,),
+                    cart_shape=(splt.shape[0],),
+                    array_shape=(15,),
+                    slice=splt[r],
+                    halo=halo
+                )
+                for r in range(0, splt.shape[0])
+            ]
+
+        self.assertEqual(0, de[0].cart_rank)
+        self.assertTrue(_np.all(de[0].cart_coord == (0,)))
+        self.assertTrue(_np.all(de[0].cart_shape == (5,)))
+        self.assertTrue(_np.all(de[0].halo == ((0, 5),)))
+        self.assertEqual(
+            IndexingExtent(start=(0,), stop=(0,)),
+            de[0].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(3,), stop=(8,)),
+            de[0].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0,), stop=(3,)),
+            de[0].no_halo_extent(0)
+        )
+
+        self.assertEqual(1, de[1].cart_rank)
+        self.assertTrue(_np.all(de[1].cart_coord == (1,)))
+        self.assertTrue(_np.all(de[1].cart_shape == (5,)))
+        self.assertTrue(_np.all(de[1].halo == ((3, 5),)))
+        self.assertEqual(
+            IndexingExtent(start=(0,), stop=(3,)),
+            de[1].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(6,), stop=(11,)),
+            de[1].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(3,), stop=(6,)),
+            de[1].no_halo_extent(0)
+        )
+
+        self.assertEqual(2, de[2].cart_rank)
+        self.assertTrue(_np.all(de[2].cart_coord == (2,)))
+        self.assertTrue(_np.all(de[2].cart_shape == (5,)))
+        self.assertTrue(_np.all(de[2].halo == ((5, 5),)))
+        self.assertEqual(
+            IndexingExtent(start=(1,), stop=(6,)),
+            de[2].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(9,), stop=(14,)),
+            de[2].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(6,), stop=(9,)),
+            de[2].no_halo_extent(0)
+        )
+
+        self.assertEqual(3, de[3].cart_rank)
+        self.assertTrue(_np.all(de[3].cart_coord == (3,)))
+        self.assertTrue(_np.all(de[3].cart_shape == (5,)))
+        self.assertTrue(_np.all(de[3].halo == ((5, 3),)))
+        self.assertEqual(
+            IndexingExtent(start=(4,), stop=(9,)),
+            de[3].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(12,), stop=(15,)),
+            de[3].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(9,), stop=(12,)),
+            de[3].no_halo_extent(0)
+        )
+
+        self.assertEqual(4, de[4].cart_rank)
+        self.assertTrue(_np.all(de[4].cart_coord == (4,)))
+        self.assertTrue(_np.all(de[4].cart_shape == (5,)))
+        self.assertTrue(_np.all(de[4].halo == ((5, 0),)))
+        self.assertEqual(
+            IndexingExtent(start=(7,), stop=(12,)),
+            de[4].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(15,), stop=(15,)),
+            de[4].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(12,), stop=(15,)),
+            de[4].no_halo_extent(0)
+        )
 
 
 class MemNodeTopologyTest(_unittest.TestCase):
