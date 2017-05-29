@@ -53,13 +53,16 @@ script:
   - ompi_info
   - utils/mpi4py_info.py
   - flake8 mpi_array
-  - coverage run --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
+  - mpirun -n 1 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
+  - mpirun -n 2 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
+  - mpirun -n 8 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
   - # run tests on installed mpi_array
   - cd docs
-  - python -m mpi_array.tests
+  - mpirun -n 4 python -m mpi_array.tests
   - cd ..
   - travis-sphinx build
 
 after_success:
   - travis-sphinx --branches=dev deploy
+  - coverage combine
   - coveralls
