@@ -20,6 +20,7 @@ Classes and Functions
    SplitStreamHandler - A :obj:`logging.StreamHandler` which splits errors and warnings to *stderr*.
    initialise_loggers - Initialises handlers and formatters for loggers.
    get_rank_logger - Returns :obj:`logging.Logger` for MPI ranks.
+   get_root_logger - Returns :obj:`logging.Logger` for MPI root-rank.
    LoggerFactory - Factory class for generating :obj:`logging.Logger` objects.
 
 Attributes

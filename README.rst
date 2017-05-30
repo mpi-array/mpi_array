@@ -70,10 +70,13 @@ Requirements
 
 Requires:
 
-   - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.1.3`,
+   - python-2 version `>= 2.7` or python-3 version `>= 3.3`,
+   - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.3.0`,
    - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.6`,
-   - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`,
-   - python-2 version `>= 2.7` or python-3 version `>= 3.3`.
+   - an MPI implementation which supports at least MPI-2 (such as 
+     `OpenMPI <http://openmpi.org/>`_ or `MPICH <http://mpich.org/>`_)
+   - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`.
+
 
 Testing
 =======
@@ -86,6 +89,9 @@ or, from the source tree, run::
 
    python setup.py test
 
+Run tests with parallelism::
+
+   mpirun -n 8 python -m mpi_array.tests
 
 Travis CI at:
 
@@ -116,6 +122,10 @@ Latest source code
 Source at github:
 
     https://github.com/mpi-array/mpi_array
+
+clone with::
+
+    git clone https://github.com/mpi-array/mpi_array.git
 
 
 License information
