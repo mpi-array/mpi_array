@@ -28,7 +28,7 @@ import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
-from array_split.split import is_scalar
+from array_split.split import is_scalar, convert_halo_to_array_form
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -279,7 +279,7 @@ class IndexingExtent(object):
         """
         Dimension of indexing.
         """
-        return self._beg.size
+        return len(self._beg)
 
     def calc_intersection(self, other):
         """
@@ -448,7 +448,7 @@ class DecompExtent(HaloIndexingExtent):
         self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
         self._array_shape = _np.array(array_shape, dtype=self._cart_coord.dtype)
         HaloIndexingExtent.__init__(self, slice, halo=None)
-        halo = convert_halo_to_array_form(halo, ndim=self._cart_coord.ndim)
+        halo = convert_halo_to_array_form(halo, ndim=len(self._cart_coord))
         if (bounds_policy == ARRAY_BOUNDS):
             # Make the halo
             halo = \
@@ -658,35 +658,6 @@ class HalosUpdate(object):
                         break
 
 
-def convert_halo_to_array_form(halo, ndim):
-    """
-    Converts the :samp:`{halo}` argument to a :samp:`(ndim, 2)`
-    shaped array.
-
-    :type halo: :samp:`None`, :obj:`int`, an :samp:`{ndim}` length sequence
-        of :samp:`int` or :samp:`({ndim}, 2)` shaped array
-        of :samp:`int`
-    :param halo: Halo to be converted to :samp:`({ndim}, 2)` shaped array form.
-    :type ndim: :obj:`int`
-    :param ndim: Number of dimensions.
-    :rtype: :obj:`numpy.ndarray`
-    :return: A :samp:`({ndim}, 2)` shaped array of :obj:`numpy.int64` elements.
-    """
-    dtyp = _np.int64
-    if halo is None:
-        halo = _np.zeros((ndim, 2), dtype=dtyp)
-    elif is_scalar(halo):
-        halo = _np.zeros((ndim, 2), dtype=dtyp) + halo
-    elif (ndim == 1) and (_np.array(halo).shape == (2,)):
-        halo = _np.array([halo, ], copy=True, dtype=dtyp)
-    elif len(_np.array(halo).shape) == 1:
-        halo = _np.array([halo, halo], dtype=dtyp).T.copy()
-    else:
-        halo = _np.array(halo, copy=True, dtype=dtyp)
-
-    return halo
-
-
 class Decomposition(object):
     """
     Partitions an array-shape over MPI memory-nodes.
@@ -743,7 +714,7 @@ class Decomposition(object):
                 halo=0
             )
 
-        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=self.shape.shape[0])
+        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=len(self._shape))
 
         self._shape_decomp = shape_splitter.calculate_split()
 

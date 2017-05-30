@@ -122,7 +122,7 @@ setup(
     install_requires= \
         [
             "numpy>=1.6",
-            "array_split>=0.1.3",
+            "array_split>=0.3.0",
             "sphinx>=1.4,<1.6",
             "sphinx_rtd_theme"
         ]
