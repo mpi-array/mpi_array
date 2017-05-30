@@ -16,6 +16,7 @@ Classes
    :toctree: generated/
 
    IndexingExtentTest - Tests for :obj:`mpi_array.decomposition.IndexingExtent`.
+   DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
    MemNodeTopologyTest - Tests for :obj:`mpi_array.decomposition.MemNodeTopology`.
    DecompositionTest - Tests for :obj:`mpi_array.decomposition.Decomposition`.
 
@@ -111,6 +112,44 @@ class IndexingExtentTest(_unittest.TestCase):
         ie1 = IndexingExtent(start=(32,), stop=(55,))
         iei = ie0.calc_intersection(ie1)
         self.assertEqual(None, iei)
+
+    def testIntersection2d(self):
+        """
+        Tests :meth:`mpi_array.decomposition.IndexingExtent.calc_intersection` method, 2D indexing.
+        """
+        ie0 = IndexingExtent(start=(10, 20), stop=(32, 64))
+        iei = ie0.calc_intersection(ie0)
+        self.assertSequenceEqual(ie0.shape.tolist(), iei.shape.tolist())
+        self.assertSequenceEqual(ie0.start.tolist(), iei.start.tolist())
+        self.assertSequenceEqual(ie0.stop.tolist(), iei.stop.tolist())
+
+        ie1 = IndexingExtent(start=(0, 20), stop=(10, 64))
+        iei = ie0.calc_intersection(ie1)
+        self.assertEqual(None, iei)
+
+        ie1 = IndexingExtent(start=(10, 0), stop=(32, 20))
+        iei = ie0.calc_intersection(ie1)
+        self.assertEqual(None, iei)
+
+        ie1 = IndexingExtent(start=(0, 0), stop=(10, 20))
+        iei = ie0.calc_intersection(ie1)
+        self.assertEqual(None, iei)
+
+        ie1 = IndexingExtent(start=(32, 64), stop=(110, 120))
+        iei = ie0.calc_intersection(ie1)
+        self.assertEqual(None, iei)
+
+        ie1 = IndexingExtent(start=(20, 10), stop=(30, 40))
+        iei = ie0.calc_intersection(ie1)
+        self.assertSequenceEqual([10, 20], iei.shape.tolist())
+        self.assertSequenceEqual([20, 20], iei.start.tolist())
+        self.assertSequenceEqual([30, 40], iei.stop.tolist())
+
+        ie1 = IndexingExtent(start=(22, 54), stop=(80, 90))
+        iei = ie0.calc_intersection(ie1)
+        self.assertSequenceEqual([10, 10], iei.shape.tolist())
+        self.assertSequenceEqual([22, 54], iei.start.tolist())
+        self.assertSequenceEqual([32, 64], iei.stop.tolist())
 
 
 class DecompExtentTest(_unittest.TestCase):
