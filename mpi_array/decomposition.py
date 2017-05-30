@@ -28,7 +28,7 @@ import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
-from array_split.split import is_scalar, convert_halo_to_array_form
+from array_split.split import convert_halo_to_array_form
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -464,7 +464,7 @@ class DecompExtent(HaloIndexingExtent):
                         ),
                     ),
                     dtype=halo.dtype
-                ).reshape((halo.shape[0], 2))
+                ).T
         self._halo = halo
 
     @property
@@ -499,14 +499,12 @@ class DecompExtent(HaloIndexingExtent):
         :rtype: :obj:`IndexingExtent`
         :return: Indexing extent for halo slab.
         """
-        start = self.start_n.copy()
-        stop = self.stop_n.copy()
+        start = self.start_h.copy()
+        stop = self.stop_h.copy()
         if dir == self.LO:
-            stop[axis] = start[axis]
-            start[axis] -= self.halo[axis, self.LO]
+            stop[axis] = start[axis] + self.halo[axis, self.LO]
         else:
-            start[axis] = stop[axis]
-            stop[axis] += self.halo[axis, self.HI]
+            start[axis] = stop[axis] - self.halo[axis, self.HI]
 
         return \
             IndexingExtent(

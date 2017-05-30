@@ -213,7 +213,7 @@ class DecompExtentTest(_unittest.TestCase):
         """
         Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
         and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
-        when halo size is larger than the tile size.
+        when halo size is larger than the tile size, 1D fixture.
         """
         halo = ((5, 5),)
         splt = _array_split.shape_split((15,), axis=(5,), halo=0)
@@ -313,6 +313,288 @@ class DecompExtentTest(_unittest.TestCase):
         self.assertEqual(
             IndexingExtent(start=(12,), stop=(15,)),
             de[4].no_halo_extent(0)
+        )
+
+    def testExtentCalcs2dThickTiles(self):
+        """
+        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        when halo size is smaller than the tile size, 2D fixture.
+        """
+        halo = ((10, 10), (5, 5))
+        splt = _array_split.shape_split((300, 600), axis=(3, 3), halo=0)
+        de = \
+            [
+                DecompExtent(
+                    cart_rank=r,
+                    cart_coord=_np.unravel_index(r, splt.shape),
+                    cart_shape=splt.shape,
+                    array_shape=(300, 600),
+                    slice=splt[tuple(_np.unravel_index(r, splt.shape))],
+                    halo=halo
+                )
+                for r in range(0, _np.product(splt.shape))
+            ]
+
+        self.assertEqual(0, de[0].cart_rank)
+        self.assertTrue(_np.all(de[0].cart_coord == (0, 0)))
+        self.assertTrue(_np.all(de[0].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[0, 10], [0, 5]], de[0].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(0, 0), stop=(0, 205)),
+            de[0].halo_slab_extent(0, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 0), stop=(110, 205)),
+            de[0].halo_slab_extent(0, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 0), stop=(110, 0)),
+            de[0].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 200), stop=(110, 205)),
+            de[0].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 0), stop=(100, 205)),
+            de[0].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 0), stop=(110, 200)),
+            de[0].no_halo_extent(1)
+        )
+
+        self.assertEqual(1, de[1].cart_rank)
+        self.assertTrue(_np.all(de[1].cart_coord == (0, 1)))
+        self.assertTrue(_np.all(de[1].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[0, 10], [5, 5]], de[1].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(0, 195), stop=(0, 405)),
+            de[1].halo_slab_extent(0, de[1].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 195), stop=(110, 405)),
+            de[1].halo_slab_extent(0, de[1].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 195), stop=(110, 200)),
+            de[1].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 400), stop=(110, 405)),
+            de[1].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 195), stop=(100, 405)),
+            de[1].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 200), stop=(110, 400)),
+            de[1].no_halo_extent(1)
+        )
+
+        self.assertEqual(2, de[2].cart_rank)
+        self.assertTrue(_np.all(de[2].cart_coord == (0, 2)))
+        self.assertTrue(_np.all(de[2].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[0, 10], [5, 0]], de[2].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(0, 395), stop=(0, 600)),
+            de[2].halo_slab_extent(0, de[2].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 395), stop=(110, 600)),
+            de[2].halo_slab_extent(0, de[2].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 395), stop=(110, 400)),
+            de[2].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 600), stop=(110, 600)),
+            de[2].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 395), stop=(100, 600)),
+            de[2].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(0, 400), stop=(110, 600)),
+            de[2].no_halo_extent(1)
+        )
+
+        self.assertEqual(3, de[3].cart_rank)
+        self.assertTrue(_np.all(de[3].cart_coord == (1, 0)))
+        self.assertTrue(_np.all(de[3].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 10], [0, 5]], de[3].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(90, 0), stop=(100, 205)),
+            de[3].halo_slab_extent(0, de[3].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 0), stop=(210, 205)),
+            de[3].halo_slab_extent(0, de[3].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 0), stop=(210, 0)),
+            de[3].halo_slab_extent(1, de[3].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 200), stop=(210, 205)),
+            de[3].halo_slab_extent(1, de[3].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 0), stop=(200, 205)),
+            de[3].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 0), stop=(210, 200)),
+            de[3].no_halo_extent(1)
+        )
+
+        self.assertEqual(4, de[4].cart_rank)
+        self.assertTrue(_np.all(de[4].cart_coord == (1, 1)))
+        self.assertTrue(_np.all(de[4].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 10], [5, 5]], de[4].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(90, 195), stop=(100, 405)),
+            de[4].halo_slab_extent(0, de[4].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 195), stop=(210, 405)),
+            de[4].halo_slab_extent(0, de[4].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 195), stop=(210, 200)),
+            de[4].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 400), stop=(210, 405)),
+            de[4].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 195), stop=(200, 405)),
+            de[4].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 200), stop=(210, 400)),
+            de[4].no_halo_extent(1)
+        )
+
+        self.assertEqual(5, de[5].cart_rank)
+        self.assertTrue(_np.all(de[5].cart_coord == (1, 2)))
+        self.assertTrue(_np.all(de[5].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 10], [5, 0]], de[5].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(90, 395), stop=(100, 600)),
+            de[5].halo_slab_extent(0, de[5].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 395), stop=(210, 600)),
+            de[5].halo_slab_extent(0, de[5].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 395), stop=(210, 400)),
+            de[5].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 600), stop=(210, 600)),
+            de[5].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(100, 395), stop=(200, 600)),
+            de[5].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(90, 400), stop=(210, 600)),
+            de[5].no_halo_extent(1)
+        )
+
+        self.assertEqual(6, de[6].cart_rank)
+        self.assertTrue(_np.all(de[6].cart_coord == (2, 0)))
+        self.assertTrue(_np.all(de[6].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 0], [0, 5]], de[6].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(190, 0), stop=(200, 205)),
+            de[6].halo_slab_extent(0, de[6].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(300, 0), stop=(300, 205)),
+            de[6].halo_slab_extent(0, de[6].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 0), stop=(300, 0)),
+            de[6].halo_slab_extent(1, de[6].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 200), stop=(300, 205)),
+            de[6].halo_slab_extent(1, de[6].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 0), stop=(300, 205)),
+            de[6].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 0), stop=(300, 200)),
+            de[6].no_halo_extent(1)
+        )
+
+        self.assertEqual(7, de[7].cart_rank)
+        self.assertTrue(_np.all(de[7].cart_coord == (2, 1)))
+        self.assertTrue(_np.all(de[7].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 0], [5, 5]], de[7].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(190, 195), stop=(200, 405)),
+            de[7].halo_slab_extent(0, de[7].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(300, 195), stop=(300, 405)),
+            de[7].halo_slab_extent(0, de[7].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 195), stop=(300, 200)),
+            de[7].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 400), stop=(300, 405)),
+            de[7].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 195), stop=(300, 405)),
+            de[7].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 200), stop=(300, 400)),
+            de[7].no_halo_extent(1)
+        )
+
+        self.assertEqual(8, de[8].cart_rank)
+        self.assertTrue(_np.all(de[8].cart_coord == (2, 2)))
+        self.assertTrue(_np.all(de[8].cart_shape == (3, 3)))
+        self.assertSequenceEqual([[10, 0], [5, 0]], de[8].halo.tolist())
+        self.assertEqual(
+            IndexingExtent(start=(190, 395), stop=(200, 600)),
+            de[8].halo_slab_extent(0, de[8].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(300, 395), stop=(300, 600)),
+            de[8].halo_slab_extent(0, de[8].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 395), stop=(300, 400)),
+            de[8].halo_slab_extent(1, de[0].LO)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 600), stop=(300, 600)),
+            de[8].halo_slab_extent(1, de[0].HI)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(200, 395), stop=(300, 600)),
+            de[8].no_halo_extent(0)
+        )
+        self.assertEqual(
+            IndexingExtent(start=(190, 400), stop=(300, 600)),
+            de[8].no_halo_extent(1)
         )
 
 
