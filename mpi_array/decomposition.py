@@ -15,7 +15,7 @@ Classes and Functions
    HaloIndexingExtent - Index range, with ghost elements, for a tile of a decomposition.
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    SharedMemInfo - Shared-memory communicator generation.
-   MemNodeTopology - Topology of MPI processes which allocate shared memory.
+   MemAllocTopology - Topology of MPI processes which allocate shared memory.
    Decomposition - Partition of an array *shape* overs MPI processes and/or nodes.
 
 
@@ -90,9 +90,9 @@ class SharedMemInfo(object):
         return self._shared_mem_comm
 
 
-class MemNodeTopology(object):
+class MemAllocTopology(object):
     """
-    Defines cartesian communication topology for MPI processes.
+    Defines cartesian memory allocation (and communication) topology for MPI processes.
     """
 
     def __init__(
@@ -103,7 +103,7 @@ class MemNodeTopology(object):
         shared_mem_comm=None
     ):
         """
-        Initialises cartesian communicator mem-nodes.
+        Initialises cartesian communicator for memory-allocation-nodes.
         Need to specify at least one of the :samp:`{ndims}` or :samp:`{dims}`.
         to indicate the dimension of the cartesian partitioning.
 
@@ -116,17 +116,18 @@ class MemNodeTopology(object):
            that :samp:`numpy.product({dims}) == {rank_comm}.size`.
            If :samp:`None`, :samp:`{dims} = (0,)*{ndims}`.
         :type rank_comm: :obj:`mpi4py.MPI.Comm`
-        :param rank_comm: The MPI processes over which an array is to be distributed.
+        :param rank_comm: The MPI processes which will have access
+           (via a :obj:`mpi4py.MPI.Win` object) to the distributed array.
            If :samp:`None` uses :obj:`mpi4py.MPI.COMM_WORLD`.
         :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
         :param shared_mem_comm: The MPI communicator used to create a window which
             can be used to allocate shared memory
             via :meth:`mpi4py.MPI.Win.Allocate_shared`.
         """
-        # No implementation for periodic boundaries
+        # No implementation for periodic boundaries yet
         periods = None
         if (ndims is None) and (dims is None):
-            raise ValueError("Must specify one of dims or ndims in MemNodeTopology constructor.")
+            raise ValueError("Must specify one of dims or ndims in MemAllocTopology constructor.")
         elif (ndims is not None) and (dims is not None) and (len(dims) != ndims):
             raise ValueError(
                 "Length of dims (len(dims)=%s) not equal to ndims=%s." % (len(dims), ndims)
@@ -215,8 +216,8 @@ class MemNodeTopology(object):
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    MemNodeTopology.num_shared_mem_nodes.__doc__ = SharedMemInfo.num_shared_mem_nodes.__doc__
-    MemNodeTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
+    MemAllocTopology.num_shared_mem_nodes.__doc__ = SharedMemInfo.num_shared_mem_nodes.__doc__
+    MemAllocTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
 
 
 class IndexingExtent(object):
@@ -396,6 +397,27 @@ class HaloIndexingExtent(IndexingExtent):
         """
         return self._end - self._beg
 
+    @property
+    def start(self):
+        """
+        Same as :attr:`start_n`.
+        """
+        return self.start_n
+
+    @property
+    def stop(self):
+        """
+        Same as :attr:`stop_n`.
+        """
+        return self.stop_n
+
+    @property
+    def shape(self):
+        """
+        Same as :attr:`shape_n`.
+        """
+        return self.shape_n
+
     def __repr__(self):
         """
         Stringize.
@@ -431,8 +453,10 @@ class DecompExtent(HaloIndexingExtent):
         """
         Construct.
 
+        :type cart_rank: :obj:`int`
+        :param cart_rank: Rank of MPI process in cartesian communicator.
         :type cart_coord: sequence of :obj:`int`
-        :param cart_coord: Coordinate index of this tile in the domain decomposition.
+        :param cart_coord: Coordinate index of this tile in the cartesian domain decomposition.
         :type cart_shape: sequence of :obj:`int`
         :param cart_shape: Number of tiles in each axis direction.
         :type slice: sequence of :obj:`slice`
@@ -675,11 +699,11 @@ class Decomposition(object):
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low and high indices can be different).
-        :type mem_node_topology: :obj:`MemNodeTopology`
+        :type mem_node_topology: :obj:`MemAllocTopology`
         :param mem_node_topology: Object which defines how array
            memory is allocated (distributed) over memory nodes and
            the cartesian topology communicator used to exchange (halo)
-           data. If :samp:`None` uses :samp:`MemNodeTopology(dims=numpy.zeros_like({shape}))`.
+           data. If :samp:`None` uses :samp:`MemAllocTopology(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
         self._shape = None
@@ -698,10 +722,10 @@ class Decomposition(object):
         :param new_halo: New partition calculated for this shape.
         """
         if self._mem_node_topology is None:
-            self._mem_node_topology = MemNodeTopology(ndims=len(new_shape))
+            self._mem_node_topology = MemAllocTopology(ndims=len(new_shape))
         elif (self._shape is not None) and (len(self._shape) != len(new_shape)):
             self._shape = _np.array(new_shape)
-            self._mem_node_topology = MemNodeTopology(ndims=self._shape.size)
+            self._mem_node_topology = MemAllocTopology(ndims=self._shape.size)
         self._shape = _np.array(new_shape)
         self._halo = new_halo
 
@@ -791,45 +815,45 @@ class Decomposition(object):
     @property
     def num_shared_mem_nodes(self):
         """
-        See :attr:`MemNodeTopology.num_shared_mem_nodes`.
+        See :attr:`MemAllocTopology.num_shared_mem_nodes`.
         """
         return self._mem_node_topology.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
-        See :attr:`MemNodeTopology.shared_mem_comm`.
+        See :attr:`MemAllocTopology.shared_mem_comm`.
         """
         return self._mem_node_topology.shared_mem_comm
 
     @property
     def cart_comm(self):
         """
-        See :attr:`MemNodeTopology.cart_comm`.
+        See :attr:`MemAllocTopology.cart_comm`.
         """
         return self._mem_node_topology.cart_comm
 
     @property
     def have_valid_cart_comm(self):
         """
-        See :attr:`MemNodeTopology.have_valid_cart_comm`.
+        See :attr:`MemAllocTopology.have_valid_cart_comm`.
         """
         return self._mem_node_topology.have_valid_cart_comm
 
     @property
     def rank_comm(self):
         """
-        See :attr:`MemNodeTopology.rank_comm`.
+        See :attr:`MemAllocTopology.rank_comm`.
         """
         return self._mem_node_topology.rank_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    Decomposition.num_shared_mem_nodes.__doc__ = MemNodeTopology.num_shared_mem_nodes.__doc__
-    Decomposition.shared_mem_comm.__doc__ = MemNodeTopology.shared_mem_comm.__doc__
-    Decomposition.cart_comm.__doc__ = MemNodeTopology.cart_comm.__doc__
-    Decomposition.have_valid_cart_comm.__doc__ = MemNodeTopology.have_valid_cart_comm.__doc__
-    Decomposition.rank_comm.__doc__ = MemNodeTopology.rank_comm.__doc__
+    Decomposition.num_shared_mem_nodes.__doc__ = MemAllocTopology.num_shared_mem_nodes.__doc__
+    Decomposition.shared_mem_comm.__doc__ = MemAllocTopology.shared_mem_comm.__doc__
+    Decomposition.cart_comm.__doc__ = MemAllocTopology.cart_comm.__doc__
+    Decomposition.have_valid_cart_comm.__doc__ = MemAllocTopology.have_valid_cart_comm.__doc__
+    Decomposition.rank_comm.__doc__ = MemAllocTopology.rank_comm.__doc__
 
 __all__ = [s for s in dir() if not s.startswith('_')]

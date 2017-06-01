@@ -17,7 +17,7 @@ Classes
 
    IndexingExtentTest - Tests for :obj:`mpi_array.decomposition.IndexingExtent`.
    DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
-   MemNodeTopologyTest - Tests for :obj:`mpi_array.decomposition.MemNodeTopology`.
+   MemAllocTopologyTest - Tests for :obj:`mpi_array.decomposition.MemAllocTopology`.
    DecompositionTest - Tests for :obj:`mpi_array.decomposition.Decomposition`.
 
 
@@ -30,7 +30,7 @@ import mpi_array as _mpi_array
 
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import IndexingExtent, DecompExtent, MemNodeTopology, Decomposition
+from mpi_array.decomposition import IndexingExtent, DecompExtent, MemAllocTopology, Decomposition
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -44,7 +44,7 @@ class IndexingExtentTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.IndexingExtentTest`.
     """
 
-    def testAttributes(self):
+    def test_attributes(self):
         """
         Tests :attr:`mpi_array.decomposition.IndexingExtent.start`
         and :attr:`mpi_array.decomposition.IndexingExtent.stop`
@@ -71,7 +71,7 @@ class IndexingExtentTest(_unittest.TestCase):
         self.assertTrue(_np.all(ie.start == (10, 25)))
         self.assertTrue(_np.all(ie.stop == (32, 55)))
 
-    def testIntersection1d(self):
+    def test_intersection_1d(self):
         """
         Tests :meth:`mpi_array.decomposition.IndexingExtent.calc_intersection` method, 1D indexing.
         """
@@ -113,7 +113,7 @@ class IndexingExtentTest(_unittest.TestCase):
         iei = ie0.calc_intersection(ie1)
         self.assertEqual(None, iei)
 
-    def testIntersection2d(self):
+    def test_intersection_2d(self):
         """
         Tests :meth:`mpi_array.decomposition.IndexingExtent.calc_intersection` method, 2D indexing.
         """
@@ -157,7 +157,7 @@ class DecompExtentTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.DecompExtent`.
     """
 
-    def testConstructAttribs(self):
+    def test_construct_attribs(self):
         """
         Assertions for properties.
         """
@@ -176,7 +176,7 @@ class DecompExtentTest(_unittest.TestCase):
         self.assertTrue(_np.all(de.cart_shape == (1,)))
         self.assertTrue(_np.all(de.halo == 0))
 
-    def testExtentCalcs1dThickTiles(self):
+    def test_extent_calcs_1d_thick_tiles(self):
         """
         Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
         and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
@@ -248,7 +248,7 @@ class DecompExtentTest(_unittest.TestCase):
             de[2].no_halo_extent(0)
         )
 
-    def testExtentCalcs1dThinTiles(self):
+    def test_extent_calcs_1d_thin_tiles(self):
         """
         Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
         and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
@@ -354,7 +354,7 @@ class DecompExtentTest(_unittest.TestCase):
             de[4].no_halo_extent(0)
         )
 
-    def testExtentCalcs2dThickTiles(self):
+    def test_extent_calcs_2d_thick_tiles(self):
         """
         Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
         and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
@@ -637,44 +637,44 @@ class DecompExtentTest(_unittest.TestCase):
         )
 
 
-class MemNodeTopologyTest(_unittest.TestCase):
+class MemAllocTopologyTest(_unittest.TestCase):
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.MemNodeTopology`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.MemAllocTopology`.
     """
 
-    def testConstructInvalidDims(self):
+    def test_construct_invalid_dims(self):
         mnt = None
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology()
+            mnt = MemAllocTopology()
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(ndims=None, dims=None)
+            mnt = MemAllocTopology(ndims=None, dims=None)
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(dims=tuple(), ndims=1)
+            mnt = MemAllocTopology(dims=tuple(), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(dims=tuple([0, 2]), ndims=1)
+            mnt = MemAllocTopology(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemNodeTopology(dims=tuple([1, 2]), ndims=3)
+            mnt = MemAllocTopology(dims=tuple([1, 2]), ndims=3)
 
         self.assertEqual(None, mnt)
 
-    def testConstructShared(self):
-        mnt = MemNodeTopology(ndims=1)
+    def test_construct_shared(self):
+        mnt = MemAllocTopology(ndims=1)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
-        mnt = MemNodeTopology(ndims=4)
+        mnt = MemAllocTopology(ndims=4)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
-        mnt = MemNodeTopology(dims=(0,))
+        mnt = MemAllocTopology(dims=(0,))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
-        mnt = MemNodeTopology(dims=(0, 0))
+        mnt = MemAllocTopology(dims=(0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
-        mnt = MemNodeTopology(dims=(0, 0, 0))
+        mnt = MemAllocTopology(dims=(0, 0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
 
-    def testConstructNoShared(self):
-        mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+    def test_construct_no_shared(self):
+        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
         self.assertEqual(1, mnt.shared_mem_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
@@ -685,14 +685,14 @@ class DecompositionTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.Decomposition`.
     """
 
-    def testConstruct1d(self):
+    def test_construct_1d(self):
         """
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._mem_node_topology)
 
-        mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition((8 * _mpi.COMM_WORLD.size,), mem_node_topology=mnt)
 
@@ -701,14 +701,14 @@ class DecompositionTest(_unittest.TestCase):
         root_logger.info(str(decomp))
         root_logger.info("END   " + self.id())
 
-    def testConstruct1dWithHalo(self):
+    def test_construct_1d_with_halo(self):
         """
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._mem_node_topology)
 
-        mnt = MemNodeTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),), mem_node_topology=mnt)
 
@@ -717,14 +717,14 @@ class DecompositionTest(_unittest.TestCase):
         root_logger.info(str(decomp))
         root_logger.info("END   " + self.id())
 
-    def testConstruct2d(self):
+    def test_construct_2d(self):
         """
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._mem_node_topology)
 
-        mnt = MemNodeTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
@@ -736,7 +736,7 @@ class DecompositionTest(_unittest.TestCase):
         root_logger.info(str(decomp))
         root_logger.info("END   " + self.id())
 
-    def testConstruct2dWithHalo(self):
+    def test_construct_2d_with_halo(self):
         """
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
@@ -747,7 +747,7 @@ class DecompositionTest(_unittest.TestCase):
             )
         self.assertNotEqual(None, decomp._mem_node_topology)
 
-        mnt = MemNodeTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
