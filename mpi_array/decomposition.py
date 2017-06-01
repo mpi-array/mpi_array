@@ -473,7 +473,7 @@ class DecompExtent(HaloIndexingExtent):
         self._array_shape = _np.array(array_shape, dtype=self._cart_coord.dtype)
         HaloIndexingExtent.__init__(self, slice, halo=None)
         halo = convert_halo_to_array_form(halo, ndim=len(self._cart_coord))
-        if (bounds_policy == ARRAY_BOUNDS):
+        if bounds_policy == ARRAY_BOUNDS:
             # Make the halo
             halo = \
                 _np.array(
@@ -689,7 +689,7 @@ class Decomposition(object):
         self,
         shape,
         halo=0,
-        mem_node_topology=None,
+        mem_alloc_topology=None,
     ):
         """
         Create a partitioning of :samp:`{shape}` over memory-nodes.
@@ -699,15 +699,15 @@ class Decomposition(object):
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low and high indices can be different).
-        :type mem_node_topology: :obj:`MemAllocTopology`
-        :param mem_node_topology: Object which defines how array
+        :type mem_alloc_topology: :obj:`MemAllocTopology`
+        :param mem_alloc_topology: Object which defines how array
            memory is allocated (distributed) over memory nodes and
            the cartesian topology communicator used to exchange (halo)
            data. If :samp:`None` uses :samp:`MemAllocTopology(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
         self._shape = None
-        self._mem_node_topology = mem_node_topology
+        self._mem_alloc_topology = mem_alloc_topology
         self._shape_decomp = None
 
         self.recalculate(shape, halo)
@@ -721,18 +721,18 @@ class Decomposition(object):
         :type new_halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len{new_shape, 2))` array.
         :param new_halo: New partition calculated for this shape.
         """
-        if self._mem_node_topology is None:
-            self._mem_node_topology = MemAllocTopology(ndims=len(new_shape))
+        if self._mem_alloc_topology is None:
+            self._mem_alloc_topology = MemAllocTopology(ndims=len(new_shape))
         elif (self._shape is not None) and (len(self._shape) != len(new_shape)):
             self._shape = _np.array(new_shape)
-            self._mem_node_topology = MemAllocTopology(ndims=self._shape.size)
+            self._mem_alloc_topology = MemAllocTopology(ndims=self._shape.size)
         self._shape = _np.array(new_shape)
         self._halo = new_halo
 
         shape_splitter = \
             _array_split.ShapeSplitter(
                 array_shape=self._shape,
-                axis=self._mem_node_topology.dims,
+                axis=self._mem_alloc_topology.dims,
                 halo=0
             )
 
@@ -817,35 +817,35 @@ class Decomposition(object):
         """
         See :attr:`MemAllocTopology.num_shared_mem_nodes`.
         """
-        return self._mem_node_topology.num_shared_mem_nodes
+        return self._mem_alloc_topology.num_shared_mem_nodes
 
     @property
     def shared_mem_comm(self):
         """
         See :attr:`MemAllocTopology.shared_mem_comm`.
         """
-        return self._mem_node_topology.shared_mem_comm
+        return self._mem_alloc_topology.shared_mem_comm
 
     @property
     def cart_comm(self):
         """
         See :attr:`MemAllocTopology.cart_comm`.
         """
-        return self._mem_node_topology.cart_comm
+        return self._mem_alloc_topology.cart_comm
 
     @property
     def have_valid_cart_comm(self):
         """
         See :attr:`MemAllocTopology.have_valid_cart_comm`.
         """
-        return self._mem_node_topology.have_valid_cart_comm
+        return self._mem_alloc_topology.have_valid_cart_comm
 
     @property
     def rank_comm(self):
         """
         See :attr:`MemAllocTopology.rank_comm`.
         """
-        return self._mem_node_topology.rank_comm
+        return self._mem_alloc_topology.rank_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):

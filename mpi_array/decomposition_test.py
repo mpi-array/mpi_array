@@ -690,11 +690,11 @@ class DecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
-        self.assertNotEqual(None, decomp._mem_node_topology)
+        self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition((8 * _mpi.COMM_WORLD.size,), mem_node_topology=mnt)
+            Decomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
         root_logger.info("START " + self.id())
@@ -706,11 +706,11 @@ class DecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
-        self.assertNotEqual(None, decomp._mem_node_topology)
+        self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),), mem_node_topology=mnt)
+            Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),), mem_alloc_topology=mnt)
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
         root_logger.info("START " + self.id())
@@ -722,13 +722,13 @@ class DecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.Decomposition` construction.
         """
         decomp = Decomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
-        self.assertNotEqual(None, decomp._mem_node_topology)
+        self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                mem_node_topology=mnt
+                mem_alloc_topology=mnt
             )
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
@@ -745,14 +745,14 @@ class DecompositionTest(_unittest.TestCase):
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((2, 2), (4, 4))
             )
-        self.assertNotEqual(None, decomp._mem_node_topology)
+        self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
             Decomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((1, 2), (3, 4)),
-                mem_node_topology=mnt
+                mem_alloc_topology=mnt
             )
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
