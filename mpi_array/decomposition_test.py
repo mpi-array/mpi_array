@@ -18,7 +18,7 @@ Classes
    IndexingExtentTest - Tests for :obj:`mpi_array.decomposition.IndexingExtent`.
    DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
    MemAllocTopologyTest - Tests for :obj:`mpi_array.decomposition.MemAllocTopology`.
-   DecompositionTest - Tests for :obj:`mpi_array.decomposition.Decomposition`.
+   CartesianDecompositionTest - Tests for :obj:`mpi_array.decomposition.CartesianDecomposition`.
 
 
 """
@@ -30,7 +30,8 @@ import mpi_array as _mpi_array
 
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import IndexingExtent, DecompExtent, MemAllocTopology, Decomposition
+from mpi_array.decomposition import IndexingExtent, DecompExtent, MemAllocTopology
+from mpi_array.decomposition import CartesianDecomposition
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -680,21 +681,21 @@ class MemAllocTopologyTest(_unittest.TestCase):
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
-class DecompositionTest(_unittest.TestCase):
+class CartesianDecompositionTest(_unittest.TestCase):
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.Decomposition`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartesianDecomposition`.
     """
 
     def test_construct_1d(self):
         """
-        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
-        decomp = Decomposition((8 * _mpi.COMM_WORLD.size,))
+        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
+            CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
         root_logger.info("START " + self.id())
@@ -703,14 +704,18 @@ class DecompositionTest(_unittest.TestCase):
 
     def test_construct_1d_with_halo(self):
         """
-        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
-        decomp = Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
+        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),), mem_alloc_topology=mnt)
+            CartesianDecomposition(
+                (8 * _mpi.COMM_WORLD.size,),
+                halo=((2, 4),),
+                mem_alloc_topology=mnt
+            )
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
         root_logger.info("START " + self.id())
@@ -719,14 +724,14 @@ class DecompositionTest(_unittest.TestCase):
 
     def test_construct_2d(self):
         """
-        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
-        decomp = Decomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
+        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
         mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition(
+            CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 mem_alloc_topology=mnt
             )
@@ -738,10 +743,10 @@ class DecompositionTest(_unittest.TestCase):
 
     def test_construct_2d_with_halo(self):
         """
-        Test :obj:`mpi_array.decomposition.Decomposition` construction.
+        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
         decomp = \
-            Decomposition(
+            CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((2, 2), (4, 4))
             )
@@ -749,7 +754,7 @@ class DecompositionTest(_unittest.TestCase):
 
         mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
         decomp = \
-            Decomposition(
+            CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((1, 2), (3, 4)),
                 mem_alloc_topology=mnt

@@ -16,7 +16,7 @@ Classes and Functions
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    SharedMemInfo - Shared-memory communicator generation.
    MemAllocTopology - Topology of MPI processes which allocate shared memory.
-   Decomposition - Partition of an array *shape* overs MPI processes and/or nodes.
+   CartesianDecomposition - Partition of an array *shape* overs MPI processes and/or nodes.
 
 
 """
@@ -680,7 +680,7 @@ class HalosUpdate(object):
                         break
 
 
-class Decomposition(object):
+class CartesianDecomposition(object):
     """
     Partitions an array-shape over MPI memory-nodes.
     """
@@ -742,6 +742,7 @@ class Decomposition(object):
 
         self._cart_rank_to_extents_dict = None
         self._halo_updates_dict = None
+        self._lndarray_extent = None
         if self.have_valid_cart_comm:
             cart_dims = _np.array(self.cart_comm.dims)
             self._cart_rank_to_extents_dict = dict()
@@ -761,6 +762,47 @@ class Decomposition(object):
             for cart_rank in range(0, self.cart_comm.size):
                 self._halo_updates_dict[cart_rank] = \
                     HalosUpdate(cart_rank, self._cart_rank_to_extents_dict)
+            self._lndarray_extent = self._cart_rank_to_extents_dict[self.cart_comm.rank]
+
+        self._lndarray_extent = self.shared_mem_comm.bcast(self._lndarray_extent, 0)
+
+    def alloc_local_buffer(self, shape, dtype):
+        """
+        """
+        num_rank_bytes = 0
+        dtype = _np.dtype(dtype)
+        if self.shared_mem_comm.rank == 0:
+            if (self.num_shared_mem_nodes > 1) and (not self.have_valid_cart_comm):
+                raise ValueError("Root rank (=0) on shared_mem_comm does not have valid cart_comm.")
+            if self.num_shared_mem_nodes > 1:
+                rank_shape = self._cart_rank_to_extents_dict[self.cart_comm.rank].shape_h
+            else:
+                rank_shape = self.shape
+            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+
+        if _mpi.VERSION >= 3:
+            self._shared_mem_win = \
+                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.shared_mem_comm)
+            buffer, itemsize = self._shared_mem_win.Shared_query(0)
+            self._rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
+        else:
+            self._rank_win = \
+                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
+            self._shared_mem_win = self._rank_win
+            buffer = self._rank_win.memory
+            itemsize = dtype.itemsize
+
+        self._cart_win = None
+        lndarray_shape = self.shape
+        if self.num_shared_mem_nodes > 1:
+            self._cart_win = _mpi.WIN_NULL
+            if self.have_valid_cart_comm:
+                self._cart_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
+            lndarray_shape = self._lndarray_extent.shape_h
+
+        buffer = _np.array(buffer, dtype='B', copy=False)
+
+        return buffer, itemsize, lndarray_shape
 
     def __str__(self):
         """
@@ -850,10 +892,12 @@ class Decomposition(object):
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    Decomposition.num_shared_mem_nodes.__doc__ = MemAllocTopology.num_shared_mem_nodes.__doc__
-    Decomposition.shared_mem_comm.__doc__ = MemAllocTopology.shared_mem_comm.__doc__
-    Decomposition.cart_comm.__doc__ = MemAllocTopology.cart_comm.__doc__
-    Decomposition.have_valid_cart_comm.__doc__ = MemAllocTopology.have_valid_cart_comm.__doc__
-    Decomposition.rank_comm.__doc__ = MemAllocTopology.rank_comm.__doc__
+    CartesianDecomposition.num_shared_mem_nodes.__doc__ = \
+        MemAllocTopology.num_shared_mem_nodes.__doc__
+    CartesianDecomposition.shared_mem_comm.__doc__ = MemAllocTopology.shared_mem_comm.__doc__
+    CartesianDecomposition.cart_comm.__doc__ = MemAllocTopology.cart_comm.__doc__
+    CartesianDecomposition.have_valid_cart_comm.__doc__ = \
+        MemAllocTopology.have_valid_cart_comm.__doc__
+    CartesianDecomposition.rank_comm.__doc__ = MemAllocTopology.rank_comm.__doc__
 
 __all__ = [s for s in dir() if not s.startswith('_')]
