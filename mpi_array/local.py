@@ -79,14 +79,15 @@ class NdarrayMetaData(object):
 
 class lndarray(_np.ndarray):
     """
-    Sub-class of :obj:`np.ndarray` for use with the :obj:`mpi4py` parallel processing.
+    Sub-class of :obj:`np.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
+    to allocate buffer memory.
     Allocates a shared memory buffer using :func:`mpi4py.MPI.Win.Allocate_shared`.
     (if available, otherwise uses :func:`mpi4py.MPI.Win.Allocate`).
     """
 
     def __new__(
         cls,
-        shape,
+        shape=None,
         dtype=_np.dtype("float64"),
         buffer=None,
         offset=0,
@@ -113,6 +114,9 @@ class lndarray(_np.ndarray):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
+        :type decomp: :obj:`mpi_array.decomposition.Decomposition`
+        :param decomp: Array decomposition info and used to allocate (possibly)
+           shared memory.
         """
         if (shape is not None) and (decomp is None):
             decomp = _CartDecomp(shape)
@@ -273,7 +277,7 @@ def zeros(shape, dtype="float64", decomp=None, order='C'):
     :return: Newly created array with zero-initialised elements.
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view_n()[...] = _np.zeros(1, dtype)
+    ary.rank_view_n[...] = _np.zeros(1, dtype)
 
     return ary
 
@@ -282,11 +286,11 @@ def zeros_like(ary, *args, **kwargs):
     """
     Return a new zero-initialised array with the same shape and type as a given array.
 
-    :type ary: :obj:`numpy.ndarray`
+    :type ary: :obj:`lndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
-    :rtype: :samp:`type(ary)`
+    :rtype: :obj:`lndarray`
     :return: Array of zero-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
@@ -310,7 +314,7 @@ def ones(shape, dtype="float64", decomp=None, order='C'):
     :return: Newly created array with one-initialised elements.
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view()[...] = _np.ones(1, dtype)
+    ary.rank_view_n[...] = _np.ones(1, dtype)
 
     return ary
 
@@ -319,11 +323,11 @@ def ones_like(ary, *args, **kwargs):
     """
     Return a new one-initialised array with the same shape and type as a given array.
 
-    :type ary: :obj:`numpy.ndarray`
+    :type ary: :obj:`lndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
-    :rtype: :samp:`type(ary)`
+    :rtype: :obj:`lndarray`
     :return: Array of one-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
@@ -336,9 +340,9 @@ def copy(ary):
     """
     Return an array copy of the given object.
 
-    :type ary: `numpy.ndarray`
+    :type ary: :obj:`lndarray`
     :param ary: Array to copy.
-    :rtype: :samp:`type(ary)`
+    :rtype: :obj:`lndarray`
     :return: A copy of :samp:`ary`.
     """
     ary_out = empty_like(ary)

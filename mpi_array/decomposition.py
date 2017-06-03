@@ -719,6 +719,11 @@ class CartesianDecomposition(object):
         self.recalculate(shape, halo)
 
     def calculate_rank_view_slices(self):
+        """
+        Splits local array into :samp:`self.shared_mem_comm.size` number
+        of tiles. Assigns :attr:`rank_view_slice_n` and :attr:`rank_view_slice_h`
+        to :obj:`tuple`-of-:obj:`slice` corresponding to the tile for this MPI rank.
+        """
         shape_splitter = \
             _array_split.ShapeSplitter(
                 array_shape=self._lndarray_extent.shape_n,
@@ -727,7 +732,7 @@ class CartesianDecomposition(object):
                 array_start=self._lndarray_extent.start_n
             )
         split = shape_splitter.calculate_split()
-        rank_extent_n = IndexingExtent(split.flatten()[self.rank_comm.rank])
+        rank_extent_n = IndexingExtent(split.flatten()[self.shared_mem_comm.rank])
         rank_extent_h = \
             IndexingExtent(
                 start=_np.maximum(
