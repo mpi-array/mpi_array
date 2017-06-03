@@ -739,7 +739,7 @@ class CartesianDecomposition(object):
                     self._lndarray_extent.stop_h
                 )
             )
-        
+
         # Convert rank_extent_n and rank_extent_h from global-indices
         # to local-indices
         rank_extent_n = \
@@ -817,8 +817,8 @@ class CartesianDecomposition(object):
             self._lndarray_extent = \
                     DecompExtent(
                         cart_rank=0,
-                        cart_coord=[0,]*len(self._shape),
-                        cart_shape=[1,]*len(self._shape),
+                        cart_coord=[0, ] * len(self._shape),
+                        cart_shape=[1, ] * len(self._shape),
                         array_shape=self._shape,
                         slice=slice_tuple,
                         halo=self._halo,
@@ -828,16 +828,15 @@ class CartesianDecomposition(object):
         self._lndarray_extent = self.shared_mem_comm.bcast(self._lndarray_extent, 0)
         self.calculate_rank_view_slices()
 
-
     def alloc_local_buffer(self, dtype):
         """
         Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
         provides storage for the elements of the local (memory-node) multi-dimensional array.
-        
+
         :rtype: :obj:`tuple`
         :returns: A :obj:`tuple` of :samp:`(buffer, itemsize, shape)`, where :samp:`buffer`
            is the allocated memory for the array, :samp:`itemsize` is :samp:`dtype.itemsize`
-           and :samp:`shape` is the shape of the :samp:`numpy.ndarray`. 
+           and :samp:`shape` is the shape of the :samp:`numpy.ndarray`.
         """
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
@@ -965,7 +964,7 @@ class CartesianDecomposition(object):
         See :attr:`MemAllocTopology.rank_comm`.
         """
         return self._mem_alloc_topology.rank_comm
-    
+
     @property
     def rank_view_slice_n(self):
         """
@@ -981,6 +980,7 @@ class CartesianDecomposition(object):
         associated with this MPI process (i.e. rank :samp:`self.rank_comm.rank`).
         """
         return self._rank_view_slice_h
+
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.

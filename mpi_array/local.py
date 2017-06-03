@@ -157,7 +157,7 @@ class lndarray(_np.ndarray):
                 strides,
                 order
             )
-        self._md = NdarrayMetaData(offset=offset,strides=strides, order=order)
+        self._md = NdarrayMetaData(offset=offset, strides=strides, order=order)
         self._decomp = decomp
 
         return self
@@ -221,7 +221,7 @@ class lndarray(_np.ndarray):
 def empty(shape=None, dtype="float64", decomp=None, order='C'):
     """
     Creates array of uninitialised elements.
-    
+
     :type shape: :samp:`None` or sequence of :obj:`int`
     :param shape: **Global** shape to be distributed amongst
        memory nodes.
@@ -240,13 +240,13 @@ def empty(shape=None, dtype="float64", decomp=None, order='C'):
 def empty_like(ary, dtype=None):
     """
     Return a new array with the same shape and type as a given array.
-    
+
     :type ary: :obj:`numpy.ndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :rtype: :samp:`type(ary)`
-    :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{a}`. 
+    :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{a}`.
     """
     if dtype is None:
         dtype = ary.dtype
@@ -261,7 +261,7 @@ def empty_like(ary, dtype=None):
 def zeros(shape, dtype="float64", decomp=None, order='C'):
     """
     Creates array of zero-initialised elements.
-    
+
     :type shape: :samp:`None` or sequence of :obj:`int`
     :param shape: **Global** shape to be distributed amongst
        memory nodes.
@@ -281,7 +281,7 @@ def zeros(shape, dtype="float64", decomp=None, order='C'):
 def zeros_like(ary, *args, **kwargs):
     """
     Return a new zero-initialised array with the same shape and type as a given array.
-    
+
     :type ary: :obj:`numpy.ndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
@@ -298,7 +298,7 @@ def zeros_like(ary, *args, **kwargs):
 def ones(shape, dtype="float64", decomp=None, order='C'):
     """
     Creates array of one-initialised elements.
-    
+
     :type shape: :samp:`None` or sequence of :obj:`int`
     :param shape: **Global** shape to be distributed amongst
        memory nodes.
@@ -318,7 +318,7 @@ def ones(shape, dtype="float64", decomp=None, order='C'):
 def ones_like(ary, *args, **kwargs):
     """
     Return a new one-initialised array with the same shape and type as a given array.
-    
+
     :type ary: :obj:`numpy.ndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
@@ -335,14 +335,14 @@ def ones_like(ary, *args, **kwargs):
 def copy(ary):
     """
     Return an array copy of the given object.
-    
+
     :type ary: `numpy.ndarray`
     :param ary: Array to copy.
     :rtype: :samp:`type(ary)`
     :return: A copy of :samp:`ary`.
     """
-    ary_out = empty(dtype=ary_in.dtype, decomp=ary_in.decomp)
-    ary_out[...] = ary[...]
+    ary_out = empty_like(ary)
+    ary_out.rank_view_n[...] = ary.rank_view_n[...]
 
     return ary_out
 
