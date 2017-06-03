@@ -17,5 +17,19 @@
       :toctree: generated/methods
 
       ~lndarray.__new__
+      ~lndarray.__array_finalize__
+
+   {% endblock %}
+
+   {% block attributes %}
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+      
+      ~lndarray.md
+      ~lndarray.decomp
+      ~lndarray.rank_view_h
+      ~lndarray.rank_view_n
 
    {% endblock %}

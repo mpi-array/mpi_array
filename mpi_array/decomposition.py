@@ -28,7 +28,7 @@ import mpi4py.MPI as _mpi
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
-from array_split.split import convert_halo_to_array_form
+from array_split.split import convert_halo_to_array_form, shape_factors as _shape_factors
 import numpy as _np
 
 __author__ = "Shane J. Latham"
@@ -685,6 +685,12 @@ class CartesianDecomposition(object):
     Partitions an array-shape over MPI memory-nodes.
     """
 
+    #: The "low index" indices.
+    LO = HaloIndexingExtent.LO
+
+    #: The "high index" indices.
+    HI = HaloIndexingExtent.HI
+
     def __init__(
         self,
         shape,
@@ -711,6 +717,49 @@ class CartesianDecomposition(object):
         self._shape_decomp = None
 
         self.recalculate(shape, halo)
+
+    def calculate_rank_view_slices(self):
+        shape_splitter = \
+            _array_split.ShapeSplitter(
+                array_shape=self._lndarray_extent.shape_n,
+                axis=_shape_factors(self.shared_mem_comm.size, self.ndim)[::-1],
+                halo=0,
+                array_start=self._lndarray_extent.start_n
+            )
+        split = shape_splitter.calculate_split()
+        rank_extent_n = IndexingExtent(split.flatten()[self.rank_comm.rank])
+        rank_extent_h = \
+            IndexingExtent(
+                start=_np.maximum(
+                    rank_extent_n.start - self._halo[:, self.LO],
+                    self._lndarray_extent.start_h
+                ),
+                stop=_np.minimum(
+                    rank_extent_n.stop - self._halo[:, self.HI],
+                    self._lndarray_extent.stop_h
+                )
+            )
+        
+        # Convert rank_extent_n and rank_extent_h from global-indices
+        # to local-indices
+        rank_extent_n = \
+            IndexingExtent(
+                start=rank_extent_n.start - self._lndarray_extent.start_n,
+                stop=rank_extent_n.stop - self._lndarray_extent.start_n,
+            )
+        rank_extent_h = \
+            IndexingExtent(
+                start=rank_extent_h.start - self._lndarray_extent.start_n,
+                stop=rank_extent_h.stop - self._lndarray_extent.start_n,
+            )
+        self._rank_view_slice_n = \
+            tuple(
+                [slice(rank_extent_n.start[i], rank_extent_n.stop[i]) for i in range(self.ndim)]
+            )
+        self._rank_view_slice_h = \
+            tuple(
+                [slice(rank_extent_h.start[i], rank_extent_h.stop[i]) for i in range(self.ndim)]
+            )
 
     def recalculate(self, new_shape, new_halo):
         """
@@ -763,11 +812,32 @@ class CartesianDecomposition(object):
                 self._halo_updates_dict[cart_rank] = \
                     HalosUpdate(cart_rank, self._cart_rank_to_extents_dict)
             self._lndarray_extent = self._cart_rank_to_extents_dict[self.cart_comm.rank]
+        elif self.num_shared_mem_nodes <= 1:
+            slice_tuple = tuple([slice(0, self._shape[i]) for i in range(len(self._shape))])
+            self._lndarray_extent = \
+                    DecompExtent(
+                        cart_rank=0,
+                        cart_coord=[0,]*len(self._shape),
+                        cart_shape=[1,]*len(self._shape),
+                        array_shape=self._shape,
+                        slice=slice_tuple,
+                        halo=self._halo,
+                        bounds_policy=shape_splitter.tile_bounds_policy
+                    )  # noqa: E123
 
         self._lndarray_extent = self.shared_mem_comm.bcast(self._lndarray_extent, 0)
+        self.calculate_rank_view_slices()
 
-    def alloc_local_buffer(self, shape, dtype):
+
+    def alloc_local_buffer(self, dtype):
         """
+        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
+        provides storage for the elements of the local (memory-node) multi-dimensional array.
+        
+        :rtype: :obj:`tuple`
+        :returns: A :obj:`tuple` of :samp:`(buffer, itemsize, shape)`, where :samp:`buffer`
+           is the allocated memory for the array, :samp:`itemsize` is :samp:`dtype.itemsize`
+           and :samp:`shape` is the shape of the :samp:`numpy.ndarray`. 
         """
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
@@ -821,6 +891,13 @@ class CartesianDecomposition(object):
                         )
                     ]
         return ", ".join(s)
+
+    @property
+    def ndim(self):
+        """
+        Dimension of array.
+        """
+        return self._shape.size
 
     @property
     def halo(self):
@@ -888,7 +965,22 @@ class CartesianDecomposition(object):
         See :attr:`MemAllocTopology.rank_comm`.
         """
         return self._mem_alloc_topology.rank_comm
+    
+    @property
+    def rank_view_slice_n(self):
+        """
+        A :obj:`tuple` of :obj:`slice` indicating the tile (no halo)
+        associated with this MPI process (i.e. rank :samp:`self.rank_comm.rank`).
+        """
+        return self._rank_view_slice_n
 
+    @property
+    def rank_view_slice_h(self):
+        """
+        A :obj:`tuple` of :obj:`slice` indicating the tile (including halo)
+        associated with this MPI process (i.e. rank :samp:`self.rank_comm.rank`).
+        """
+        return self._rank_view_slice_h
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
