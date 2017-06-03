@@ -27,7 +27,7 @@ import mpi_array as _mpi_array
 
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology
+from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, IndexingExtent
 import mpi_array.local
 
 __author__ = "Shane J. Latham"
@@ -49,6 +49,10 @@ class LndarrayTest(_unittest.TestCase):
         lary = mpi_array.local.empty(decomp=decomp, dtype="int64")
 
         self.assertEqual(_np.dtype("int64"), lary.dtype)
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(lary.decomp.rank_view_slice_n).shape)
+        )
 
     def test_empty_non_shared_1d(self):
         lshape = (10,)
@@ -60,7 +64,56 @@ class LndarrayTest(_unittest.TestCase):
 
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         self.assertSequenceEqual(list(lshape), list(lary.shape))
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(lary.decomp.rank_view_slice_n).shape)
+        )
 
+    def test_zeros_shared_1d(self):
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        lary = mpi_array.local.zeros(decomp=decomp, dtype="int64")
+
+        self.assertEqual(_np.dtype("int64"), lary.dtype)
+        lary.decomp.rank_comm.barrier()
+        self.assertTrue(_np.all(lary == 0))
+
+    def test_zeros_non_shared_1d(self):
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        lary = mpi_array.local.zeros(decomp=decomp, dtype="int64")
+
+        self.assertEqual(_np.dtype("int64"), lary.dtype)
+        lary.decomp.rank_comm.barrier()
+        self.assertTrue(_np.all(lary == 0))
+
+    def test_ones_shared_1d(self):
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        lary = mpi_array.local.ones(decomp=decomp, dtype="int64")
+
+        self.assertEqual(_np.dtype("int64"), lary.dtype)
+        lary.decomp.rank_comm.barrier()
+        self.assertTrue(_np.all(lary == 1))
+
+    def test_ones_non_shared_1d(self):
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        lary = mpi_array.local.ones(decomp=decomp, dtype="int64")
+
+        self.assertEqual(_np.dtype("int64"), lary.dtype)
+        lary.decomp.rank_comm.barrier()
+        self.assertTrue(_np.all(lary == 1))
 
 _unittest.main(__name__)
 

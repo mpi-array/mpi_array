@@ -262,7 +262,7 @@ def empty_like(ary, dtype=None):
     return ret_ary
 
 
-def zeros(shape, dtype="float64", decomp=None, order='C'):
+def zeros(shape=None, dtype="float64", decomp=None, order='C'):
     """
     Creates array of zero-initialised elements.
 
@@ -299,7 +299,7 @@ def zeros_like(ary, *args, **kwargs):
     return ary
 
 
-def ones(shape, dtype="float64", decomp=None, order='C'):
+def ones(shape=None, dtype="float64", decomp=None, order='C'):
     """
     Creates array of one-initialised elements.
 
