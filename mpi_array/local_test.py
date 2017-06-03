@@ -115,6 +115,7 @@ class LndarrayTest(_unittest.TestCase):
         lary.decomp.rank_comm.barrier()
         self.assertTrue(_np.all(lary == 1))
 
+
 _unittest.main(__name__)
 
 
