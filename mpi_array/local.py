@@ -219,7 +219,7 @@ class lndarray(_np.ndarray):
         #                 self.strides, self.offset, self.order)
 
     def __reduce__(self):
-        return self.__reduce_ex__(self, 0)
+        return self.__reduce_ex__(0)
 
 
 def empty(shape=None, dtype="float64", decomp=None, order='C'):

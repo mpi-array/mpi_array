@@ -644,40 +644,40 @@ class MemAllocTopologyTest(_unittest.TestCase):
     """
 
     def test_construct_invalid_dims(self):
-        mnt = None
+        mat = None
         with self.assertRaises(ValueError):
-            mnt = MemAllocTopology()
+            mat = MemAllocTopology()
         with self.assertRaises(ValueError):
-            mnt = MemAllocTopology(ndims=None, dims=None)
+            mat = MemAllocTopology(ndims=None, dims=None)
         with self.assertRaises(ValueError):
-            mnt = MemAllocTopology(dims=tuple(), ndims=1)
+            mat = MemAllocTopology(dims=tuple(), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemAllocTopology(dims=tuple([0, 2]), ndims=1)
+            mat = MemAllocTopology(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
-            mnt = MemAllocTopology(dims=tuple([1, 2]), ndims=3)
+            mat = MemAllocTopology(dims=tuple([1, 2]), ndims=3)
 
-        self.assertEqual(None, mnt)
+        self.assertEqual(None, mat)
 
     def test_construct_shared(self):
-        mnt = MemAllocTopology(ndims=1)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        mat = MemAllocTopology(ndims=1)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mnt = MemAllocTopology(ndims=4)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        mat = MemAllocTopology(ndims=4)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mnt = MemAllocTopology(dims=(0,))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        mat = MemAllocTopology(dims=(0,))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mnt = MemAllocTopology(dims=(0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        mat = MemAllocTopology(dims=(0, 0))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mnt = MemAllocTopology(dims=(0, 0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
+        mat = MemAllocTopology(dims=(0, 0, 0))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
     def test_construct_no_shared(self):
-        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mnt.rank_comm))
-        self.assertEqual(1, mnt.shared_mem_comm.size)
+        mat = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        self.assertEqual(1, mat.shared_mem_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 

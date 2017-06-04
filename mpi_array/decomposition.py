@@ -740,7 +740,7 @@ class CartesianDecomposition(object):
                     self._lndarray_extent.start_h
                 ),
                 stop=_np.minimum(
-                    rank_extent_n.stop - self._halo[:, self.HI],
+                    rank_extent_n.stop + self._halo[:, self.HI],
                     self._lndarray_extent.stop_h
                 )
             )
@@ -757,6 +757,12 @@ class CartesianDecomposition(object):
                 start=rank_extent_h.start - self._lndarray_extent.start_n,
                 stop=rank_extent_h.stop - self._lndarray_extent.start_n,
             )
+        rank_h_relative_extent_n = \
+            IndexingExtent(
+                start=rank_extent_n.start - rank_extent_h.start,
+                stop=rank_extent_n.start - rank_extent_h.start + rank_extent_n.shape,
+            )
+
         self._rank_view_slice_n = \
             tuple(
                 [slice(rank_extent_n.start[i], rank_extent_n.stop[i]) for i in range(self.ndim)]
@@ -764,6 +770,13 @@ class CartesianDecomposition(object):
         self._rank_view_slice_h = \
             tuple(
                 [slice(rank_extent_h.start[i], rank_extent_h.stop[i]) for i in range(self.ndim)]
+            )
+        self._rank_view_relative_slice_n = \
+            tuple(
+                [
+                    slice(rank_h_relative_extent_n.start[i], rank_h_relative_extent_n.stop[i])
+                    for i in range(self.ndim)
+                ]
             )
 
     def recalculate(self, new_shape, new_halo):
@@ -986,6 +999,23 @@ class CartesianDecomposition(object):
         """
         return self._rank_view_slice_h
 
+    @property
+    def rank_view_relative_slice_n(self):
+        """
+        A :obj:`tuple` of :obj:`slice` which can be used to *slice* (remove)
+        the halo from a halo rank view. For example::
+
+           import mpi_array.local
+           lary = mpi_array.local.zeros((10, 10, 100), dtype="float32")
+           _np.all(
+               lary.rank_view_h[lary.decomp.rank_view_relative_slice_n]
+               ==
+               lary.rank_view_n
+           )
+
+        """
+        return self._rank_view_relative_slice_n
+
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
@@ -996,5 +1026,6 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     CartesianDecomposition.have_valid_cart_comm.__doc__ = \
         MemAllocTopology.have_valid_cart_comm.__doc__
     CartesianDecomposition.rank_comm.__doc__ = MemAllocTopology.rank_comm.__doc__
+
 
 __all__ = [s for s in dir() if not s.startswith('_')]
