@@ -261,6 +261,7 @@ class LndarrayTest(_unittest.TestCase):
         lary = mpi_array.local.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         rank_logger = _logging.get_rank_logger(self.id(), comm=decomp.rank_comm)
+        rank_logger.info("========================================================")
         rank_logger.info("rank_view_slice_n = %s" % (lary.decomp.rank_view_slice_n,))
         rank_logger.info("rank_view_slice_h = %s" % (lary.decomp.rank_view_slice_h,))
         rank_logger.info(
@@ -275,6 +276,7 @@ class LndarrayTest(_unittest.TestCase):
             lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),
             lary.rank_view_n.tolist()
         )
+        rank_logger.info("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
 
 
 _unittest.main(__name__)

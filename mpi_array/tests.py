@@ -14,6 +14,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import unittest as _unittest
+from mpi_array.unittest import main as _unittest_main
 import doctest as _doctest  # noqa: E402,F401
 
 import os.path
@@ -60,4 +61,4 @@ def load_tests(loader, tests, pattern):
 __all__ = [s for s in dir() if not s.startswith('_')]
 
 if __name__ == "__main__":
-    _unittest.main()
+    _unittest_main(__name__)
