@@ -254,7 +254,7 @@ class LndarrayTest(_unittest.TestCase):
         and :meth:`mpi_array.local.lndarray.rank_view_h`.
         """
 
-        lshape = _np.array((10, 17, 6), dtype="int64")
+        lshape = _np.array((4, 3), dtype="int64")
         gshape = lshape * _shape_factors(_mpi.COMM_WORLD.size, lshape.size)
         decomp = CartesianDecomposition(shape=gshape, halo=2)
 
@@ -271,8 +271,9 @@ class LndarrayTest(_unittest.TestCase):
         lary.decomp.shared_mem_comm.barrier()
         if lary.decomp.shared_mem_comm.size > 1:
             self.assertTrue(_np.any(lary.rank_view_h != lary.decomp.rank_comm.rank))
-        self.assertTrue(
-            _np.all(lary.rank_view_h[lary.decomp.rank_view_relative_slice_n] == lary.rank_view_n)
+        self.assertSequenceEqual(
+            lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),
+            lary.rank_view_n.tolist()
         )
 
 
