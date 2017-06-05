@@ -36,6 +36,7 @@ import mpi4py.MPI as _mpi
 import sys
 import logging as _builtin_logging
 from logging import *  # noqa: F401,F403
+import copy as _copy
 
 if (sys.version_info[0] <= 2):
     from sets import Set as set
@@ -211,6 +212,31 @@ def get_handler_classes(logger):
     return list(set([h.__class__ for h in get_handlers(logger)]))
 
 
+class MultiLineFormatter(_builtin_logging.Formatter):
+    """
+    Over-rides :obj:`logging.Formatter.format` to format all lines
+    of a mulit-line log message.
+    """
+
+    #: Defines multiple lines.
+    multi_line_split_string = "\n"
+
+    def format(self, record):
+        """
+        Converts record to formatted string, each line of a multi-line
+        message string is individually formatted.
+        """
+        s_list = []
+        messages = record.getMessage().split(self.multi_line_split_string)
+        for msg in messages:
+            single_line_record = _copy.copy(record)
+            single_line_record.msg = msg
+            fs = _builtin_logging.Formatter.format(self, single_line_record)
+            s_list.append(fs)
+
+        return self.multi_line_split_string.join(s_list)
+
+
 class LoggerFactory (object):
     """
     Factory for generating :obj:`logging.Logger` instances.
@@ -234,7 +260,7 @@ class LoggerFactory (object):
         if (prefix_string is None):
             prefix_string = ""
         formatter = \
-            _builtin_logging.Formatter(
+            MultiLineFormatter(
                 "%(asctime)s|" + prefix_string + "%(message)s",
                 "%H:%M:%S"
             )
