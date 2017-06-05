@@ -29,12 +29,24 @@ import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
 from array_split.split import convert_halo_to_array_form, shape_factors as _shape_factors
+import mpi_array.logging as _logging
 import numpy as _np
+
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+
+
+def mpi_version():
+    """
+    Return the MPI API version.
+
+    :rtype: :obj:`int`
+    :return: MPI major version number.
+    """
+    return _mpi.VERSION
 
 
 class SharedMemInfo(object):
@@ -59,7 +71,7 @@ class SharedMemInfo(object):
         if comm is None:
             comm = _mpi.COMM_WORLD
         if shared_mem_comm is None:
-            if _mpi.VERSION >= 3:
+            if mpi_version() >= 3:
                 shared_mem_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
             else:
                 shared_mem_comm = comm.Split(comm.rank, key=comm.rank)
@@ -68,9 +80,7 @@ class SharedMemInfo(object):
 
         # Count the number of self._shared_mem_comm rank-0 processes
         # to work out how many communicators comm was split into.
-        is_rank_zero = 0
-        if self._shared_mem_comm.rank == 0:
-            is_rank_zero = 1
+        is_rank_zero = int(self._shared_mem_comm.rank == 0)
         self._num_shared_mem_nodes = comm.allreduce(is_rank_zero, _mpi.SUM)
 
     @property
@@ -302,6 +312,14 @@ class IndexingExtent(object):
             intersection_extent = None
 
         return intersection_extent
+
+    def to_slice(self):
+        """
+        Returns ":obj:`tuple` of :obj:`slice`" equivalent of this indexing extent.
+
+        :rtype: :obj:`tuple` of :obj:`slice` elements
+        :return: Tuple of slice equivalent to this indexing extent.
+        """
 
     def __repr__(self):
         """
@@ -715,6 +733,8 @@ class CartesianDecomposition(object):
         self._shape = None
         self._mem_alloc_topology = mem_alloc_topology
         self._shape_decomp = None
+        self._rank_logger = None
+        self._root_logger = None
 
         self.recalculate(shape, halo)
 
@@ -731,6 +751,7 @@ class CartesianDecomposition(object):
                 halo=0,
                 array_start=self._lndarray_extent.start_n
             )
+
         split = shape_splitter.calculate_split()
         rank_extent_n = IndexingExtent(split.flatten()[self.shared_mem_comm.rank])
         rank_extent_h = \
@@ -747,15 +768,16 @@ class CartesianDecomposition(object):
 
         # Convert rank_extent_n and rank_extent_h from global-indices
         # to local-indices
+        halo_lo = self._lndarray_extent.halo[:, self.LO]
         rank_extent_n = \
             IndexingExtent(
-                start=rank_extent_n.start - self._lndarray_extent.start_n,
-                stop=rank_extent_n.stop - self._lndarray_extent.start_n,
+                start=rank_extent_n.start - self._lndarray_extent.start_n + halo_lo,
+                stop=rank_extent_n.stop - self._lndarray_extent.start_n + halo_lo,
             )
         rank_extent_h = \
             IndexingExtent(
-                start=rank_extent_h.start - self._lndarray_extent.start_n,
-                stop=rank_extent_h.stop - self._lndarray_extent.start_n,
+                start=rank_extent_h.start - self._lndarray_extent.start_n + halo_lo,
+                stop=rank_extent_h.stop - self._lndarray_extent.start_n + halo_lo,
             )
         rank_h_relative_extent_n = \
             IndexingExtent(
@@ -844,6 +866,13 @@ class CartesianDecomposition(object):
                     )  # noqa: E123
 
         self._lndarray_extent = self.shared_mem_comm.bcast(self._lndarray_extent, 0)
+
+        self._lndarray_view_slice_n = \
+            IndexingExtent(
+                start=self._lndarray_extent.halo[:, self.LO],
+                stop=self._lndarray_extent.halo[:, self.LO] + self._lndarray_extent.shape_n
+            ).to_slice()
+
         self.calculate_rank_view_slices()
 
     def alloc_local_buffer(self, dtype):
@@ -867,7 +896,7 @@ class CartesianDecomposition(object):
                 rank_shape = self.shape
             num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
 
-        if _mpi.VERSION >= 3:
+        if (mpi_version() >= 3) and (self.shared_mem_comm.size > 1):
             self._shared_mem_win = \
                 _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.shared_mem_comm)
             buffer, itemsize = self._shared_mem_win.Shared_query(0)
@@ -1015,6 +1044,34 @@ class CartesianDecomposition(object):
 
         """
         return self._rank_view_relative_slice_n
+
+    @property
+    def lndarray_view_slice_n(self):
+        """
+        Indexing slice which can be used to generate a view of :obj:`mpi_array.local.lndarray`
+        which has the halo removed.
+        """
+        return self._lndarray_view_slice_n
+
+    @property
+    def rank_logger(self):
+        """
+        A :obj:`logging.Logger` for :attr:`rank_comm` communicator ranks.
+        """
+        if self._rank_logger is None:
+            self._rank_logger = \
+                _logging.get_rank_logger(self.__class__.__name__, comm=self.rank_comm)
+        return self._rank_logger
+
+    @property
+    def root_logger(self):
+        """
+        A :obj:`logging.Logger` for rank 0 of the :attr:`rank_comm` communicator.
+        """
+        if self._root_logger is None:
+            self._root_logger = \
+                _logging.get_root_logger(self.__class__.__name__, comm=self.rank_comm)
+        return self._root_logger
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):

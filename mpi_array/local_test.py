@@ -256,27 +256,48 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = _np.array((4, 3), dtype="int64")
         gshape = lshape * _shape_factors(_mpi.COMM_WORLD.size, lshape.size)
-        decomp = CartesianDecomposition(shape=gshape, halo=2)
 
-        lary = mpi_array.local.ones(decomp=decomp, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), lary.dtype)
-        rank_logger = _logging.get_rank_logger(self.id(), comm=decomp.rank_comm)
-        rank_logger.info("========================================================")
-        rank_logger.info("rank_view_slice_n = %s" % (lary.decomp.rank_view_slice_n,))
-        rank_logger.info("rank_view_slice_h = %s" % (lary.decomp.rank_view_slice_h,))
-        rank_logger.info(
-            "rank_view_relative_slice_n = %s" % (lary.decomp.rank_view_relative_slice_n,)
-        )
+        mats = \
+            [
+                None,
+                MemAllocTopology(
+                    ndims=gshape.size,
+                    rank_comm=_mpi.COMM_WORLD,
+                    shared_mem_comm=_mpi.COMM_SELF
+                )
+            ]
+        for mat in mats:
+            decomp = CartesianDecomposition(shape=gshape, halo=2, mem_alloc_topology=mat)
 
-        lary.rank_view_n[...] = lary.decomp.rank_comm.rank
-        lary.decomp.shared_mem_comm.barrier()
-        if lary.decomp.shared_mem_comm.size > 1:
-            self.assertTrue(_np.any(lary.rank_view_h != lary.decomp.rank_comm.rank))
-        self.assertSequenceEqual(
-            lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),
-            lary.rank_view_n.tolist()
-        )
-        rank_logger.info("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^")
+            lary = mpi_array.local.ones(decomp=decomp, dtype="int64")
+            self.assertEqual(_np.dtype("int64"), lary.dtype)
+            rank_logger = _logging.get_rank_logger(self.id(), comm=decomp.rank_comm)
+            rank_logger.info(
+                (
+                    "\n========================================================\n" +
+                    "lndarray_extent = %s\n" +
+                    "rank_view_slice_n          = %s\n" +
+                    "rank_view_slice_h          = %s\n" +
+                    "rank_view_relative_slice_n = %s\n" +
+                    "^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^"
+                )
+                %
+                (
+                    lary.decomp._lndarray_extent,
+                    lary.decomp.rank_view_slice_n,
+                    lary.decomp.rank_view_slice_h,
+                    lary.decomp.rank_view_relative_slice_n,
+                )
+            )
+
+            lary.rank_view_n[...] = lary.decomp.rank_comm.rank
+            lary.decomp.shared_mem_comm.barrier()
+            if lary.decomp.shared_mem_comm.size > 1:
+                self.assertTrue(_np.any(lary.rank_view_h != lary.decomp.rank_comm.rank))
+            self.assertSequenceEqual(
+                lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),
+                lary.rank_view_n.tolist()
+            )
 
 
 _unittest.main(__name__)

@@ -210,6 +210,20 @@ class lndarray(_np.ndarray):
         """
         return self[self.decomp.rank_view_slice_h]
 
+    @property
+    def view_n(self):
+        """
+        View of entire array without halo.
+        """
+        return self[self.decomp.lndarray_view_slice_n]
+
+    @property
+    def view_h(self):
+        """
+        The entire :obj:`lndarray` view including halo (i.e. :samp:{self}).
+        """
+        return self
+
     def __reduce_ex__(self, protocol):
         """
         Pickle *reference* to shared memory.
