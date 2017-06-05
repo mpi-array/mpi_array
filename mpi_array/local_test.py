@@ -76,15 +76,6 @@ class LndarrayTest(_unittest.TestCase):
             lary.__reduce__
         )
 
-        self.assertRaises(
-            ValueError,
-            mpi_array.local.lndarray,
-            shape=None,
-            decomp=None,
-            dtype="int64",
-            buffer=lary.data
-        )
-
     def test_empty_shared_1d(self):
         """
         Test for :func:`mpi_array.local.empty` and :func:`mpi_array.local.empty_like`.

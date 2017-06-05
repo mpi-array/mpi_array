@@ -148,9 +148,6 @@ class lndarray(_np.ndarray):
                     )
                 )
 
-            if decomp is None:
-                raise ValueError("Got None value for decomp with non-None buffer = %s" % (buffer,))
-
         self = \
             _np.ndarray.__new__(
                 cls,
