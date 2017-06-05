@@ -75,6 +75,16 @@ class LndarrayTest(_unittest.TestCase):
             NotImplementedError,
             lary.__reduce__
         )
+        
+        self.assertRaises(
+            ValueError,
+            mpi_array.local.lndarray,
+            shape=None,
+            decomp=None,
+            dtype="int64",
+            buffer=lary.data
+        )
+
 
     def test_empty_shared_1d(self):
         """
@@ -255,7 +265,7 @@ class LndarrayTest(_unittest.TestCase):
         """
 
         lshape = _np.array((4, 3), dtype="int64")
-        gshape = lshape * _shape_factors(_mpi.COMM_WORLD.size, lshape.size)
+        gshape = lshape * _shape_factors(_mpi.COMM_WORLD.size, lshape.size)[::-1]
 
         mats = \
             [
@@ -289,7 +299,11 @@ class LndarrayTest(_unittest.TestCase):
                     lary.decomp.rank_view_relative_slice_n,
                 )
             )
-
+            
+            if lary.decomp.shared_mem_comm.rank == 0:
+                lary.view_h[...] = -1
+            lary.decomp.shared_mem_comm.barrier()
+            
             lary.rank_view_n[...] = lary.decomp.rank_comm.rank
             lary.decomp.shared_mem_comm.barrier()
             if lary.decomp.shared_mem_comm.size > 1:
@@ -298,6 +312,9 @@ class LndarrayTest(_unittest.TestCase):
                 lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),
                 lary.rank_view_n.tolist()
             )
+            self.assertTrue(_np.all(lary.view_n >= 0))
+
+            lary.decomp.rank_comm.barrier()
 
 
 _unittest.main(__name__)

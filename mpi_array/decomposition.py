@@ -320,6 +320,7 @@ class IndexingExtent(object):
         :rtype: :obj:`tuple` of :obj:`slice` elements
         :return: Tuple of slice equivalent to this indexing extent.
         """
+        return tuple([slice(self._beg[i], self._end[i]) for i in range(len(self._beg))])
 
     def __repr__(self):
         """
