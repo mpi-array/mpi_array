@@ -16,6 +16,7 @@ Classes
    :toctree: generated/
 
    IndexingExtentTest - Tests for :obj:`mpi_array.decomposition.IndexingExtent`.
+   HaloIndexingExtentTest - Tests for :obj:`mpi_array.decomposition.IndexingExtent`.
    DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
    MemAllocTopologyTest - Tests for :obj:`mpi_array.decomposition.MemAllocTopology`.
    CartesianDecompositionTest - Tests for :obj:`mpi_array.decomposition.CartesianDecomposition`.
@@ -30,8 +31,8 @@ import mpi_array as _mpi_array
 
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import IndexingExtent, DecompExtent, MemAllocTopology
-from mpi_array.decomposition import CartesianDecomposition
+from mpi_array.decomposition import IndexingExtent, HaloIndexingExtent, DecompExtent
+from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -151,6 +152,57 @@ class IndexingExtentTest(_unittest.TestCase):
         self.assertSequenceEqual([10, 10], iei.shape.tolist())
         self.assertSequenceEqual([22, 54], iei.start.tolist())
         self.assertSequenceEqual([32, 64], iei.stop.tolist())
+
+
+class HaloIndexingExtentTest(_unittest.TestCase):
+    """
+    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`.
+    """
+
+    def test_attributes(self):
+        """
+        :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`
+        attributes.
+        """
+
+        hie1 = HaloIndexingExtent(start=(10, 0), stop=(32, 20), halo=_np.array(((0, 0), (0, 0))))
+        self.assertSequenceEqual([10, 0], hie1.start_n.tolist())
+        self.assertSequenceEqual([10, 0], hie1.start_h.tolist())
+        self.assertSequenceEqual([32, 20], hie1.stop_n.tolist())
+        self.assertSequenceEqual([32, 20], hie1.stop_h.tolist())
+        self.assertSequenceEqual([22, 20], hie1.shape_n.tolist())
+        self.assertSequenceEqual([22, 20], hie1.shape_h.tolist())
+        self.assertEqual(22 * 20, hie1.size_n)
+        self.assertEqual(22 * 20, hie1.size_h)
+
+        hie1 = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertSequenceEqual([10, 3], hie1.start_n.tolist())
+        self.assertSequenceEqual([9, 0], hie1.start_h.tolist())
+        self.assertSequenceEqual([32, 20], hie1.stop_n.tolist())
+        self.assertSequenceEqual([34, 24], hie1.stop_h.tolist())
+        self.assertSequenceEqual([22, 17], hie1.shape_n.tolist())
+        self.assertSequenceEqual([25, 24], hie1.shape_h.tolist())
+        self.assertEqual(22 * 17, hie1.size_n)
+        self.assertEqual(25 * 24, hie1.size_h)
+
+    def test_to_slice(self):
+        """
+        :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`
+        methods: :samp:`to_slice`, :samp:`to_slice_n`, and :samp:`to_slice_h`.
+        """
+        hie1 = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertSequenceEqual(
+            (slice(10, 32, None), slice(3, 20, None)),
+            hie1.to_slice_n()
+        )
+        self.assertSequenceEqual(
+            (slice(10, 32, None), slice(3, 20, None)),
+            hie1.to_slice()
+        )
+        self.assertSequenceEqual(
+            (slice(9, 34, None), slice(0, 24, None)),
+            hie1.to_slice_h()
+        )
 
 
 class DecompExtentTest(_unittest.TestCase):
@@ -721,6 +773,28 @@ class CartesianDecompositionTest(_unittest.TestCase):
         root_logger.info("START " + self.id())
         root_logger.info(str(decomp))
         root_logger.info("END   " + self.id())
+
+    def test_construct_1d_empty_tiles(self):
+        """
+        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction
+        when the partition leads to empty tiles.
+        """
+        if (_mpi.COMM_WORLD.size > 1):
+            decomp = CartesianDecomposition((_mpi.COMM_WORLD.size // 2,), halo=0)
+            self.assertNotEqual(None, decomp._mem_alloc_topology)
+
+            mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+            decomp = \
+                CartesianDecomposition(
+                    (_mpi.COMM_WORLD.size // 2,),
+                    halo=0,
+                    mem_alloc_topology=mnt
+                )
+
+            root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
+            root_logger.info("START " + self.id())
+            root_logger.info(str(decomp))
+            root_logger.info("END   " + self.id())
 
     def test_construct_2d(self):
         """

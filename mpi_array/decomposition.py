@@ -345,7 +345,7 @@ class HaloIndexingExtent(IndexingExtent):
     #: The "high index" indices.
     HI = 1
 
-    def __init__(self, split, halo=None):
+    def __init__(self, split=None, start=None, stop=None, halo=None):
         """
         Construct.
 
@@ -359,7 +359,7 @@ class HaloIndexingExtent(IndexingExtent):
            elements on the high-index *side*.
 
         """
-        IndexingExtent.__init__(self, split)
+        IndexingExtent.__init__(self, split, start, stop)
         if halo is None:
             halo = _np.zeros((self._beg.shape[0], 2), dtype=self._beg.dtype)
         self._halo = halo
@@ -436,6 +436,53 @@ class HaloIndexingExtent(IndexingExtent):
         Same as :attr:`shape_n`.
         """
         return self.shape_n
+
+    @property
+    def size_n(self):
+        """
+        Integer indicating the number of elements in this extent without halo ("no halo")
+        """
+        return _np.product(self.shape_n)
+
+    @property
+    def size_h(self):
+        """
+        Integer indicating the number of elements in this extent including halo.
+        """
+        return _np.product(self.shape_h)
+
+    def to_slice_n(self):
+        """
+        Returns ":obj:`tuple` of :obj:`slice`" equivalent of this
+        indexing extent without halo ("no halo").
+
+        :rtype: :obj:`tuple` of :obj:`slice` elements
+        :return: Tuple of slice equivalent to this no-halo indexing extent.
+        """
+        return tuple([slice(self._beg[i], self._end[i]) for i in range(len(self._beg))])
+
+    def to_slice_h(self):
+        """
+        Returns ":obj:`tuple` of :obj:`slice`" equivalent of this
+        indexing extent including halo.
+
+        :rtype: :obj:`tuple` of :obj:`slice` elements
+        :return: Tuple of slice equivalent to this indexing extent including halo.
+        """
+        return tuple(
+            [
+                slice(
+                    self._beg[i] - self.halo[i, self.LO],
+                    self._end[i] + self.halo[i, self.HI]
+                ) for i in range(len(self._beg))
+            ]
+        )
+
+    def to_slice(self):
+        """
+        Same as :meth:`to_slice_n`.
+        """
+        return self.to_slice_n()
 
     def __repr__(self):
         """
@@ -745,62 +792,67 @@ class CartesianDecomposition(object):
         of tiles. Assigns :attr:`rank_view_slice_n` and :attr:`rank_view_slice_h`
         to :obj:`tuple`-of-:obj:`slice` corresponding to the tile for this MPI rank.
         """
-        shape_splitter = \
-            _array_split.ShapeSplitter(
-                array_shape=self._lndarray_extent.shape_n,
-                axis=_shape_factors(self.shared_mem_comm.size, self.ndim)[::-1],
-                halo=0,
-                array_start=self._lndarray_extent.start_n
-            )
-
-        split = shape_splitter.calculate_split()
-        rank_extent_n = IndexingExtent(split.flatten()[self.shared_mem_comm.rank])
-        rank_extent_h = \
-            IndexingExtent(
-                start=_np.maximum(
-                    rank_extent_n.start - self._halo[:, self.LO],
-                    self._lndarray_extent.start_h
-                ),
-                stop=_np.minimum(
-                    rank_extent_n.stop + self._halo[:, self.HI],
-                    self._lndarray_extent.stop_h
+        if self._lndarray_extent.size_n > 0:
+            shape_splitter = \
+                _array_split.ShapeSplitter(
+                    array_shape=self._lndarray_extent.shape_n,
+                    axis=_shape_factors(self.shared_mem_comm.size, self.ndim)[::-1],
+                    halo=0,
+                    array_start=self._lndarray_extent.start_n
                 )
-            )
 
-        # Convert rank_extent_n and rank_extent_h from global-indices
-        # to local-indices
-        halo_lo = self._lndarray_extent.halo[:, self.LO]
-        rank_extent_n = \
-            IndexingExtent(
-                start=rank_extent_n.start - self._lndarray_extent.start_n + halo_lo,
-                stop=rank_extent_n.stop - self._lndarray_extent.start_n + halo_lo,
-            )
-        rank_extent_h = \
-            IndexingExtent(
-                start=rank_extent_h.start - self._lndarray_extent.start_n + halo_lo,
-                stop=rank_extent_h.stop - self._lndarray_extent.start_n + halo_lo,
-            )
-        rank_h_relative_extent_n = \
-            IndexingExtent(
-                start=rank_extent_n.start - rank_extent_h.start,
-                stop=rank_extent_n.start - rank_extent_h.start + rank_extent_n.shape,
-            )
+            split = shape_splitter.calculate_split()
+            rank_extent_n = IndexingExtent(split.flatten()[self.shared_mem_comm.rank])
+            rank_extent_h = \
+                IndexingExtent(
+                    start=_np.maximum(
+                        rank_extent_n.start - self._halo[:, self.LO],
+                        self._lndarray_extent.start_h
+                    ),
+                    stop=_np.minimum(
+                        rank_extent_n.stop + self._halo[:, self.HI],
+                        self._lndarray_extent.stop_h
+                    )
+                )
 
-        self._rank_view_slice_n = \
-            tuple(
-                [slice(rank_extent_n.start[i], rank_extent_n.stop[i]) for i in range(self.ndim)]
-            )
-        self._rank_view_slice_h = \
-            tuple(
-                [slice(rank_extent_h.start[i], rank_extent_h.stop[i]) for i in range(self.ndim)]
-            )
-        self._rank_view_relative_slice_n = \
-            tuple(
-                [
-                    slice(rank_h_relative_extent_n.start[i], rank_h_relative_extent_n.stop[i])
-                    for i in range(self.ndim)
-                ]
-            )
+            # Convert rank_extent_n and rank_extent_h from global-indices
+            # to local-indices
+            halo_lo = self._lndarray_extent.halo[:, self.LO]
+            rank_extent_n = \
+                IndexingExtent(
+                    start=rank_extent_n.start - self._lndarray_extent.start_n + halo_lo,
+                    stop=rank_extent_n.stop - self._lndarray_extent.start_n + halo_lo,
+                )
+            rank_extent_h = \
+                IndexingExtent(
+                    start=rank_extent_h.start - self._lndarray_extent.start_n + halo_lo,
+                    stop=rank_extent_h.stop - self._lndarray_extent.start_n + halo_lo,
+                )
+            rank_h_relative_extent_n = \
+                IndexingExtent(
+                    start=rank_extent_n.start - rank_extent_h.start,
+                    stop=rank_extent_n.start - rank_extent_h.start + rank_extent_n.shape,
+                )
+
+            self._rank_view_slice_n = \
+                tuple(
+                    [slice(rank_extent_n.start[i], rank_extent_n.stop[i]) for i in range(self.ndim)]
+                )
+            self._rank_view_slice_h = \
+                tuple(
+                    [slice(rank_extent_h.start[i], rank_extent_h.stop[i]) for i in range(self.ndim)]
+                )
+            self._rank_view_relative_slice_n = \
+                tuple(
+                    [
+                        slice(rank_h_relative_extent_n.start[i], rank_h_relative_extent_n.stop[i])
+                        for i in range(self.ndim)
+                    ]
+                )
+        else:
+            self._rank_view_slice_n = tuple([slice(0, 0) for i in range(self.ndim)])
+            self._rank_view_slice_h = tuple([slice(0, 0) for i in range(self.ndim)])
+            self._rank_view_relative_slice_n = tuple([slice(0, 0) for i in range(self.ndim)])
 
     def recalculate(self, new_shape, new_halo):
         """
