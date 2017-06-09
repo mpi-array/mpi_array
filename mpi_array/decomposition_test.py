@@ -46,6 +46,16 @@ class IndexingExtentTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.IndexingExtentTest`.
     """
 
+    def test_repr(self):
+        """
+        Test for :samp:`repr(IndexingExtent(start=(1,2,3), stop=(8,9,10)))`.
+        """
+        ie = IndexingExtent(start=(10,), stop=(32,))
+        self.assertNotEqual(None, str(ie))
+        self.assertNotEqual("", str(ie))
+
+        self.assertEqual(ie, eval(repr(ie)))
+
     def test_attributes(self):
         """
         Tests :attr:`mpi_array.decomposition.IndexingExtent.start`
@@ -158,6 +168,16 @@ class HaloIndexingExtentTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`.
     """
+
+    def test_repr(self):
+        """
+        Test for :samp:`repr(HaloIndexingExtent(start=(1,2,3), stop=(8,9,10)))`.
+        """
+        ie = HaloIndexingExtent(start=(10, 15), stop=(32, 66), halo=((1, 2), (3, 4)))
+        self.assertNotEqual(None, str(ie))
+        self.assertNotEqual("", str(ie))
+
+        self.assertEqual(ie, eval(repr(ie)))
 
     def test_attributes(self):
         """
@@ -749,10 +769,9 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = \
             CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
 
-        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
-        root_logger.info("START " + self.id())
-        root_logger.info(str(decomp))
-        root_logger.info("END   " + self.id())
+        decomp.root_logger.info("START " + self.id())
+        decomp.root_logger.info(str(decomp))
+        decomp.root_logger.info("END   " + self.id())
 
     def test_construct_1d_with_halo(self):
         """
@@ -769,10 +788,9 @@ class CartesianDecompositionTest(_unittest.TestCase):
                 mem_alloc_topology=mnt
             )
 
-        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
-        root_logger.info("START " + self.id())
-        root_logger.info(str(decomp))
-        root_logger.info("END   " + self.id())
+        decomp.root_logger.info("START " + self.id())
+        decomp.root_logger.info(str(decomp))
+        decomp.root_logger.info("END   " + self.id())
 
     def test_construct_1d_empty_tiles(self):
         """
@@ -791,10 +809,9 @@ class CartesianDecompositionTest(_unittest.TestCase):
                     mem_alloc_topology=mnt
                 )
 
-            root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
-            root_logger.info("START " + self.id())
-            root_logger.info(str(decomp))
-            root_logger.info("END   " + self.id())
+            decomp.root_logger.info("START " + self.id())
+            decomp.root_logger.info(str(decomp))
+            decomp.root_logger.info("END   " + self.id())
 
     def test_construct_2d(self):
         """
@@ -810,10 +827,9 @@ class CartesianDecompositionTest(_unittest.TestCase):
                 mem_alloc_topology=mnt
             )
 
-        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
-        root_logger.info("START " + self.id())
-        root_logger.info(str(decomp))
-        root_logger.info("END   " + self.id())
+        decomp.root_logger.info("START " + self.id())
+        decomp.root_logger.info(str(decomp))
+        decomp.root_logger.info("END   " + self.id())
 
     def test_construct_2d_with_halo(self):
         """
@@ -838,6 +854,38 @@ class CartesianDecompositionTest(_unittest.TestCase):
         root_logger.info("START " + self.id())
         root_logger.info(str(decomp))
         root_logger.info("END   " + self.id())
+
+    def test_recalculate_2d(self):
+        """
+        Test :meth:`mpi_array.decomposition.CartesianDecomposition.recalculate` construction.
+        """
+        mats = \
+            [
+                None,
+                MemAllocTopology(
+                    ndims=2,
+                    rank_comm=_mpi.COMM_WORLD,
+                    shared_mem_comm=_mpi.COMM_SELF
+                )
+            ]
+        for mat in mats:
+            orig_shape = (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size)
+            decomp = \
+                CartesianDecomposition(
+                    orig_shape,
+                    mem_alloc_topology=mat,
+                    halo=((2, 2), (4, 4))
+                )
+
+            self.assertSequenceEqual([[2, 2], [4, 4]], decomp.halo.tolist())
+
+            decomp.halo = [[1, 2], [3, 4]]
+            self.assertSequenceEqual([[1, 2], [3, 4]], decomp.halo.tolist())
+
+            self.assertSequenceEqual(list(orig_shape), decomp.shape.tolist())
+            new_shape = (10 * _mpi.COMM_WORLD.size, 7 * _mpi.COMM_WORLD.size)
+            decomp.shape = new_shape
+            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
 
 
 _unittest.main(__name__)

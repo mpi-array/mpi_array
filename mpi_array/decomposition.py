@@ -70,18 +70,28 @@ class SharedMemInfo(object):
         """
         if comm is None:
             comm = _mpi.COMM_WORLD
+        rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm)
         if shared_mem_comm is None:
             if mpi_version() >= 3:
+                rank_logger.debug(
+                    "BEG: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
+                )
                 shared_mem_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
+                rank_logger.debug(
+                    "END: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
+                )
             else:
-                shared_mem_comm = comm.Split(comm.rank, key=comm.rank)
+                shared_mem_comm = _mpi.COMM_SELF
 
         self._shared_mem_comm = shared_mem_comm
 
         # Count the number of self._shared_mem_comm rank-0 processes
         # to work out how many communicators comm was split into.
         is_rank_zero = int(self._shared_mem_comm.rank == 0)
+
+        rank_logger.debug("BEG: comm.allreduce to calculate number of shared-memory nodes.")
         self._num_shared_mem_nodes = comm.allreduce(is_rank_zero, _mpi.SUM)
+        rank_logger.debug("END: comm.allreduce to calculate number of shared-memory nodes.")
 
     @property
     def num_shared_mem_nodes(self):
@@ -155,6 +165,8 @@ class MemAllocTopology(object):
         self._rank_comm = rank_comm
         self._shared_mem_info = SharedMemInfo(self.rank_comm, shared_mem_comm)
         self._cart_comm = None
+        rank_logger = \
+            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self._rank_comm)
 
         self._dims = \
             _array_split.split.calculate_num_slices_per_axis(
@@ -167,9 +179,13 @@ class MemAllocTopology(object):
             color = _mpi.UNDEFINED
             if self.shared_mem_comm.rank == 0:
                 color = 0
+            rank_logger.debug("BEG: self.rank_comm.Split to create self.cart_comm.")
             splt_comm = self.rank_comm.Split(color, self.rank_comm.rank)
+            rank_logger.debug("END: self.rank_comm.Split to create self.cart_comm.")
             if splt_comm != _mpi.COMM_NULL:
+                rank_logger.debug("BEG: splt_comm.Create to create self.cart_comm.")
                 self._cart_comm = splt_comm.Create_cart(self.dims, periods, reorder=True)
+                rank_logger.debug("END: splt_comm.Create to create self.cart_comm.")
             else:
                 self._cart_comm = _mpi.COMM_NULL
 
@@ -938,6 +954,7 @@ class CartesianDecomposition(object):
            is the allocated memory for the array, :samp:`itemsize` is :samp:`dtype.itemsize`
            and :samp:`shape` is the shape of the :samp:`numpy.ndarray`.
         """
+        self.rank_logger.debug("BEG: alloc_local_buffer")
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
         if self.shared_mem_comm.rank == 0:
@@ -948,15 +965,20 @@ class CartesianDecomposition(object):
             else:
                 rank_shape = self.shape
             num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
-
         if (mpi_version() >= 3) and (self.shared_mem_comm.size > 1):
+            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             self._shared_mem_win = \
                 _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.shared_mem_comm)
+            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             buffer, itemsize = self._shared_mem_win.Shared_query(0)
+            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
             self._rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Create for self.rank_comm")
         else:
+            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
             self._rank_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
             self._shared_mem_win = self._rank_win
             buffer = self._rank_win.memory
             itemsize = dtype.itemsize
@@ -966,11 +988,14 @@ class CartesianDecomposition(object):
         if self.num_shared_mem_nodes > 1:
             self._cart_win = _mpi.WIN_NULL
             if self.have_valid_cart_comm:
+                self.rank_logger.debug("BEG: Win.Create for self.cart_comm")
                 self._cart_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
+                self.rank_logger.debug("END: Win.Create for self.cart_comm")
             lndarray_shape = self._lndarray_extent.shape_h
 
         buffer = _np.array(buffer, dtype='B', copy=False)
 
+        self.rank_logger.debug("END: alloc_local_buffer")
         return buffer, itemsize, lndarray_shape
 
     def __str__(self):
