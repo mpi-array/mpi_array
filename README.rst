@@ -42,8 +42,13 @@ Related distributed array implementations with python API:
 
 - `DistArray <http://distarray.readthedocs.io/en/latest/>`_
 - `pnumpy <https://github.com/pletzer/pnumpy>`_
-- `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_ and
-  `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_ python bindings.
+- `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_
+  (`ga at github <https://github.com/GlobalArrays/ga>`_) with
+  `ga4py <https://github.com/GlobalArrays/ga4py>`_ python
+  API and `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_
+  numpy API
+- `Spartan <https://www.cs.nyu.edu/media/publications/power_russell.pdf>`_
+  (`at github here <https://github.com/spartan-array/spartan>`_)
 - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
 - `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
 - `bolt <http://bolt-project.org/>`_
