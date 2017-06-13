@@ -226,10 +226,14 @@ class MultiLineFormatter(_builtin_logging.Formatter):
         Converts record to formatted string, each line of a multi-line
         message string is individually formatted.
         """
-        s_list = []
-        messages = record.getMessage().split(self.multi_line_split_string)
-        for msg in messages:
+        # take care of the substitutions in record.args first
+        fs = _builtin_logging.Formatter.format(self, record)
+        messages = fs.split(self.multi_line_split_string)
+        s_list = [messages[0], ]
+        # Now format each line individually (no substitutions).
+        for msg in messages[1:]:
             single_line_record = _copy.copy(record)
+            single_line_record.args = None
             single_line_record.msg = msg
             fs = _builtin_logging.Formatter.format(self, single_line_record)
             s_list.append(fs)
