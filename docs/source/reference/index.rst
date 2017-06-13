@@ -10,6 +10,8 @@
    mpi_array_array_test
    mpi_array_decomposition
    mpi_array_decomposition_test
+   mpi_array_globale
+   mpi_array_globale_test
    mpi_array_locale
    mpi_array_locale_test
    mpi_array_tests
