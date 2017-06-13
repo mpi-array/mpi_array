@@ -104,16 +104,6 @@ class gndarray(object):
         """
         self.rank_logger.debug("__setitem__: i=%s, v=%s", i, v)
 
-    def __getslice__(self, i):
-        """
-        """
-        return self.__getitem__(i)
-
-    def __setslice__(self, i, v):
-        """
-        """
-        self.__setitem__(i, v)
-
     @property
     def rank_view_n(self):
         return self._lndarray.rank_view_n
