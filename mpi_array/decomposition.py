@@ -1112,8 +1112,8 @@ class CartesianDecomposition(object):
         A :obj:`tuple` of :obj:`slice` which can be used to *slice* (remove)
         the halo from a halo rank view. For example::
 
-           import mpi_array.local
-           lary = mpi_array.local.zeros((10, 10, 100), dtype="float32")
+           import mpi_array.locale
+           lary = mpi_array.locale.zeros((10, 10, 100), dtype="float32")
            _np.all(
                lary.rank_view_h[lary.decomp.rank_view_relative_slice_n]
                ==
@@ -1126,7 +1126,7 @@ class CartesianDecomposition(object):
     @property
     def lndarray_view_slice_n(self):
         """
-        Indexing slice which can be used to generate a view of :obj:`mpi_array.local.lndarray`
+        Indexing slice which can be used to generate a view of :obj:`mpi_array.locale.lndarray`
         which has the halo removed.
         """
         return self._lndarray_view_slice_n

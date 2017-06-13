@@ -1,7 +1,7 @@
 """
-=================================
-The :mod:`mpi_array.local` Module
-=================================
+==================================
+The :mod:`mpi_array.locale` Module
+==================================
 
 Defines :obj:`lndarray` class and factory functions for
 creating multi-dimensional arrays where memory is allocated
@@ -11,7 +11,7 @@ Classes
 =======
 
 ..
-   Special template for mpi_array.local.lndarray to avoid numpydoc
+   Special template for mpi_array.locale.lndarray to avoid numpydoc
    documentation style sphinx warnings/errors from numpy.ndarray inheritance.
 
 .. autosummary::

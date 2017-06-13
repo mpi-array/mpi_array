@@ -51,7 +51,7 @@ def load_tests(loader, tests, pattern):
             [
                 "mpi_array.array_test",
                 "mpi_array.decomposition_test",
-                "mpi_array.local_test",
+                "mpi_array.locale_test",
             ]
         )
     suite.addTests(DocTestTestSuite())
