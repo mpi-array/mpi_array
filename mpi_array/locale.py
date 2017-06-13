@@ -79,7 +79,7 @@ class NdarrayMetaData(object):
 
 class lndarray(_np.ndarray):
     """
-    Sub-class of :obj:`np.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
+    Sub-class of :obj:`numpy.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
     to allocate buffer memory.
     Allocates a shared memory buffer using :func:`mpi4py.MPI.Win.Allocate_shared`.
     (if available, otherwise uses :func:`mpi4py.MPI.Win.Allocate`).
