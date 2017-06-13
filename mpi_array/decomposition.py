@@ -1138,7 +1138,10 @@ class CartesianDecomposition(object):
         """
         if self._rank_logger is None:
             self._rank_logger = \
-                _logging.get_rank_logger(self.__class__.__name__, comm=self.rank_comm)
+                _logging.get_rank_logger(
+                    __name__ + "." + self.__class__.__name__,
+                    comm=self.rank_comm
+                )
         return self._rank_logger
 
     @property
@@ -1148,7 +1151,10 @@ class CartesianDecomposition(object):
         """
         if self._root_logger is None:
             self._root_logger = \
-                _logging.get_root_logger(self.__class__.__name__, comm=self.rank_comm)
+                _logging.get_root_logger(
+                    __name__ + "." + self.__class__.__name__,
+                    comm=self.rank_comm
+                )
         return self._root_logger
 
 
