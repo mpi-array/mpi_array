@@ -133,8 +133,8 @@ class GndarrayTest(_unittest.TestCase):
             decomp_list = [non_shared_decomp, shared_decomp]
 
             for decomp in decomp_list:
-                gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
-                self.assertEqual(_np.dtype("int64"), gary.dtype)
+                gary = mpi_array.globale.empty(decomp=decomp, dtype="int32")
+                self.assertEqual(_np.dtype("int32"), gary.dtype)
 
                 if gary.decomp.have_valid_cart_comm:
                     cart_rank_val = gary.decomp.cart_comm.rank + 1

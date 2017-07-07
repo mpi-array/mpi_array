@@ -743,7 +743,7 @@ class MpiSingleExtentUpdate(SingleExtentUpdate):
         self._dst_data_type = None
         self._src_data_type = None
         self._str_format = \
-            "%8s, %20s, %20s, %20s, %20s, %8s, %20s, %20s, %20s, %20s, %20s, %20s"
+            "%8s, %20s, %20s, %20s, %20s, %8s, %20s, %20s, %20s, %20s, %20s, %20s, %16s"
         self._header_str = \
             (
                 self._str_format
@@ -761,6 +761,7 @@ class MpiSingleExtentUpdate(SingleExtentUpdate):
                     "src halo loc stop ",
                     "    halo glb start",
                     "    halo glb stop ",
+                    "MPI datatype",
                 )
             )
 
@@ -848,6 +849,9 @@ class MpiSingleExtentUpdate(SingleExtentUpdate):
         """
         Stringify.
         """
+        mpi_dtype = None
+        if self._dtype is not None:
+            mpi_dtype = _mpi._typedict[self._dtype.char].Get_name()
         return \
             (
                 self._str_format
@@ -865,6 +869,7 @@ class MpiSingleExtentUpdate(SingleExtentUpdate):
                     self.src_extent.globale_to_locale_h(self.update_extent.stop),
                     self.update_extent.start,
                     self.update_extent.stop,
+                    mpi_dtype
                 )
             )
 
