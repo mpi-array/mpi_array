@@ -91,8 +91,8 @@ class GndarrayTest(_unittest.TestCase):
 
     def test_get_item_and_set_item(self):
         """
-        Test the :meth:`mpi_array.globale.gndarray.__getitem__ `
-        and :meth:`mpi_array.globale.gndarray.__setitem__ ` methods.
+        Test the :meth:`mpi_array.globale.gndarray.__getitem__`
+        and :meth:`mpi_array.globale.gndarray.__setitem__` methods.
         """
         gary = mpi_array.globale.zeros((20, 20, 20), dtype="int8")
         gary[1, 2, 8] = 22
