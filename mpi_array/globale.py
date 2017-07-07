@@ -152,7 +152,14 @@ class gndarray(object):
         # If running on single locale then there are no halos to update.
         if self.decomp.num_shared_mem_nodes > 1:
             # Only do comms between the ranks of self.decomp.cart_comm
+            self.decomp.rank_logger.debug("BEG: self.decomp.shared_mem_comm.barrier()...")
+            self.decomp.shared_mem_comm.barrier()
+            self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
             if self.decomp.have_valid_cart_comm:
+                self.decomp.rank_logger.debug("BEG: self.decomp.cart_mem_comm.barrier()...")
+                self.decomp.cart_comm.barrier()
+                self.decomp.rank_logger.debug("END: self.decomp.cart_mem_comm.barrier().")
+
                 cart_rank_updates = \
                     self.decomp.get_updates_for_cart_rank(self.decomp.cart_comm.rank)
                 per_axis_cart_rank_updates = cart_rank_updates.updates_per_axis
