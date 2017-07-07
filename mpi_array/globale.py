@@ -34,6 +34,7 @@ Factory Functions
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
+import mpi4py.MPI as _mpi
 import numpy as _np
 from mpi_array.locale import lndarray as _lndarray
 from mpi_array.decomposition import CartesianDecomposition as _CartDecomp
@@ -45,6 +46,7 @@ __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode(
 
 
 class gndarray(object):
+
     """
     A distributed array with :obj:`numpy.ndarray` API.
     """
@@ -105,6 +107,26 @@ class gndarray(object):
         self.rank_logger.debug("__setitem__: i=%s, v=%s", i, v)
 
     @property
+    def decomp(self):
+        return self._lndarray.decomp
+
+    @property
+    def lndarray(self):
+        return self._lndarray
+
+    @property
+    def shape(self):
+        return self._lndarray.decomp.shape
+
+    @property
+    def dtype(self):
+        return self._lndarray.dtype
+
+    @property
+    def order(self):
+        return self._lndarray.md.order
+
+    @property
     def rank_view_n(self):
         return self._lndarray.rank_view_n
 
@@ -127,6 +149,64 @@ class gndarray(object):
     def update(self):
         """
         """
+        # If running on single locale then there are no halos to update.
+        if self.decomp.num_shared_mem_nodes > 1:
+            # Only do comms between the ranks of self.decomp.cart_comm
+            self.decomp.rank_logger.debug("BEG: self.decomp.shared_mem_comm.barrier()...")
+            self.decomp.shared_mem_comm.barrier()
+            self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
+            if self.decomp.have_valid_cart_comm:
+                self.decomp.rank_logger.debug("BEG: self.decomp.cart_mem_comm.barrier()...")
+                self.decomp.cart_comm.barrier()
+                self.decomp.rank_logger.debug("END: self.decomp.cart_mem_comm.barrier().")
+
+                cart_rank_updates = \
+                    self.decomp.get_updates_for_cart_rank(self.decomp.cart_comm.rank)
+                per_axis_cart_rank_updates = cart_rank_updates.updates_per_axis
+
+                # per_axis_cart_rank_updates is None on all cart_comm ranks only
+                # if there are no halos on any axis.
+                if per_axis_cart_rank_updates is not None:
+                    for a in range(self.decomp.ndim):
+                        lo_hi_updates_pair = per_axis_cart_rank_updates[a]
+
+                        # When axis a doesn't have a halo, then lo_hi_updates_pair
+                        # is None on all cart_comm ranks, and we avoid calling the Fence
+                        # in this case
+                        if lo_hi_updates_pair is not None:
+                            axis_cart_rank_updates = \
+                                lo_hi_updates_pair[self.decomp.LO] + \
+                                lo_hi_updates_pair[self.decomp.HI]
+                            self.decomp.rank_logger.debug(
+                                "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
+                            )
+                            self.decomp.cart_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                            for single_update in axis_cart_rank_updates:
+                                single_update.initialise_data_types(self.dtype, self.order)
+                                self.decomp.rank_logger.debug(
+                                    "BEG: Getting update:\n%s\n%s",
+                                    single_update._header_str,
+                                    single_update
+                                )
+                                self.decomp.cart_win.Get(
+                                    [self._lndarray, 1, single_update.dst_data_type],
+                                    single_update.src_extent.cart_rank,
+                                    [0, 1, single_update.src_data_type]
+                                )
+                                self.decomp.rank_logger.debug(
+                                    "END: Getting update:\n%s\n%s",
+                                    single_update._header_str,
+                                    single_update
+                                )
+                            self.decomp.cart_win.Fence(_mpi.MODE_NOSUCCEED)
+                            self.decomp.rank_logger.debug(
+                                "END: Fence(_mpi.MODE_NOSUCCEED)."
+                            )
+
+            # All ranks on locale wait for halo update to complete
+            self.decomp.rank_logger.debug("BEG: self.decomp.shared_mem_comm.barrier()...")
+            self.decomp.shared_mem_comm.barrier()
+            self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
 
 
 def empty(shape=None, dtype="float64", decomp=None, order='C'):
@@ -185,6 +265,7 @@ def zeros(shape=None, dtype="float64", decomp=None, order='C'):
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.zeros(1, dtype)
+    ary.decomp.shared_mem_comm.barrier()
 
     return ary
 
@@ -202,6 +283,7 @@ def zeros_like(ary, *args, **kwargs):
     """
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.zeros(1, ary.dtype)
+    ary.decomp.shared_mem_comm.barrier()
 
     return ary
 
@@ -222,6 +304,7 @@ def ones(shape=None, dtype="float64", decomp=None, order='C'):
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.ones(1, dtype)
+    ary.decomp.shared_mem_comm.barrier()
 
     return ary
 
@@ -239,6 +322,7 @@ def ones_like(ary, *args, **kwargs):
     """
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.ones(1, ary.dtype)
+    ary.decomp.shared_mem_comm.barrier()
 
     return ary
 
@@ -254,6 +338,7 @@ def copy(ary):
     """
     ary_out = empty_like(ary)
     ary_out.rank_view_n[...] = ary.rank_view_n[...]
+    ary_out.decomp.shared_mem_comm.barrier()
 
     return ary_out
 

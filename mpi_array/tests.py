@@ -14,7 +14,8 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import unittest as _unittest
-from unittest import main as _unittest_main
+from .unittest import main as _unittest_main
+from . import logging as _logging
 import doctest as _doctest  # noqa: E402,F401
 
 import os.path
@@ -62,4 +63,4 @@ def load_tests(loader, tests, pattern):
 __all__ = [s for s in dir() if not s.startswith('_')]
 
 if __name__ == "__main__":
-    _unittest_main(__name__)
+    _unittest_main(__name__, log_level=_logging.DEBUG, verbosity=2)

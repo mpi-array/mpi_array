@@ -37,6 +37,7 @@ __version__ = _mpi_array.__version__
 
 
 class NdarrayTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :mod:`mpi_array.ndarray` functions.
     """

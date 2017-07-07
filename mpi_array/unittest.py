@@ -23,7 +23,7 @@ import mpi_array.logging
 import numpy as _np
 
 
-def main(module_name, log_level=mpi_array.logging.DEBUG, init_logger_names=None):
+def main(module_name, log_level=mpi_array.logging.DEBUG, init_logger_names=None, verbosity=0):
     """
     Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
     Loads a set of tests from module and runs them;
@@ -67,7 +67,7 @@ def main(module_name, log_level=mpi_array.logging.DEBUG, init_logger_names=None)
             mpi_array.logging.initialise_loggers(
                 init_logger_names, log_level=log_level)
 
-        _builtin_unittest.main()
+        _builtin_unittest.main(verbosity=verbosity)
 
 
 def _fix_docstring_for_sphinx(docstr):
@@ -79,6 +79,7 @@ def _fix_docstring_for_sphinx(docstr):
 
 
 class TestCase(_builtin_unittest.TestCase):
+
     """
     Extends :obj:`unittest.TestCase` with the :meth:`assertArraySplitEqual`.
     """

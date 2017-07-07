@@ -42,6 +42,7 @@ __version__ = _mpi_array.__version__
 
 
 class IndexingExtentTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.IndexingExtentTest`.
     """
@@ -165,6 +166,7 @@ class IndexingExtentTest(_unittest.TestCase):
 
 
 class HaloIndexingExtentTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`.
     """
@@ -205,9 +207,33 @@ class HaloIndexingExtentTest(_unittest.TestCase):
         self.assertEqual(22 * 17, hie1.size_n)
         self.assertEqual(25 * 24, hie1.size_h)
 
+    def test_globale_and_locale_index_conversion(self):
+        """
+        Test for :meth:`mpi_array.decomposition.HaloIndexingExtent.globale_to_locale_h`,
+        and :meth:`mpi_array.decomposition.HaloIndexingExtent.locale_to_globale_h`.
+        """
+        hie = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertSequenceEqual(
+            [1, 3],
+            list(hie.globale_to_locale_h((10, 3)))
+        )
+        self.assertSequenceEqual(
+            [10, 3],
+            list(hie.locale_to_globale_h(hie.globale_to_locale_h((10, 3))))
+        )
+
+        self.assertSequenceEqual(
+            [0, 0],
+            list(hie.globale_to_locale_n((10, 3)))
+        )
+        self.assertSequenceEqual(
+            [10, 3],
+            list(hie.locale_to_globale_n(hie.globale_to_locale_n((10, 3))))
+        )
+
     def test_to_slice(self):
         """
-        :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtentTest`
+        :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtent`
         methods: :samp:`to_slice`, :samp:`to_slice_n`, and :samp:`to_slice_h`.
         """
         hie1 = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
@@ -226,6 +252,7 @@ class HaloIndexingExtentTest(_unittest.TestCase):
 
 
 class DecompExtentTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.DecompExtent`.
     """
@@ -711,6 +738,7 @@ class DecompExtentTest(_unittest.TestCase):
 
 
 class MemAllocTopologyTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.MemAllocTopology`.
     """
@@ -754,6 +782,7 @@ class MemAllocTopologyTest(_unittest.TestCase):
 
 
 class CartesianDecompositionTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartesianDecomposition`.
     """

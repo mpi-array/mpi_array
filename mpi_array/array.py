@@ -29,6 +29,7 @@ __version__ = _mpi_array.__version__
 
 
 class ndarray(object):
+
     """
     Multi-dimensional distributed array.
     """
