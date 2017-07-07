@@ -1,10 +1,13 @@
 """
-==============================
+============================
 The :mod:`mpi_array` Package
-==============================
+============================
 
-Python package for multi-dimensional distributed arrays like
-:obj:`numpy.ndarray`.
+Python package for multi-dimensional distributed arrays
+(
+`Partitioned Global Address Space <https://en.wikipedia.org/wiki/Partitioned_global_address_space>`_
+)
+with :obj:`numpy.ndarray`-like API.
 
 
 Classes and Functions

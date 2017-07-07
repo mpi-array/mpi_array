@@ -1,7 +1,7 @@
 """
-===================================
+=================================
 The :mod:`mpi_array.tests` Module
-===================================
+=================================
 
 Module for running all :mod:`mpi_array` unit-tests, including :mod:`unittest` test-cases
 and :mod:`doctest` tests for module doc-strings and sphinx (RST) documentation.
