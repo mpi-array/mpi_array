@@ -106,7 +106,7 @@ class GndarrayTest(_unittest.TestCase):
         """
 
         halo = 4
-        for lshape in ((1000,), (100, 200)):
+        for lshape in ((100, 200), (1000,), ):
             gshape = (_mpi.COMM_WORLD.size * lshape[0],) + lshape[1:]
             ndims = len(lshape)
             mat = \
