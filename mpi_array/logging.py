@@ -43,6 +43,7 @@ if (sys.version_info[0] <= 2):
 
 
 class _Python2SplitStreamHandler(_builtin_logging.Handler):
+
     """
     A python :obj:`logging.handlers` :samp:`Handler` class for
     splitting logging messages to different streams depending on
@@ -101,6 +102,7 @@ class _Python2SplitStreamHandler(_builtin_logging.Handler):
 
 
 class _Python3SplitStreamHandler(_builtin_logging.Handler):
+
     """
     A python :obj:`logging.handlers` :samp:`Handler` class for
     splitting logging messages to different streams depending on
@@ -213,6 +215,7 @@ def get_handler_classes(logger):
 
 
 class MultiLineFormatter(_builtin_logging.Formatter):
+
     """
     Over-rides :obj:`logging.Formatter.format` to format all lines
     of a mulit-line log message.
@@ -242,6 +245,7 @@ class MultiLineFormatter(_builtin_logging.Formatter):
 
 
 class LoggerFactory (object):
+
     """
     Factory for generating :obj:`logging.Logger` instances.
     """
@@ -293,7 +297,13 @@ class LoggerFactory (object):
 
         rank_logger = \
             _builtin_logging.getLogger(
-                name + "." + comm.Get_name() + "." + rank_string + "." + ("%04d" % comm.Get_rank())
+                name +
+                "." +
+                comm.Get_name() +
+                "." +
+                rank_string +
+                "." +
+                (("%%0%dd" % (len(str(_mpi.COMM_WORLD.size - 1)),)) % comm.Get_rank())
             )
         # First search for handler classes.
         tmp_logger = _builtin_logging.getLogger(name)
@@ -303,7 +313,11 @@ class LoggerFactory (object):
         rank_logger.handlers = []
         f = \
             self.get_formatter(
-                prefix_string="%s|%s%04d|" % (comm.Get_name(), rank_string, comm.Get_rank())
+                prefix_string=(
+                    ("%%s|%%s%%0%dd|" % (len(str(_mpi.COMM_WORLD.size - 1)),))
+                    %
+                    (comm.Get_name(), rank_string, comm.Get_rank())
+                )
             )
         if (ranks is None) or (comm.Get_rank() in ranks):
             for handler_class in hander_classes:
