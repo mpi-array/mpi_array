@@ -56,6 +56,7 @@ __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode(
 
 
 class NdarrayMetaData(object):
+
     """
     Encapsulates, strides, offset and order argument of :meth:`lndarray.__new__`.
     """
@@ -76,8 +77,13 @@ class NdarrayMetaData(object):
         self._offset = offset
         self._order = order
 
+    @property
+    def order(self):
+        return self._order
+
 
 class lndarray(_np.ndarray):
+
     """
     Sub-class of :obj:`numpy.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
     to allocate buffer memory.

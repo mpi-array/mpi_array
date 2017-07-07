@@ -37,6 +37,7 @@ __version__ = _mpi_array.__version__
 
 
 class LndarrayTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.locale.lndarray`.
     """
