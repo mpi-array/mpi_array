@@ -47,6 +47,24 @@ Linux)
         make V=0 && make install
       fi;
 
+    mpich) set -x;
+      if [ ! -f "${MPI_INSTALL_PREFIX}/bin/mpiexec" ] || ! "${MPI_INSTALL_PREFIX}/bin/mpiexec" "--version" ; then
+        echo "Building mpich2 version ${MPI_IMPL_VERSION}..."
+        rm -rf ${MPI_INSTALL_PREFIX};
+        wget http://www.mpich.org/static/downloads/${MPI_IMPL_VERSION}/mpich-${MPI_IMPL_VERSION}.tar.gz && \
+        tar -xzf mpich2-${MPI_IMPL_VERSION}.tar.gz && \
+        cd mpich-${MPI_IMPL_VERSION} && \
+        ./configure \
+            --enable-shared \
+            --disable-static \
+            --disable-f77 \
+            --disable-fc \
+            --quiet \
+            --enable-silent-rules \
+            --prefix=${MPI_INSTALL_PREFIX} && \
+        make V=0 && make install
+      fi;
+
       ;;
     openmpi) set -x;
       if [ ! -f "${MPI_INSTALL_PREFIX}/bin/ompi_info" ] || ! "${MPI_INSTALL_PREFIX}/bin/ompi_info"; then
