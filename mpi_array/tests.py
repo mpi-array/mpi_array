@@ -50,6 +50,7 @@ def load_tests(loader, tests, pattern):
     suite = \
         loader.loadTestsFromNames(
             [
+                "mpi_array.mpi_test",
                 "mpi_array.array_test",
                 "mpi_array.decomposition_test",
                 "mpi_array.locale_test",
@@ -63,4 +64,4 @@ def load_tests(loader, tests, pattern):
 __all__ = [s for s in dir() if not s.startswith('_')]
 
 if __name__ == "__main__":
-    _unittest_main(__name__, log_level=_logging.DEBUG, verbosity=2)
+    _unittest_main(__name__, log_level=_logging.DEBUG, verbosity=2, failfast=True)
