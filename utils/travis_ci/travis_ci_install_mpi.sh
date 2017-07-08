@@ -50,10 +50,10 @@ Linux)
       ;;
     mpich) set -x;
       if [ ! -f "${MPI_INSTALL_PREFIX}/bin/mpiexec" ] || ! "${MPI_INSTALL_PREFIX}/bin/mpiexec" "--version" ; then
-        echo "Building mpich2 version ${MPI_IMPL_VERSION}..."
+        echo "Building mpich version ${MPI_IMPL_VERSION}..."
         rm -rf ${MPI_INSTALL_PREFIX};
         wget http://www.mpich.org/static/downloads/${MPI_IMPL_VERSION}/mpich-${MPI_IMPL_VERSION}.tar.gz && \
-        tar -xzf mpich2-${MPI_IMPL_VERSION}.tar.gz && \
+        tar -xzf mpich-${MPI_IMPL_VERSION}.tar.gz && \
         cd mpich-${MPI_IMPL_VERSION} && \
         ./configure \
             --enable-shared \
