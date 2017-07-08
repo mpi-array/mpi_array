@@ -36,7 +36,7 @@ Linux)
         wget http://www.mpich.org/static/downloads/${MPI_IMPL_VERSION}/mpich2-${MPI_IMPL_VERSION}.tar.gz && \
         tar -xzf mpich2-${MPI_IMPL_VERSION}.tar.gz && \
         cd mpich2-${MPI_IMPL_VERSION} && \
-        ./configure --quiet --enable-silent-rules --prefix=${MPI_INSTALL_PREFIX} && \
+        ./configure --disable-f77 --disable-fc --quiet --enable-silent-rules --prefix=${MPI_INSTALL_PREFIX} && \
         make V=0 && make install
       fi;
 
