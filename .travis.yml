@@ -24,6 +24,7 @@ env:
     - INSTALL_PREFIX=$HOME/local
     - BUILD_PREFIX=$HOME/src/builds
   matrix:
+    - MPI=mpich2-1.5
     - MPI=openmpi-1.6.5
     - MPI=openmpi-1.10.6
     - MPI=openmpi-2.0.2

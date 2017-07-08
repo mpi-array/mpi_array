@@ -29,9 +29,17 @@ export CPATH=${MPI_PREFIX}/include:$CPATH
 case `uname` in
 Linux)
   case ${MPI_IMPL} in
-    mpich) set -x;
-      echo "Building mpich from source not implemented."
-      exit 1
+    mpich2) set -x;
+      if [ ! -f "${MPI_INSTALL_PREFIX}/bin/mpiexec" ] || ! "${MPI_INSTALL_PREFIX}/bin/mpiexec" "--version" ; then
+        echo "Building mpich2 version ${MPI_IMPL_VERSION}..."
+        rm -rf ${MPI_INSTALL_PREFIX};
+        wget http://www.mpich.org/static/downloads/${MPI_IMPL_VERSION}/mpich2-${MPI_IMPL_VERSION}.tar.gz && \
+        tar -xzf mpich2-${MPI_IMPL_VERSION}.tar.gz && \
+        cd mpich2-${MPI_IMPL_VERSION} && \
+        ./configure --quiet --enable-silent-rules --prefix=${MPI_INSTALL_PREFIX} && \
+        make V=0 && make install
+      fi;
+
       ;;
     openmpi) set -x;
       if [ ! -f "${MPI_INSTALL_PREFIX}/bin/ompi_info" ] || ! "${MPI_INSTALL_PREFIX}/bin/ompi_info"; then
