@@ -24,12 +24,12 @@ import numpy as _np
 
 
 def main(
-        module_name,
-        log_level=mpi_array.logging.DEBUG,
-        init_logger_names=None,
-        verbosity=0,
-        failfast=False
-    ):
+    module_name,
+    log_level=mpi_array.logging.DEBUG,
+    init_logger_names=None,
+    verbosity=0,
+    failfast=False
+):
     """
     Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
     Loads a set of tests from module and runs them;
