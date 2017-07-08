@@ -47,6 +47,7 @@ Linux)
         make V=0 && make install
       fi;
 
+      ;;
     mpich) set -x;
       if [ ! -f "${MPI_INSTALL_PREFIX}/bin/mpiexec" ] || ! "${MPI_INSTALL_PREFIX}/bin/mpiexec" "--version" ; then
         echo "Building mpich2 version ${MPI_IMPL_VERSION}..."
