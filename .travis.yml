@@ -39,7 +39,7 @@ before_install:
   - export LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LIBRARY_PATH
   - export LD_LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LD_LIBRARY_PATH
   - export CPATH=${MPI_PREFIX}/include:$CPATH
-  - which ompi_info
+  - which mpirun
 
 install:
   - git config --global user.name mpi-array
@@ -51,7 +51,7 @@ install:
   - python ./setup.py install
 
 script:
-  - if [[ -f `which ompi_info` ]]; then ompi_info; else mpiexec --version; fi
+  - if [[ -f `which ompi_info` ]]; then ompi_info; else `which mpiexec` --version; fi
   - utils/mpi4py_info.py
   - flake8 mpi_array
   - mpirun -n 1 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
