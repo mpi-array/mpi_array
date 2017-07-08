@@ -58,8 +58,7 @@ Linux)
         ./configure \
             --enable-shared \
             --disable-static \
-            --disable-f77 \
-            --disable-fc \
+            --disable-fortran \
             --quiet \
             --enable-silent-rules \
             --prefix=${MPI_INSTALL_PREFIX} && \
