@@ -65,29 +65,46 @@ class GndarrayTest(_unittest.TestCase):
         """
         Test various attributes of :obj:`mpi_array.globale.gndarray`.
         """
-        gary = mpi_array.globale.zeros((21, 35, 50), dtype="int8")
-        if gary.decomp.shared_mem_comm.rank == 0:
-            gary.lndarray.view_h[...] = 0
-        gary.decomp.shared_mem_comm.barrier()
-        rank_val = gary.decomp.rank_comm.rank
-        gary.rank_view_n[...] = rank_val
+        halos = [0, 3]
+        for halo in halos:
+            gshape = (50, 17, 23)
+            mem_alloc_topology = \
+                MemAllocTopology(
+                    ndims=len(gshape),
+                    shared_mem_comm=_mpi.COMM_SELF
+                )
+            decomp = \
+                CartesianDecomposition(
+                    shape=gshape,
+                    halo=halo,
+                    mem_alloc_topology=mem_alloc_topology
+                )
+            gary = mpi_array.globale.empty(decomp=decomp, dtype="int8")
+            if gary.decomp.shared_mem_comm.rank == 0:
+                gary.lndarray.view_h[...] = 0
+            gary.decomp.shared_mem_comm.barrier()
+            decomp.rank_logger.info("all zero gary.rank_view_h = %s" % (gary.rank_view_h,))
+            rank_val = gary.decomp.rank_comm.rank + 1
+            gary.rank_view_n[...] = rank_val
+            decomp.rank_logger.info("rank_val gary.rank_view_h = %s" % (gary.rank_view_h,))
 
-        self.assertEqual(gary.dtype, _np.dtype("int8"))
-        self.assertSequenceEqual(list(gary.shape), list((21, 35, 50)))
-        self.assertTrue(gary.decomp is not None)
-        self.assertTrue(gary.lndarray is not None)
-        self.assertTrue(isinstance(gary.lndarray, mpi_array.locale.lndarray))
-        self.assertTrue(gary.decomp is gary.lndarray.decomp)
-        self.assertEqual("C", gary.order)
-        self.assertTrue(gary.rank_logger is not None)
-        self.assertTrue(isinstance(gary.rank_logger, _logging.Logger))
-        self.assertTrue(gary.root_logger is not None)
-        self.assertTrue(isinstance(gary.root_logger, _logging.Logger))
-        self.assertTrue(_np.all(gary.rank_view_n == rank_val))
-        if _np.any(gary.rank_view_h.shape > gary.rank_view_n.shape):
-            self.assertTrue(
-                _np.all(_np.where(gary.rank_view_h == rank_val, 0, gary.rank_view_h) == 0)
-            )
+            self.assertEqual(gary.dtype, _np.dtype("int8"))
+            self.assertSequenceEqual(list(gary.shape), list(gshape))
+            self.assertTrue(gary.decomp is not None)
+            self.assertTrue(gary.lndarray is not None)
+            self.assertTrue(isinstance(gary.lndarray, mpi_array.locale.lndarray))
+            self.assertTrue(gary.decomp is gary.lndarray.decomp)
+            self.assertEqual("C", gary.order)
+            self.assertTrue(gary.rank_logger is not None)
+            self.assertTrue(isinstance(gary.rank_logger, _logging.Logger))
+            self.assertTrue(gary.root_logger is not None)
+            self.assertTrue(isinstance(gary.root_logger, _logging.Logger))
+            self.assertTrue(_np.all(gary.rank_view_n == rank_val))
+            if _np.any(gary.rank_view_h.shape > gary.rank_view_n.shape):
+                decomp.rank_logger.info("gary.rank_view_h = %s" % (gary.rank_view_h,))
+                self.assertTrue(
+                    _np.all(_np.where(gary.rank_view_h == rank_val, 0, gary.rank_view_h) == 0)
+                )
 
     def test_get_item_and_set_item(self):
         """
