@@ -27,8 +27,8 @@ def main(
     module_name,
     log_level=mpi_array.logging.DEBUG,
     init_logger_names=None,
-    verbosity=0,
-    failfast=False
+    verbosity=None,
+    failfast=None
 ):
     """
     Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
@@ -73,7 +73,13 @@ def main(
             mpi_array.logging.initialise_loggers(
                 init_logger_names, log_level=log_level)
 
-        _builtin_unittest.main(verbosity=verbosity, failfast=failfast)
+        kwargs = dict()
+        if failfast is not None:
+            kwargs["failfast"] = failfast
+        if verbosity is not None:
+            kwargs["verbosity"] = verbosity
+
+        _builtin_unittest.main(**kwargs)
 
 
 def _fix_docstring_for_sphinx(docstr):
