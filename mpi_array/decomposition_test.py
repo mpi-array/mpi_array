@@ -32,7 +32,8 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.decomposition import IndexingExtent, HaloIndexingExtent, DecompExtent
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology
+from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, SharedMemInfo
+from mpi_array.decomposition import MpiSingleExtentUpdate, HalosUpdate
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -249,6 +250,17 @@ class HaloIndexingExtentTest(_unittest.TestCase):
             (slice(9, 34, None), slice(0, 24, None)),
             hie1.to_slice_h()
         )
+
+    def test_start_stop_shape(self):
+        """
+        :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.HaloIndexingExtent`
+        methods: :samp:`start`, :samp:`stop`, and :samp:`shape`.
+        """
+        hie1 = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+
+        self.assertSequenceEqual(hie1.start_n.tolist(), hie1.start.tolist())
+        self.assertSequenceEqual(hie1.stop_n.tolist(), hie1.stop.tolist())
+        self.assertSequenceEqual(hie1.shape_n.tolist(), hie1.shape.tolist())
 
 
 class DecompExtentTest(_unittest.TestCase):
@@ -737,6 +749,27 @@ class DecompExtentTest(_unittest.TestCase):
         )
 
 
+class SharedMemInfoTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.decomposition.SharedMemInfo`.
+    """
+
+    def test_construct(self):
+        """
+        Test :meth:`mpi_array.decomposition.SharedMemInfo.__init__`
+        """
+        i = SharedMemInfo(comm=_mpi.COMM_WORLD)
+
+        self.assertTrue(i.shared_mem_comm is not None)
+        self.assertTrue(i.shared_mem_comm.size >= 1)
+
+        i = SharedMemInfo()
+
+        self.assertTrue(i.shared_mem_comm is not None)
+        self.assertTrue(i.shared_mem_comm.size >= 1)
+
+
 class MemAllocTopologyTest(_unittest.TestCase):
 
     """
@@ -781,6 +814,131 @@ class MemAllocTopologyTest(_unittest.TestCase):
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
+class MpiSingleExtentUpdateTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.decomposition.MpiSingleExtentUpdate`.
+    """
+
+    def setUp(self):
+        self.se = \
+            DecompExtent(
+                cart_rank=0,
+                cart_coord=(0,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(0, 100),),
+                halo=((10, 10),)
+            )
+        self.de = \
+            DecompExtent(
+                cart_rank=1,
+                cart_coord=(1,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(100, 200),),
+                halo=((10, 10),)
+            )
+        self.ue = IndexingExtent(start=(90,), stop=(100,))
+
+    def test_construct(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__init__`.
+        """
+        se = self.se
+        de = self.de
+        ue = self.ue
+
+        u = MpiSingleExtentUpdate(de, se, ue)
+        self.assertTrue(u.dst_extent is de)
+        self.assertTrue(u.src_extent is se)
+        self.assertTrue(u.update_extent is ue)
+
+    def test_str(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__str__`.
+        """
+        se = self.se
+        de = self.de
+        ue = self.ue
+
+        u = MpiSingleExtentUpdate(de, se, ue)
+        self.assertTrue(len(str(u)) > 0)
+
+    def test_data_type(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__str__`.
+        """
+        se = self.se
+        de = self.de
+        ue = self.ue
+
+        u = MpiSingleExtentUpdate(de, se, ue)
+        u.initialise_data_types(dtype="int32", order="C")
+        self.assertTrue(u.dst_data_type is not None)
+        self.assertTrue(isinstance(u.dst_data_type, _mpi.Datatype))
+        self.assertTrue(u.src_data_type is not None)
+        self.assertTrue(isinstance(u.src_data_type, _mpi.Datatype))
+
+        ddt = u.dst_data_type
+        sdt = u.src_data_type
+        u.initialise_data_types(dtype="int32", order="C")
+        self.assertTrue(u.dst_data_type is ddt)
+        self.assertTrue(u.src_data_type is sdt)
+
+        ddt = u.dst_data_type
+        sdt = u.src_data_type
+        u.initialise_data_types(dtype="int32", order="F")
+        self.assertTrue(u.dst_data_type is not ddt)
+        self.assertTrue(u.src_data_type is not sdt)
+
+
+class HalosUpdateTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.decomposition.HalosUpdate`.
+    """
+
+    def setUp(self):
+        self.se = \
+            DecompExtent(
+                cart_rank=0,
+                cart_coord=(0,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(0, 100),),
+                halo=((10, 10),)
+            )
+        self.de = \
+            DecompExtent(
+                cart_rank=1,
+                cart_coord=(1,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(100, 200),),
+                halo=((10, 10),)
+            )
+        self.ue = IndexingExtent(start=(90,), stop=(100,))
+
+    def test_construct(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.HalosUpdate.__init__`.
+        """
+        rank_to_extent_dict = \
+            {
+                self.se.cart_rank: self.se,
+                self.de.cart_rank: self.de
+            }
+        hu = HalosUpdate(self.de.cart_rank, rank_to_extent_dict)
+        self.assertEqual(1, len(hu.updates_per_axis))
+        self.assertEqual(2, len(hu.updates_per_axis[0]))
+        self.assertEqual(0, len(hu.updates_per_axis[0][1]))
+        self.assertEqual(1, len(hu.updates_per_axis[0][0]))
+        self.assertTrue(self.de is hu.updates_per_axis[0][0][0].dst_extent)
+        self.assertTrue(self.se is hu.updates_per_axis[0][0][0].src_extent)
+        self.assertEqual(self.ue, hu.updates_per_axis[0][0][0].update_extent)
+
+
 class CartesianDecompositionTest(_unittest.TestCase):
 
     """
@@ -801,6 +959,12 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp.root_logger.info("START " + self.id())
         decomp.root_logger.info(str(decomp))
         decomp.root_logger.info("END   " + self.id())
+
+        splt = decomp.shape_decomp
+        self.assertEqual(_mpi.COMM_WORLD.size, splt.size)
+        for s in splt:
+            self.assertEqual(1, s.size)
+            self.assertEqual(8, s[0].stop - s[0].start)
 
     def test_construct_1d_with_halo(self):
         """
@@ -914,6 +1078,21 @@ class CartesianDecompositionTest(_unittest.TestCase):
             self.assertSequenceEqual(list(orig_shape), decomp.shape.tolist())
             new_shape = (10 * _mpi.COMM_WORLD.size, 7 * _mpi.COMM_WORLD.size)
             decomp.shape = new_shape
+            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
+
+            new_shape = (23 * _mpi.COMM_WORLD.size,)
+            decomp.recalculate(new_shape, new_halo=5)
+            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
+            self.assertSequenceEqual([[5, 5], ], decomp.halo.tolist())
+
+            new_shape = \
+                (23 * _mpi.COMM_WORLD.size, 14 * _mpi.COMM_WORLD.size, 8 * _mpi.COMM_WORLD.size)
+            decomp.recalculate(new_shape, new_halo=5)
+            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
+            self.assertSequenceEqual([[5, 5], [5, 5], [5, 5]], decomp.halo.tolist())
+
+            decomp.halo = None
+            self.assertSequenceEqual([[0, 0], [0, 0], [0, 0]], decomp.halo.tolist())
             self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
 
 

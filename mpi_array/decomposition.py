@@ -877,7 +877,7 @@ class MpiSingleExtentUpdate(SingleExtentUpdate):
 class HalosUpdate(object):
 
     """
-    Indexing info for updating the halo regions of a single tile
+    Indexing info for updating the halo regions of a single locale
     on MPI rank :samp:`self.dst_rank`.
     """
 

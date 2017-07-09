@@ -106,6 +106,26 @@ class gndarray(object):
         """
         self.rank_logger.debug("__setitem__: i=%s, v=%s", i, v)
 
+    def __eq__(self, other):
+        """
+        """
+        ret = empty_like(self, dtype='bool')
+        if isinstance(other, gndarray):
+            ret.lndarray.rank_view_n[...] = \
+                (self.lndarray.rank_view_n[...] == other.lndarray.rank_view_n[...])
+        else:
+            ret.lndarray.rank_view_n[...] = \
+                (self.lndarray.rank_view_n[...] == other)
+
+        return ret
+
+    def all(self):
+        return \
+            self.decomp.rank_comm.allreduce(
+                bool(self.lndarray.rank_view_n.astype(_np.ndarray).all()),
+                op=_mpi.BAND
+            )
+
     @property
     def decomp(self):
         return self._lndarray.decomp

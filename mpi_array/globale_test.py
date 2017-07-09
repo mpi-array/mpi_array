@@ -25,6 +25,7 @@ import mpi_array.unittest as _unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
 from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology
+from mpi_array.decomposition import IndexingExtent
 import mpi_array.globale
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -196,6 +197,188 @@ class GndarrayTest(_unittest.TestCase):
                                 )
                             )
                 gary.decomp.shared_mem_comm.barrier()
+
+    def test_empty_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
+
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(gary.decomp.rank_view_slice_n).shape)
+        )
+
+        gary1 = mpi_array.globale.empty_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(gary1.decomp.rank_view_slice_n).shape)
+        )
+
+        ary = mpi_array.globale.empty_like(_np.zeros(lshape, dtype="int64"))
+        self.assertEqual(_np.dtype("int64"), ary.dtype)
+        self.assertSequenceEqual(
+            list(lshape),
+            list(ary.shape)
+        )
+
+    def test_empty_non_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        self.assertSequenceEqual(list(lshape), list(gary.lndarray.shape))
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(gary.decomp.rank_view_slice_n).shape)
+        )
+
+        gary1 = mpi_array.globale.empty_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        self.assertSequenceEqual(list(lshape), list(gary1.lndarray.shape))
+        self.assertSequenceEqual(
+            list(lshape),
+            list(IndexingExtent(gary1.decomp.rank_view_slice_n).shape)
+        )
+
+    def test_zeros_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.zeros` and :func:`mpi_array.globale.zeros_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary == 0).all())
+
+        gary1 = mpi_array.globale.zeros_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == 0).all())
+
+    def test_zeros_non_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.zeros` and :func:`mpi_array.globale.zeros_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary == 0).all())
+
+        gary1 = mpi_array.globale.zeros_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == 0).all())
+
+    def test_ones_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.ones` and :func:`mpi_array.globale.ones_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary == 1).all())
+
+        gary1 = mpi_array.globale.ones_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == 1).all())
+
+    def test_ones_non_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.ones` and :func:`mpi_array.globale.ones_like`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary == 1).all())
+
+        gary1 = mpi_array.globale.ones_like(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == 1).all())
+
+    def test_copy_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.copy`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        decomp = CartesianDecomposition(shape=gshape)
+
+        gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.rank_view_n[...] = gary.decomp.rank_comm.rank
+
+        gary1 = mpi_array.globale.copy(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == gary).all())
+
+    def test_copy_non_shared_1d(self):
+        """
+        Test for :func:`mpi_array.globale.copy`.
+        """
+
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
+        self.assertEqual(_np.dtype("int64"), gary.dtype)
+        gary.rank_view_n[...] = gary.decomp.rank_comm.rank
+
+        gary1 = mpi_array.globale.copy(gary)
+        self.assertEqual(_np.dtype("int64"), gary1.dtype)
+        gary.decomp.rank_comm.barrier()
+        self.assertTrue((gary1 == gary).all())
+
+    def test_all(self):
+        lshape = (10,)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+
+        gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
+        gary1 = mpi_array.globale.ones(decomp=decomp, dtype="int64")
+        self.assertFalse((gary0 == gary1).all())
 
 
 _unittest.main(__name__)
