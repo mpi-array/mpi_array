@@ -18,7 +18,8 @@ Classes
    :toctree: generated/
    :template: autosummary/lndarray_class.rst
 
-   lndarray - Sub-class of :obj:`numpy.ndarray` which uses MPI allocated memory.
+   slndarray - Sub-class of :obj:`numpy.ndarray` which uses MPI allocated memory.
+   lndarray - Provides various views of the :obj:`slndarray` array.
 
 Factory Functions
 =================
@@ -82,7 +83,7 @@ class NdarrayMetaData(object):
         return self._order
 
 
-class lndarray(_np.ndarray):
+class slndarray(_np.ndarray):
 
     """
     Sub-class of :obj:`numpy.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
@@ -99,6 +100,7 @@ class lndarray(_np.ndarray):
         offset=0,
         strides=None,
         order=None,
+        gshape=None,
         decomp=None
     ):
         """
@@ -106,8 +108,7 @@ class lndarray(_np.ndarray):
         be specified (i.e. at least one should not be :samp:`None`).
 
         :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: **Global** shape of the array. If :samp:`None`
-           global array shape is taken as :samp:`{decomp}.shape`.
+        :param shape: **Local** shape of the array, this parameter is ignored.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
         :type buffer: :samp:`None` or :obj:`memoryview`
@@ -120,25 +121,37 @@ class lndarray(_np.ndarray):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
+        :param gshape: **Global** shape of the array. If :samp:`None`
+           global array shape is taken as :samp:`{decomp}.shape`.
         :type decomp: :obj:`mpi_array.decomposition.Decomposition`
         :param decomp: Array decomposition info and used to allocate (possibly)
            shared memory.
         """
-        if (shape is not None) and (decomp is None):
-            decomp = _CartDecomp(shape)
-        elif (shape is not None) and (decomp is not None) and (_np.any(decomp.shape != shape)):
+        if (gshape is not None) and (decomp is None):
+            decomp = _CartDecomp(gshape)
+        elif (gshape is not None) and (decomp is not None) and (_np.any(decomp.shape != gshape)):
             raise ValueError(
-                "Got inconsistent shape argument=%s and decomp.shape=%s, should be the same."
+                "Got inconsistent gshape argument=%s and decomp.shape=%s, should be the same."
                 %
-                (shape, decomp.shape)
+                (gshape, decomp.shape)
             )
-        elif (shape is None) and (decomp is None):
+        elif (gshape is None) and (decomp is None):
             raise ValueError(
                 (
-                    "Got None for both shape argument and decomp argument,"
+                    "Got None for both gshape argument and decomp argument,"
                     +
                     " at least one should be provided."
                 )
+            )
+
+        if (shape is not None) and (_np.any(decomp.lndarray_extent.shape != shape)):
+            raise ValueError(
+                (
+                    "Got inconsistent shape argument=%s and decomp.lndarray_extent.shape=%s, " +
+                    "should be the same."
+                )
+                %
+                (shape, decomp.lndarray_extent.shape)
             )
 
         if buffer is None:
@@ -165,7 +178,6 @@ class lndarray(_np.ndarray):
                 order
             )
         self._md = NdarrayMetaData(offset=offset, strides=strides, order=order)
-        self._decomp = decomp
 
         return self
 
@@ -181,7 +193,6 @@ class lndarray(_np.ndarray):
             return
 
         self._md = getattr(obj, 'md', None)
-        self._decomp = getattr(obj, 'decomp', None)
 
     @property
     def md(self):
@@ -190,6 +201,69 @@ class lndarray(_np.ndarray):
         """
         return self._md
 
+
+class lndarray(object):
+
+    """
+    """
+
+    def __new__(
+        cls,
+        shape=None,
+        dtype=_np.dtype("float64"),
+        buffer=None,
+        offset=0,
+        strides=None,
+        order=None,
+        decomp=None
+    ):
+        self = object.__new__(cls)
+        self._slndarray = \
+            slndarray(
+                shape=None,
+                dtype=dtype,
+                buffer=buffer,
+                offset=offset,
+                strides=strides,
+                order=order,
+                gshape=shape,
+                decomp=decomp
+            )
+        self._decomp = decomp
+        return self
+
+    def __getitem__(self, *args, **kwargs):
+        """
+        """
+        return self._slndarray.__getitem__(*args, **kwargs)
+
+    def __setitem__(self, *args, **kwargs):
+        """
+        """
+        self._slndarray.__setitem__(*args, **kwargs)
+
+    def __eq__(self, other):
+        """
+        """
+        if isinstance(other, lndarray):
+            return self._slndarray == other._slndarray
+        else:
+            return self._slndarray == other
+
+    @property
+    def slndarray(self):
+        """
+        An :obj:`slndarray` instance containing array data in (potentially)
+        shared memory.
+        """
+        return self._slndarray
+
+    @property
+    def md(self):
+        """
+        """
+        return self._slndarray.md
+
     @property
     def decomp(self):
         """
@@ -197,6 +271,18 @@ class lndarray(_np.ndarray):
         describing distribution of the array across memory nodes.
         """
         return self._decomp
+
+    @property
+    def dtype(self):
+        """
+        """
+        return self._slndarray.dtype
+
+    @property
+    def shape(self):
+        """
+        """
+        return self._slndarray.shape
 
     @property
     def rank_view_n(self):
@@ -229,7 +315,7 @@ class lndarray(_np.ndarray):
 
     def __reduce_ex__(self, protocol):
         """
-        Pickle *reference* to shared memory.
+        Pickle *reference*.
         """
         raise NotImplementedError("Cannot pickle objects of type %s" % type(self))
         # return ndarray, (self.shape, self.dtype, self.mp_Array,
