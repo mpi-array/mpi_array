@@ -183,7 +183,7 @@ class slndarray(_np.ndarray):
 
     def __array_finalize__(self, obj):
         """
-        Sets :attr:`md` and :attr:`decomp` attributes for :samp:`{self}`
+        Sets :attr:`md` attribute for :samp:`{self}`
         from :samp:`{obj}` if required.
 
         :type obj: :obj:`object` or :samp:`None`
@@ -231,6 +231,19 @@ class lndarray(object):
             )
         self._decomp = decomp
         return self
+
+    def __array_finalize__(self, obj):
+        """
+        Sets :attr:`decomp` attributes for :samp:`{self}`
+        from :samp:`{obj}` if required.
+
+        :type obj: :obj:`object` or :samp:`None`
+        :param obj: Object from which attributes are set.
+        """
+        if obj is None:
+            return
+
+        self._decomp = getattr(obj, '_decomp', None)
 
     def __getitem__(self, *args, **kwargs):
         """
