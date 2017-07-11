@@ -119,10 +119,10 @@ class gndarray(object):
 
         return ret
 
-    def all(self):
+    def all(self, **unused_kwargs):
         return \
             self.decomp.rank_comm.allreduce(
-                bool(self.lndarray.rank_view_n.astype(_np.ndarray).all()),
+                bool(self.lndarray.rank_view_n.all()),
                 op=_mpi.BAND
             )
 
@@ -209,7 +209,7 @@ class gndarray(object):
                                     single_update
                                 )
                                 self.decomp.cart_win.Get(
-                                    [self._lndarray, 1, single_update.dst_data_type],
+                                    [self.lndarray.slndarray, 1, single_update.dst_data_type],
                                     single_update.src_extent.cart_rank,
                                     [0, 1, single_update.src_data_type]
                                 )

@@ -36,6 +36,50 @@ __copyright__ = _copyright()
 __version__ = _mpi_array.__version__
 
 
+class SlndarrayTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for :obj:`mpi_array.locale.slndarray`.
+    """
+
+    def test_numpy_construct(self):
+        """
+        Tests :meth:`mpi_array.locale.slndarray.__new__`.
+        """
+        gshape = (11, 13, 51)
+        lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
+
+        slary = lary.slndarray
+
+        # lary.decomp owns data
+        self.assertTrue(slary.flags.carray)
+        self.assertFalse(slary.flags.owndata)
+        self.assertFalse(slary.base.flags.owndata)
+        self.assertTrue(slary.base.flags.carray)
+
+    def test_numpy_sum(self):
+        """
+        Test :func:`numpy.sum` reduction using a :obj:`mpi_array.locale.slndarray`
+        as argument.
+        """
+        gshape = (50, 50, 50)
+        lary = mpi_array.locale.ones(shape=gshape, dtype="int32")
+
+        slary = lary.slndarray
+        l_sum = _np.sum(lary.rank_view_n)
+        self.assertFalse(l_sum.flags.owndata)
+        self.assertTrue(l_sum.base.flags.owndata)
+
+        lary.decomp.rank_logger.info("type(slary)=%s", type(slary))
+        lary.decomp.rank_logger.info("type(slary.base)=%s", type(slary.base))
+        lary.decomp.rank_logger.info("type(l_sum)=%s", type(l_sum))
+        lary.decomp.rank_logger.info("type(l_sum.base)=%s", type(l_sum.base))
+
+        g_sum = lary.decomp.rank_comm.allreduce(l_sum, op=_mpi.SUM)
+
+        self.assertEqual(_np.product(gshape), g_sum)
+
+
 class LndarrayTest(_unittest.TestCase):
 
     """
