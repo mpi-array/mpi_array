@@ -1,5 +1,5 @@
 ..
-   Special template for mpi_array.local.lndarray to avoid numpydoc
+   Special template for mpi_array.locale.slndarray to avoid numpydoc
    documentation style warnings/errors from numpy.ndarray inheritance.
 
 {{ fullname }}
@@ -16,8 +16,8 @@
    .. autosummary::
       :toctree: generated/methods
 
-      ~lndarray.__new__
-      ~lndarray.__array_finalize__
+      ~{{ name }}.__new__
+      ~{{ name }}.__array_finalize__
 
    {% endblock %}
 
@@ -27,9 +27,6 @@
    .. autosummary::
       :toctree: generated/attribs
       
-      ~lndarray.md
-      ~lndarray.decomp
-      ~lndarray.rank_view_h
-      ~lndarray.rank_view_n
+      ~{{ name }}.md
 
    {% endblock %}

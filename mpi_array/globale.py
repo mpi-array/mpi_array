@@ -119,10 +119,10 @@ class gndarray(object):
 
         return ret
 
-    def all(self):
+    def all(self, **unused_kwargs):
         return \
             self.decomp.rank_comm.allreduce(
-                bool(self.lndarray.rank_view_n.astype(_np.ndarray).all()),
+                bool(self.lndarray.rank_view_n.all()),
                 op=_mpi.BAND
             )
 
