@@ -19,13 +19,6 @@ Classes and Functions
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
-import sys as _sys
-import mpi4py.MPI as _mpi
-import array_split as _array_split
-import array_split.split  # noqa: F401
-from array_split import ARRAY_BOUNDS
-from array_split.split import convert_halo_to_array_form, shape_factors as _shape_factors
-import mpi_array.logging as _logging
 import numpy as _np
 
 __author__ = "Shane J. Latham"

@@ -56,11 +56,12 @@ class SlndarrayTest(_unittest.TestCase):
         self.assertFalse(slary.flags.owndata)
         self.assertFalse(slary.base.flags.owndata)
         self.assertTrue(slary.base.flags.carray)
-        
+
         lshape = slary.shape
         bad_lshape = list(lshape)
         bad_lshape[-1] += 1
-        self.assertRaises(ValueError, mpi_array.locale.slndarray, shape=bad_lshape, decomp=lary.decomp)
+        self.assertRaises(ValueError, mpi_array.locale.slndarray,
+                          shape=bad_lshape, decomp=lary.decomp)
 
     def test_numpy_sum(self):
         """
@@ -129,10 +130,10 @@ class LndarrayTest(_unittest.TestCase):
     def test_get_and_set_item(self):
         """
         """
-        lary = mpi_array.locale.empty(shape=(24,35,14,7), dtype="int64")
+        lary = mpi_array.locale.empty(shape=(24, 35, 14, 7), dtype="int64")
         rank_val = lary.decomp.rank_comm.rank + 1
         lary[lary.rank_view_slice_n] = rank_val
-        
+
         self.assertSequenceEqual(
             list(IndexingExtent(lary.rank_view_slice_n).shape),
             list(lary[lary.rank_view_slice_n].shape)

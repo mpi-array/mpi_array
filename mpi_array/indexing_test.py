@@ -26,7 +26,6 @@ import mpi_array.unittest as _unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
 
-import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
 
