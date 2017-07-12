@@ -642,6 +642,9 @@ class MpiSingleExtentUpdateTest(_unittest.TestCase):
         u = MpiSingleExtentUpdate(de, se, ue)
         self.assertTrue(len(str(u)) > 0)
 
+        u.initialise_data_types(dtype="int32", order="C")
+        self.assertTrue(len(str(u)) > 0)
+
     def test_data_type(self):
         """
         Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__str__`.
