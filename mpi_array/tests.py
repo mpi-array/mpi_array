@@ -52,6 +52,7 @@ def load_tests(loader, tests, pattern):
             [
                 "mpi_array.mpi_test",
                 "mpi_array.array_test",
+                "mpi_array.indexing_test",
                 "mpi_array.decomposition_test",
                 "mpi_array.locale_test",
                 "mpi_array.globale_test",
