@@ -42,7 +42,7 @@ class SlndarrayTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.locale.slndarray`.
     """
 
-    def test_numpy_construct(self):
+    def test_construct(self):
         """
         Tests :meth:`mpi_array.locale.slndarray.__new__`.
         """
@@ -56,6 +56,11 @@ class SlndarrayTest(_unittest.TestCase):
         self.assertFalse(slary.flags.owndata)
         self.assertFalse(slary.base.flags.owndata)
         self.assertTrue(slary.base.flags.carray)
+        
+        lshape = slary.shape
+        bad_lshape = list(lshape)
+        bad_lshape[-1] += 1
+        self.assertRaises(ValueError, mpi_array.locale.slndarray, shape=bad_lshape, decomp=lary.decomp)
 
     def test_numpy_sum(self):
         """
@@ -119,6 +124,24 @@ class LndarrayTest(_unittest.TestCase):
         self.assertRaises(
             NotImplementedError,
             lary.__reduce__
+        )
+
+    def test_get_and_set_item(self):
+        """
+        """
+        lary = mpi_array.locale.empty(shape=(24,35,14,7), dtype="int64")
+        rank_val = lary.decomp.rank_comm.rank + 1
+        lary[lary.rank_view_slice_n] = rank_val
+        
+        self.assertSequenceEqual(
+            list(IndexingExtent(lary.rank_view_slice_n).shape),
+            list(lary[lary.rank_view_slice_n].shape)
+        )
+        self.assertTrue(_np.all(lary[lary.rank_view_slice_n] == rank_val))
+
+        self.assertSequenceEqual(
+            list(IndexingExtent(lary.rank_view_slice_h).shape),
+            list(lary[lary.rank_view_slice_h].shape)
         )
 
     def test_empty_shared_1d(self):

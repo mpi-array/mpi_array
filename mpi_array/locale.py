@@ -338,6 +338,20 @@ class lndarray(object):
         return self._slndarray[self.decomp.rank_view_slice_h]
 
     @property
+    def rank_view_slice_n(self):
+        """
+        Sequence of :obj:`slice` objects used to generate :attr:`rank_view_n`.
+        """
+        return self.decomp.rank_view_slice_n
+
+    @property
+    def rank_view_slice_h(self):
+        """
+        Sequence of :obj:`slice` objects used to generate :attr:`rank_view_h`.
+        """
+        return self.decomp.rank_view_slice_h
+
+    @property
     def view_n(self):
         """
         View of entire array without halo.

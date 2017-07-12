@@ -1097,6 +1097,13 @@ class CartesianDecomposition(object):
         return self._rank_view_relative_slice_n
 
     @property
+    def lndarray_extent(self):
+        """
+        The extent of the locale array.
+        """
+        return self._lndarray_extent
+
+    @property
     def lndarray_view_slice_n(self):
         """
         Indexing slice which can be used to generate a view of :obj:`mpi_array.locale.lndarray`
