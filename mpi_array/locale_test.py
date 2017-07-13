@@ -63,6 +63,32 @@ class SlndarrayTest(_unittest.TestCase):
         self.assertRaises(ValueError, mpi_array.locale.slndarray,
                           shape=bad_lshape, decomp=lary.decomp)
 
+    def test_view(self):
+        """
+        Tests :meth:`mpi_array.locale.slndarray.__getitem__`.
+        """
+        gshape = (11, 13, 51)
+        lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
+        slary = lary.slndarray
+
+        # lary.decomp owns data
+        self.assertTrue(slary.flags.carray)
+        self.assertFalse(slary.flags.owndata)
+        self.assertFalse(slary.base.flags.owndata)
+        self.assertTrue(slary.base.flags.carray)
+
+        v = lary[0:slary.shape[0] // 2, 0:slary.shape[1] // 2, 0:slary.shape[2] // 2]
+        self.assertTrue(isinstance(v, mpi_array.locale.slndarray))
+        self.assertFalse(v.flags.owndata)
+        self.assertFalse(v.flags.carray)
+        self.assertTrue(isinstance(v.base, mpi_array.locale.slndarray))
+        self.assertFalse(v.base.flags.owndata)
+        self.assertTrue(v.base.flags.carray)
+        self.assertFalse(isinstance(v.base.base, mpi_array.locale.slndarray))
+        self.assertTrue(isinstance(v.base.base, _np.ndarray))
+        self.assertFalse(v.base.base.flags.owndata)
+        self.assertTrue(v.base.base.flags.carray)
+
     def test_numpy_sum(self):
         """
         Test :func:`numpy.sum` reduction using a :obj:`mpi_array.locale.slndarray`
