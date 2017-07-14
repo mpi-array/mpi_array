@@ -27,7 +27,7 @@ import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
 
 import numpy as _np  # noqa: E402,F401
-from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
+from mpi_array.indexing import IndexingExtent, HaloIndexingExtent, calc_intersection_split
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -77,6 +77,13 @@ class IndexingExtentTest(_unittest.TestCase):
         self.assertTrue(_np.all(ie.shape == (22, 30)))
         self.assertTrue(_np.all(ie.start == (10, 25)))
         self.assertTrue(_np.all(ie.stop == (32, 55)))
+
+        ie = IndexingExtent((slice(10, 32), slice(25, 55)))
+        ie.start = (5, 6)
+        self.assertSequenceEqual([5, 6], ie.start.tolist())
+
+        ie.stop = (11, 12)
+        self.assertSequenceEqual([11, 12], ie.stop.tolist())
 
     def test_intersection_1d(self):
         """
@@ -158,6 +165,103 @@ class IndexingExtentTest(_unittest.TestCase):
         self.assertSequenceEqual([22, 54], iei.start.tolist())
         self.assertSequenceEqual([32, 64], iei.stop.tolist())
 
+    def test_split(self):
+        """
+        Test for :meth:`mpi_array.indexing.IndexingExtent.split`.
+        """
+        ie = IndexingExtent(start=(10, 3), stop=(32, 20))
+
+        lo, hi = ie.split(0, 10)
+        self.assertTrue(lo is None)
+        self.assertTrue(hi is ie)
+
+        lo, hi = ie.split(1, 3)
+        self.assertTrue(lo is None)
+        self.assertTrue(hi is ie)
+
+        lo, hi = ie.split(0, 32)
+        self.assertTrue(lo is ie)
+        self.assertTrue(hi is None)
+
+        lo, hi = ie.split(1, 20)
+        self.assertTrue(lo is ie)
+        self.assertTrue(hi is None)
+
+        lo, hi = ie.split(0, 11)
+        self.assertEqual(IndexingExtent(start=(10, 3), stop=(11, 20)), lo)
+        self.assertEqual(IndexingExtent(start=(11, 3), stop=(32, 20)), hi)
+
+        lo, hi = ie.split(1, 4)
+        self.assertEqual(IndexingExtent(start=(10, 3), stop=(32, 4)), lo)
+        self.assertEqual(IndexingExtent(start=(10, 4), stop=(32, 20)), hi)
+
+        lo, hi = ie.split(0, 31)
+        self.assertEqual(IndexingExtent(start=(10, 3), stop=(31, 20)), lo)
+        self.assertEqual(IndexingExtent(start=(31, 3), stop=(32, 20)), hi)
+
+        lo, hi = ie.split(1, 19)
+        self.assertEqual(IndexingExtent(start=(10, 3), stop=(32, 19)), lo)
+        self.assertEqual(IndexingExtent(start=(10, 19), stop=(32, 20)), hi)
+
+    def test_calc_intersection_split(self):
+        """
+        Test for :meth:`mpi_array.indexing.IndexingExtent.calc_intersection_split`.
+        """
+        ie = IndexingExtent(start=(0, 50), stop=(50, 100))
+
+        other = IndexingExtent(start=(0, 50), stop=(50, 100))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(0, len(leftovers))
+        self.assertEqual(intersection, ie)
+        self.assertEqual(intersection, other)
+
+        other = IndexingExtent(start=(25, 50), stop=(50, 100))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(1, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(0, 50), stop=(25, 100)), leftovers[0])
+
+        other = IndexingExtent(start=(0, 50), stop=(25, 100))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(1, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(25, 50), stop=(50, 100)), leftovers[0])
+
+        other = IndexingExtent(start=(0, 50), stop=(50, 75))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(1, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(0, 75), stop=(50, 100)), leftovers[0])
+
+        other = IndexingExtent(start=(0, 75), stop=(50, 100))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(1, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(0, 50), stop=(50, 75)), leftovers[0])
+
+        other = IndexingExtent(start=(0, 50), stop=(25, 75))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(2, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(25, 50), stop=(50, 100)), leftovers[0])
+        self.assertEqual(IndexingExtent(start=(0, 75), stop=(25, 100)), leftovers[1])
+
+        other = IndexingExtent(start=(25, 75), stop=(50, 100))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(2, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(0, 50), stop=(25, 100)), leftovers[0])
+        self.assertEqual(IndexingExtent(start=(25, 50), stop=(50, 75)), leftovers[1])
+
+        other = IndexingExtent(start=(20, 60), stop=(40, 80))
+        leftovers, intersection = ie.calc_intersection_split(other)
+        self.assertEqual(intersection, other)
+        self.assertEqual(4, len(leftovers))
+        self.assertEqual(IndexingExtent(start=(0, 50), stop=(20, 100)), leftovers[0])
+        self.assertEqual(IndexingExtent(start=(40, 50), stop=(50, 100)), leftovers[1])
+        self.assertEqual(IndexingExtent(start=(20, 50), stop=(40, 60)), leftovers[2])
+        self.assertEqual(IndexingExtent(start=(20, 80), stop=(40, 100)), leftovers[3])
+
 
 class HaloIndexingExtentTest(_unittest.TestCase):
 
@@ -201,6 +305,20 @@ class HaloIndexingExtentTest(_unittest.TestCase):
         self.assertEqual(22 * 17, hie1.size_n)
         self.assertEqual(25 * 24, hie1.size_h)
 
+        ie = HaloIndexingExtent((slice(10, 32), slice(25, 55)))
+        ie.start_n = (3, 4)
+        self.assertSequenceEqual([3, 4], ie.start_n.tolist())
+        self.assertSequenceEqual([3, 4], ie.start.tolist())
+
+        ie.stop_n = (8, 9)
+        self.assertSequenceEqual([8, 9], ie.stop_n.tolist())
+        self.assertSequenceEqual([8, 9], ie.stop.tolist())
+
+        ie.halo = [[1, 2], [4, 8]]
+        self.assertSequenceEqual([[1, 2], [4, 8]], ie.halo.tolist())
+        ie.halo = 0
+        self.assertSequenceEqual([[0, 0], [0, 0]], ie.halo.tolist())
+
     def test_globale_and_locale_index_conversion(self):
         """
         Test for :meth:`mpi_array.indexing.HaloIndexingExtent.globale_to_locale_h`,
@@ -225,6 +343,36 @@ class HaloIndexingExtentTest(_unittest.TestCase):
             list(hie.locale_to_globale_n(hie.globale_to_locale_n((10, 3))))
         )
 
+    def test_globale_and_locale_extent_conversion(self):
+        """
+        Test for :meth:`mpi_array.indexing.HaloIndexingExtent.globale_to_locale_h`,
+        and :meth:`mpi_array.indexing.HaloIndexingExtent.locale_to_globale_h`.
+        """
+        hie = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        gext = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertEqual(
+            HaloIndexingExtent(start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4)))),
+            hie.globale_to_locale_extent_h(gext)
+        )
+
+        gext = IndexingExtent(start=(10, 3), stop=(32, 20))
+        self.assertEqual(
+            IndexingExtent(start=(1, 3), stop=(23, 20)),
+            hie.globale_to_locale_extent_h(gext)
+        )
+
+        lext = HaloIndexingExtent(start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertEqual(
+            hie,
+            hie.locale_to_globale_extent_h(lext)
+        )
+
+        lext = IndexingExtent(start=(1, 3), stop=(23, 20))
+        self.assertEqual(
+            IndexingExtent(start=hie.start, stop=hie.stop),
+            hie.locale_to_globale_extent_h(lext)
+        )
+
     def test_to_slice(self):
         """
         :obj:`unittest.TestCase` for :obj:`mpi_array.indexing.HaloIndexingExtent`
@@ -247,13 +395,80 @@ class HaloIndexingExtentTest(_unittest.TestCase):
     def test_start_stop_shape(self):
         """
         :obj:`unittest.TestCase` for :obj:`mpi_array.indexing.HaloIndexingExtent`
-        methods: :samp:`start`, :samp:`stop`, and :samp:`shape`.
+        attributes: :samp:`start`, :samp:`stop`, and :samp:`shape`.
         """
         hie1 = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
 
         self.assertSequenceEqual(hie1.start_n.tolist(), hie1.start.tolist())
         self.assertSequenceEqual(hie1.stop_n.tolist(), hie1.stop.tolist())
         self.assertSequenceEqual(hie1.shape_n.tolist(), hie1.shape.tolist())
+
+    def test_calc_intersection_split(self):
+        """
+        Tests for :obj:`mpi_array.indexing.calc_intersection_split`.
+        """
+        def update_factory(dst_extent, src_extent, intersection):
+            return [(dst_extent, src_extent, intersection), ]
+
+        dst_extent = HaloIndexingExtent(start=(4, 50), stop=(50, 100), halo=4)
+        src_extent = HaloIndexingExtent(start=(50, 46), stop=(150, 104), halo=4)
+        update_dst_halo = False
+        leftovers, updates = \
+            calc_intersection_split(
+                dst_extent,
+                src_extent,
+                update_factory,
+                update_dst_halo
+            )
+        self.assertEqual(0, len(updates))
+        self.assertEqual(1, len(leftovers))
+        self.assertTrue(leftovers[0] is dst_extent)
+
+        dst_extent = HaloIndexingExtent(start=(4, 50), stop=(50, 100), halo=4)
+        src_extent = HaloIndexingExtent(start=(50, 46), stop=(150, 104), halo=4)
+        update_dst_halo = True
+        leftovers, updates = \
+            calc_intersection_split(
+                dst_extent,
+                src_extent,
+                update_factory,
+                update_dst_halo
+            )
+        self.assertEqual(1, len(updates))
+        self.assertEqual(
+            IndexingExtent(start=(50, 46), stop=(54, 104)),
+            updates[0][2]
+        )
+        self.assertEqual(1, len(leftovers))
+        self.assertEqual(
+            HaloIndexingExtent(start=(0, 46), stop=(50, 104)),
+            leftovers[0]
+        )
+
+        dst_extent = HaloIndexingExtent(start=(4, 50), stop=(50, 100), halo=4)
+        src_extent = HaloIndexingExtent(start=(20, 30), stop=(32, 128), halo=4)
+        update_dst_halo = False
+        leftovers, updates = \
+            calc_intersection_split(
+                dst_extent,
+                src_extent,
+                update_factory,
+                update_dst_halo
+            )
+        self.assertEqual(1, len(updates))
+        self.assertEqual(
+            IndexingExtent(start=(20, 50), stop=(32, 100)),
+            updates[0][2]
+        )
+        self.assertEqual(2, len(leftovers))
+        self.assertEqual(
+            IndexingExtent(start=(4, 50), stop=(20, 100)),
+            leftovers[0]
+        )
+        self.assertEqual(
+            IndexingExtent(start=(32, 50), stop=(50, 100)),
+            leftovers[1]
+        )
 
 
 _unittest.main(__name__)

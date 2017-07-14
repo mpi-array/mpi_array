@@ -13,13 +13,16 @@ Classes and Functions
 
    IndexingExtent - Index range for a tile of a decomposition.
    HaloIndexingExtent - Index range, with ghost elements, for a tile of a decomposition.
-
+   calc_intersection_split - decompose an extent based on intersection with another extent.
 
 """
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import numpy as _np
+import copy as _copy
+import collections as _collections
+from array_split.split import convert_halo_to_array_form
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -67,6 +70,10 @@ class IndexingExtent(object):
         """
         return self._beg
 
+    @start.setter
+    def start(self, start):
+        self._beg = _np.array(start, dtype="int64")
+
     @property
     def stop(self):
         """
@@ -74,6 +81,10 @@ class IndexingExtent(object):
         (including halo).
         """
         return self._end
+
+    @stop.setter
+    def stop(self, stop):
+        self._end = _np.array(stop, dtype="int64")
 
     @property
     def shape(self):
@@ -110,6 +121,67 @@ class IndexingExtent(object):
             intersection_extent = None
 
         return intersection_extent
+
+    def split(self, a, index):
+        """
+        Split this extent into two extents by cutting along
+        axis :samp:`{a}` at index :samp:`{index}`.
+
+        :type a: :obj:`int`
+        :param a: Cut along this axis.
+        :type index: :obj:`int`
+        :param index: Location of cut.
+        :rtype: :obj:`tuple`
+        :return: A :samp:`(lo, hi)` pair.
+        """
+        if index <= self._beg[a]:
+            lo, hi = None, self
+        elif index >= self._end[a]:
+            lo, hi = self, None
+        else:
+            b = self._beg.copy()
+            e = self._end.copy()
+            e[a] = index
+            lo = IndexingExtent(start=b, stop=e)
+            b[a] = index
+            hi = IndexingExtent(start=b, stop=self._end.copy())
+
+        return lo, hi
+
+    def calc_intersection_split(self, other):
+        """
+        Returns :samp:`(leftovers, intersection)` pair, where :samp:`intersection`
+        is the :obj:`IndexingExtent` object (possibly :samp:`None`) indicating
+        the intersection of this (:samp:`{self}`) extent with the :samp:`other` extent
+        and :samp:`leftovers` is a list of :obj:`IndexingExtent` objects
+        indicating regions of :samp:`self` which do not intersect with
+        the :samp:`other` extent.
+
+        :type other: :obj:`IndexingExtent`
+        :param other: Perform intersection calculation using this extent.
+        :rtype: :obj:`tuple`
+        :return: :samp:`(leftovers, intersection)` pair.
+        """
+        intersection = self.calc_intersection(other)
+        leftovers = []
+        if intersection is not None:
+            q = _collections.deque()
+            q.append(self)
+            for a in range(self.ndim):
+                o = q.pop()
+                lo, hi = o.split(a, intersection._beg[a])
+                if lo is not None:
+                    leftovers.append(lo)
+                if hi is not None:
+                    lo, hi = hi.split(a, intersection._end[a])
+                    if lo is not None:
+                        q.append(lo)
+                    if hi is not None:
+                        leftovers.append(hi)
+        else:
+            leftovers.append(other)
+
+        return leftovers, intersection
 
     def to_slice(self):
         """
@@ -161,6 +233,8 @@ class HaloIndexingExtent(IndexingExtent):
         IndexingExtent.__init__(self, split, start, stop)
         if halo is None:
             halo = _np.zeros((self._beg.shape[0], 2), dtype=self._beg.dtype)
+        else:
+            halo = convert_halo_to_array_form(halo, self._beg.size)
         self._halo = halo
 
     @property
@@ -172,6 +246,10 @@ class HaloIndexingExtent(IndexingExtent):
         elements on the high-index *side*.
         """
         return self._halo
+
+    @halo.setter
+    def halo(self, halo):
+        self._halo = convert_halo_to_array_form(halo, self.ndim)
 
     @property
     def start_h(self):
@@ -187,6 +265,10 @@ class HaloIndexingExtent(IndexingExtent):
         """
         return self._beg
 
+    @start_n.setter
+    def start_n(self, start_n):
+        self._beg = _np.array(start_n, dtype="int64")
+
     @property
     def stop_h(self):
         """
@@ -200,6 +282,10 @@ class HaloIndexingExtent(IndexingExtent):
         The stop index of the tile without "halo" elements ("no halo").
         """
         return self._end
+
+    @stop_n.setter
+    def stop_n(self, stop_n):
+        self._end = _np.array(stop_n, dtype="int64")
 
     @property
     def shape_h(self):
@@ -325,6 +411,33 @@ class HaloIndexingExtent(IndexingExtent):
         """
         return self.start_n + lidx
 
+    def globale_to_locale_extent_h(self, gext):
+        """
+        Return :samp:`gext` converted to locale index.
+        """
+        ext = _copy.deepcopy(gext)
+        if isinstance(gext, HaloIndexingExtent):
+            ext.start_n = self.globale_to_locale_h(gext.start_n)
+            ext.stop_n = self.globale_to_locale_h(gext.stop_n)
+        else:
+            ext.start = self.globale_to_locale_h(gext.start)
+            ext.stop = self.globale_to_locale_h(gext.stop)
+
+        return ext
+
+    def locale_to_globale_extent_h(self, lext):
+        """
+        Return :samp:`lext` converted to globale index.
+        """
+        ext = _copy.deepcopy(lext)
+        if isinstance(lext, HaloIndexingExtent):
+            ext.start_n = self.locale_to_globale_h(lext.start_n),
+            ext.stop_n = self.locale_to_globale_h(lext.stop_n),
+        else:
+            ext.start = self.locale_to_globale_h(lext.start),
+            ext.stop = self.locale_to_globale_h(lext.stop),
+        return ext
+
     def to_slice(self):
         """
         Same as :meth:`to_slice_n`.
@@ -339,13 +452,75 @@ class HaloIndexingExtent(IndexingExtent):
             (
                 "HaloIndexingExtent(start=%s, stop=%s, halo=%s)"
                 %
-                (tuple(self._beg), tuple(self._end), tuple(self._halo))
+                (self._beg.tolist(), self._end.tolist(), self._halo.tolist())
             )
 
     def __str__(self):
         """
         """
         return self.__repr__()
+
+
+def calc_intersection_split(
+    dst_extent,
+    src_extent,
+    update_factory,
+    update_dst_halo
+):
+    """
+    Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+    Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
+    are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
+    The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
+    are returned as a :obj:`list` of *update* elements. The *update* elements
+    are created with a call to the factory object :samp:`update_factory`::
+
+       update_factory(dst_extent, src_extent, intersection)
+
+    Returns :obj:`tuple` pair :samp:`(leftovers, updates)`.
+
+    :type dst_extent: :obj:`HaloIndexingExtent`
+    :param dst_extent: Extent which is to receive update from intersection
+       with :samp:`{src_extent}`.
+    :type src_extent: :obj:`HaloIndexingExtent`
+    :param src_extent: Extent which is to provide update for the intersecting
+       region of :samp:`{dst_extent}`.
+    :type update_factory: callable :obj:`object`
+    :param update_factory: Object called to create instances
+       of :obj:`mpi_array.decomposition.PairUpdateExtent`.
+    :type update_dst_halo: :obj:`bool`
+    :param update_dst_halo: If true, then the halo of :samp:`{dst_extent}` is
+       include when calculating the intersection with :samp:`{src_extent}`.
+    :rtype: :obj:`tuple`
+    :return: Returns :obj:`tuple` pair of :samp:`(leftovers, updates)`.
+    """
+
+    leftovers = []
+    updates = []
+
+    if update_dst_halo:
+        dst_ie = IndexingExtent(start=dst_extent.start_h, stop=dst_extent.stop_h)
+        halo = 0
+    else:
+        dst_ie = IndexingExtent(start=dst_extent.start_n, stop=dst_extent.stop_n)
+        halo = dst_extent.halo
+    src_ie = IndexingExtent(start=src_extent.start_n, stop=src_extent.stop_n)
+
+    ie_leftovers, intersection = dst_ie.calc_intersection_split(src_ie)
+
+    for ie_leftover in ie_leftovers:
+        de = _copy.deepcopy(dst_extent)
+        de.start_n = ie_leftover.start
+        de.stop_n = ie_leftover.stop
+        de.halo = halo
+        leftovers.append(de)
+
+    if intersection is not None:
+        updates += update_factory(dst_extent, src_extent, intersection)
+    else:
+        leftovers = [dst_extent, ]
+
+    return leftovers, updates
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
