@@ -13,6 +13,7 @@ Classes
    :toctree: generated/
 
    gndarray - A :obj:`numpy.ndarray` like distributed array.
+   GndarrayRedistributeUpdater - Helper class for redistributing elements between decompositions.
 
 Factory Functions
 =================
@@ -27,6 +28,7 @@ Factory Functions
    ones - Create one-initialised array.
    ones_like - Create one-initialised array same size/shape as another array.
    copy - Create a replica of a specified array.
+   copyto - Copy elements of one array to another array.
 
 
 """
@@ -38,11 +40,91 @@ import mpi4py.MPI as _mpi
 import numpy as _np
 from mpi_array.locale import lndarray as _lndarray
 from mpi_array.decomposition import CartesianDecomposition as _CartDecomp
+from mpi_array.decomposition import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+
+
+class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
+
+    """
+    Helper class for redistributing array to new decomposition.
+    Calculates sequence of :obj:`mpi_array.decomposition.ExtentUpdate`
+    objects which are used to copy elements from
+    remote locales to local locale.
+    """
+
+    def __init__(self, dst, src):
+        """
+        """
+        self._dst = dst
+        self._src = src
+        _UpdatesForRedistribute.__init__(self, dst.decomp, src.decomp)
+
+    def create_pair_extent_update(
+        self,
+        dst_extent,
+        src_extent,
+        intersection_extent
+    ):
+        """
+        Factory method for which creates sequence of
+        of :obj:`mpi_array.decomposition.MpiPairExtentUpdate` objects.
+        """
+        updates = \
+            _UpdatesForRedistribute.create_pair_extent_update(
+                self,
+                dst_extent,
+                src_extent,
+                intersection_extent
+            )
+        for update in updates:
+            update.initialise_data_types(
+                dst_dtype=self._dst.dtype,
+                src_dtype=self._src.dtype,
+                dst_order=self._dst.lndarray.md.order,
+                src_order=self._src.lndarray.md.order
+            )
+        return updates
+
+    def do_locale_update(self):
+        """
+        Performs RMA to get elements from remote locales to
+        update the local array.
+        """
+        if (self._inter_win is not None) and (self._inter_win != _mpi.WIN_NULL):
+            updates = self._dst_updates[self._dst_decomp.lndarray_extent.inter_locale_rank]
+            self._dst_decomp.rank_logger.debug(
+                "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
+            )
+            self._inter_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+            for single_update in updates:
+                self._dst_decomp.rank_logger.debug(
+                    "BEG: Getting update:\n%s\n%s",
+                    single_update._header_str,
+                    single_update
+                )
+                self._inter_win.Get(
+                    [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
+                    single_update.src_extent.inter_locale_rank,
+                    [0, 1, single_update.src_data_type]
+                )
+                self._dst_decomp.rank_logger.debug(
+                    "END: Getting update:\n%s\n%s",
+                    single_update._header_str,
+                    single_update
+                )
+            self._inter_win.Fence(_mpi.MODE_NOSUCCEED)
+            self._dst_decomp.rank_logger.debug(
+                "END: Fence(_mpi.MODE_NOSUCCEED)."
+            )
+        if self._dst_decomp.num_locales > 1:
+            self._dst_decomp.intra_locale_comm.barrier()
+        else:
+            _np.copyto(self._dst.lndarray.slndarray, self._src.lndarray.slndarray)
 
 
 class gndarray(object):
@@ -228,6 +310,36 @@ class gndarray(object):
             self.decomp.shared_mem_comm.barrier()
             self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
 
+    def calculate_copyfrom_updates(self, src):
+        return \
+            GndarrayRedistributeUpdater(
+                self,
+                src
+            )
+
+    def copyfrom(self, src):
+        """
+        Copy the elements of the :samp:`{src}` array to corresponding elements of
+        the :samp:`{self}` array.
+
+        :type src: :obj:`gndarray`
+        :type src: Global array from which elements are copied.
+        """
+
+        if not isinstance(src, gndarray):
+            raise ValueError(
+                "Got type(src)=%s, expected %s." % (type(src), gndarray)
+            )
+
+        redistribute_updater = self.calculate_copyfrom_updates(src)
+        self.decomp.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        redistribute_updater.barrier()
+        self.decomp.rank_logger.debug("END: redistribute_updater.barrier().")
+        redistribute_updater.do_locale_update()
+        self.decomp.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        redistribute_updater.barrier()
+        self.decomp.rank_logger.debug("END: redistribute_updater.barrier().")
+
 
 def empty(shape=None, dtype="float64", decomp=None, order='C'):
     """
@@ -285,7 +397,10 @@ def zeros(shape=None, dtype="float64", decomp=None, order='C'):
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.zeros(1, dtype)
+
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
     ary.decomp.shared_mem_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
 
     return ary
 
@@ -303,7 +418,10 @@ def zeros_like(ary, *args, **kwargs):
     """
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.zeros(1, ary.dtype)
+
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
     ary.decomp.shared_mem_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
 
     return ary
 
@@ -324,7 +442,10 @@ def ones(shape=None, dtype="float64", decomp=None, order='C'):
     """
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.ones(1, dtype)
+
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
     ary.decomp.shared_mem_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
 
     return ary
 
@@ -342,12 +463,15 @@ def ones_like(ary, *args, **kwargs):
     """
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.ones(1, ary.dtype)
+
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
     ary.decomp.shared_mem_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
 
     return ary
 
 
-def copy(ary):
+def copy(ary, **kwargs):
     """
     Return an array copy of the given object.
 
@@ -358,9 +482,30 @@ def copy(ary):
     """
     ary_out = empty_like(ary)
     ary_out.rank_view_n[...] = ary.rank_view_n[...]
+
+    ary_out.decomp.rank_logger.debug("BEG: ary_out.decomp.shared_mem_comm...")
     ary_out.decomp.shared_mem_comm.barrier()
+    ary_out.decomp.rank_logger.debug("END: ary_out.decomp.shared_mem_comm.")
 
     return ary_out
+
+
+def copyto(dst, src, **kwargs):
+    """
+    Copy the elements of the :samp:`{src}` array to corresponding elements of
+    the :samp:`dst` array.
+
+    :type dst: :obj:`gndarray`
+    :type dst: Global array which receives elements.
+    :type src: :obj:`gndarray`
+    :type src: Global array from which elements are copied.
+    """
+    if not isinstance(dst, gndarray):
+        raise ValueError(
+            "Got type(dst)=%s, expected %s." % (type(dst), gndarray)
+        )
+
+    dst.copyfrom(src)
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

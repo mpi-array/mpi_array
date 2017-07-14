@@ -31,7 +31,7 @@ import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
 from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, SharedMemInfo
-from mpi_array.decomposition import DecompExtent, MpiSingleExtentUpdate, HalosUpdate
+from mpi_array.decomposition import DecompExtent, MpiHaloSingleExtentUpdate, HalosUpdate
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -52,6 +52,7 @@ class DecompExtentTest(_unittest.TestCase):
         """
         de = \
             DecompExtent(
+                rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(1,),
@@ -60,10 +61,24 @@ class DecompExtentTest(_unittest.TestCase):
                 halo=((10, 10),)
             )
 
+        self.assertEqual(0, de.rank)
         self.assertEqual(0, de.cart_rank)
         self.assertTrue(_np.all(de.cart_coord == (0,)))
         self.assertTrue(_np.all(de.cart_shape == (1,)))
         self.assertTrue(_np.all(de.halo == 0))
+
+        de = \
+            DecompExtent(
+                rank=56,
+                cart_rank=7,
+                cart_coord=(7,),
+                cart_shape=(8,),
+                array_shape=(640,),
+                slice=(slice(560, 640),),
+                halo=((10, 10),)
+            )
+        self.assertEqual(56, de.rank)
+        self.assertEqual(7, de.cart_rank)
 
     def test_extent_calcs_1d_thick_tiles(self):
         """
@@ -76,6 +91,7 @@ class DecompExtentTest(_unittest.TestCase):
         de = \
             [
                 DecompExtent(
+                    rank=r,
                     cart_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
@@ -148,6 +164,7 @@ class DecompExtentTest(_unittest.TestCase):
         de = \
             [
                 DecompExtent(
+                    rank=r,
                     cart_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
@@ -254,6 +271,7 @@ class DecompExtentTest(_unittest.TestCase):
         de = \
             [
                 DecompExtent(
+                    rank=r,
                     cart_rank=r,
                     cart_coord=_np.unravel_index(r, splt.shape),
                     cart_shape=splt.shape,
@@ -591,15 +609,16 @@ class MemAllocTopologyTest(_unittest.TestCase):
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
-class MpiSingleExtentUpdateTest(_unittest.TestCase):
+class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.MpiSingleExtentUpdate`.
+    Tests for :obj:`mpi_array.decomposition.MpiHaloSingleExtentUpdate`.
     """
 
     def setUp(self):
         self.se = \
             DecompExtent(
+                rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
@@ -609,6 +628,7 @@ class MpiSingleExtentUpdateTest(_unittest.TestCase):
             )
         self.de = \
             DecompExtent(
+                rank=1,
                 cart_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
@@ -620,26 +640,26 @@ class MpiSingleExtentUpdateTest(_unittest.TestCase):
 
     def test_construct(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__init__`.
+        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__init__`.
         """
         se = self.se
         de = self.de
         ue = self.ue
 
-        u = MpiSingleExtentUpdate(de, se, ue)
+        u = MpiHaloSingleExtentUpdate(de, se, ue)
         self.assertTrue(u.dst_extent is de)
         self.assertTrue(u.src_extent is se)
         self.assertTrue(u.update_extent is ue)
 
     def test_str(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
         ue = self.ue
 
-        u = MpiSingleExtentUpdate(de, se, ue)
+        u = MpiHaloSingleExtentUpdate(de, se, ue)
         self.assertTrue(len(str(u)) > 0)
 
         u.initialise_data_types(dtype="int32", order="C")
@@ -647,13 +667,13 @@ class MpiSingleExtentUpdateTest(_unittest.TestCase):
 
     def test_data_type(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiSingleExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
         ue = self.ue
 
-        u = MpiSingleExtentUpdate(de, se, ue)
+        u = MpiHaloSingleExtentUpdate(de, se, ue)
         u.initialise_data_types(dtype="int32", order="C")
         self.assertTrue(u.dst_data_type is not None)
         self.assertTrue(isinstance(u.dst_data_type, _mpi.Datatype))
@@ -682,6 +702,7 @@ class HalosUpdateTest(_unittest.TestCase):
     def setUp(self):
         self.se = \
             DecompExtent(
+                rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
@@ -691,6 +712,7 @@ class HalosUpdateTest(_unittest.TestCase):
             )
         self.de = \
             DecompExtent(
+                rank=1,
                 cart_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),

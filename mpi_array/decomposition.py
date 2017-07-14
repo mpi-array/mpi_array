@@ -11,6 +11,11 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
+   ExtentUpdate - Base class for describing a sub-extent update.
+   PairExtentUpdate - Describes sub-extent source and sub-extent destination.
+   MpiPairExtentUpdate - Extends :obj:`PairExtentUpdate` with MPI data type factory.
+   HaloSingleExtentUpdate - Describes sub-extent for halo region update.
+   MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    SharedMemInfo - Shared-memory communicator generation.
    MemAllocTopology - Topology of MPI processes which allocate shared memory.
@@ -20,15 +25,22 @@ Classes and Functions
 """
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
+
 import pkg_resources as _pkg_resources
+
 import sys as _sys
 import mpi4py.MPI as _mpi
+
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split import ARRAY_BOUNDS
 from array_split.split import convert_halo_to_array_form, shape_factors as _shape_factors
+
 import mpi_array.logging as _logging
 from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
+from mpi_array.indexing import calc_intersection_split as _calc_intersection_split
+
+import collections as _collections
 
 import numpy as _np
 
@@ -255,6 +267,7 @@ class DecompExtent(HaloIndexingExtent):
 
     def __init__(
         self,
+        rank,
         cart_rank,
         cart_coord,
         cart_shape,
@@ -266,6 +279,8 @@ class DecompExtent(HaloIndexingExtent):
         """
         Construct.
 
+        :type rank: :obj:`int`
+        :param rank: Rank of MPI process in :samp:`rank_comm` communicator.
         :type cart_rank: :obj:`int`
         :param cart_rank: Rank of MPI process in cartesian communicator.
         :type cart_coord: sequence of :obj:`int`
@@ -280,6 +295,7 @@ class DecompExtent(HaloIndexingExtent):
            of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
            elements on the high-index *side*.
         """
+        self._rank = rank
         self._cart_rank = cart_rank
         self._cart_coord = _np.array(cart_coord, dtype="int64")
         self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
@@ -305,9 +321,23 @@ class DecompExtent(HaloIndexingExtent):
         self._halo = halo
 
     @property
+    def rank(self):
+        """
+        MPI rank of the process in the :samp:`rank_comm` communicator.
+        """
+        return self._rank
+
+    @property
     def cart_rank(self):
         """
         MPI rank of the process in the cartesian decomposition.
+        """
+        return self._cart_rank
+
+    @property
+    def inter_locale_rank(self):
+        """
+        MPI rank of the process in the :samp:`inter_locale_comm`.
         """
         return self._cart_rank
 
@@ -372,17 +402,24 @@ class DecompExtent(HaloIndexingExtent):
             )
 
 
-class SingleExtentUpdate(object):
+class ExtentUpdate(object):
 
     """
     Source and destination indexing info for updating a sub-extent region.
     """
 
-    def __init__(self, dst_extent, src_extent, update_extent):
+    def __init__(self, dst_extent, src_extent):
+        """
+        Initialise.
+
+        :type dst_extent: :obj:`DecompExtent`
+        :param dst_extent: Whole locale extent which receives update.
+        :type src_extent: :obj:`DecompExtent`
+        :param src_extent: Whole locale extent from which update is read.
+        """
         object.__init__(self)
-        self._dst_extent = dst_extent  #: whole tile of destination rank
-        self._src_extent = src_extent  #: whole tile of source rank
-        self._update_extent = update_extent  #: portion from source required for update
+        self._dst_extent = dst_extent  #: whole tile of destination locale
+        self._src_extent = src_extent  #: whole tile of source locale
 
     @property
     def dst_extent(self):
@@ -398,6 +435,234 @@ class SingleExtentUpdate(object):
         """
         return self._src_extent
 
+
+class PairExtentUpdate(ExtentUpdate):
+
+    """
+    Source and destination indexing info for updating a sub-extent region.
+    """
+
+    def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
+        ExtentUpdate.__init__(self, dst_extent, src_extent)
+        self._dst_update_extent = dst_update_extent  #: sub-extent of self.dst_extent
+        self._src_update_extent = src_update_extent  #: sub-extent of self.src_extent
+
+    @property
+    def dst_update_extent(self):
+        """
+        The locale sub-extent (:obj:`IndexingExtent`) to be updated.
+        """
+        return self._dst_update_extent
+
+    @property
+    def src_update_extent(self):
+        """
+        The locale sub-extent (:obj:`IndexingExtent`) from which the update is read.
+        """
+        return self._src_update_extent
+
+
+class MpiPairExtentUpdate(PairExtentUpdate):
+
+    """
+    Source and destination indexing info for updating the whole of a halo portion.
+    Extends :obj:`HaloSingleExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
+    instances (using :meth:`mpi4py.MPI.Datatype.Create_subarray`) for convenient
+    transfer of sub-array data.
+    """
+
+    def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
+        PairExtentUpdate.__init__(
+            self,
+            dst_extent=dst_extent,
+            src_extent=src_extent,
+            dst_update_extent=dst_update_extent,
+            src_update_extent=src_update_extent
+        )
+        self._dst_order = None
+        self._src_order = None
+        self._dst_dtype = None
+        self._src_dtype = None
+        self._dst_data_type = None
+        self._src_data_type = None
+        self._str_format = \
+            (
+                "%8s, %20s, %20s, %20s, %20s, %20s, %20s, %16s, "
+                +
+                "%8s, %20s, %20s, %20s, %20s, %20s, %20s, %16s"
+            )
+        self._header_str = \
+            (
+                self._str_format
+                %
+                (
+                    "dst rank",
+                    "dst ext  glb start",
+                    "dst ext  glb stop ",
+                    "dst updt loc start",
+                    "dst updt loc stop ",
+                    "dst updt glb start",
+                    "dst updt glb stop ",
+                    "dst MPI datatype",
+                    "src rank",
+                    "src ext  glb start",
+                    "src ext  glb stop ",
+                    "src updt loc start",
+                    "src updt loc stop ",
+                    "src updt glb start",
+                    "src updt glb stop ",
+                    "src MPI datatype",
+                )
+            )
+
+    def initialise_data_types(self, dst_dtype, src_dtype, dst_order, src_order):
+        """
+        Assigns new instances of `mpi4py.MPI.Datatype` for
+        the :attr:`dst_data_type` and :attr:`src_data_type`
+        attributes. Only creates new instances when
+        the :samp:`{dst_dtype}`, :samp:`{src_dtype}` or :samp:`{order}`
+        do not match existing instances.
+
+        :type dst_dtype: :obj:`numpy.dtype`
+        :param dst_dtype: The array element type of the array which is to receive data.
+        :type src_dtype: :obj:`numpy.dtype`
+        :param src_dtype: The array element type of the array from which data is copied.
+        :type order: :obj:`str`
+        :param order: Array memory layout, :samp:`"C"` for C array,
+           or :samp:`"F"` for fortran array.
+        """
+        dst_dtype = _np.dtype(dst_dtype)
+        dst_order = dst_order.upper()
+        src_dtype = _np.dtype(src_dtype)
+        src_order = src_order.upper()
+        if (
+            (self._dst_dtype is None)
+            or
+            (self._src_dtype is None)
+            or
+            (self._dst_dtype != dst_dtype)
+            or
+            (self._src_dtype != dst_dtype)
+            or
+            (self._dst_order != dst_order)
+            or
+            (self._src_order != src_order)
+        ):
+            self._dst_data_type, self._src_data_type = \
+                self.create_data_types(dst_dtype, src_dtype, dst_order, src_order)
+            self._dst_dtype = dst_dtype
+            self._src_dtype = src_dtype
+            self._dst_order = dst_order
+            self._src_order = src_order
+
+    def create_data_types(self, dst_dtype, src_dtype, dst_order, src_order):
+        """
+        Returns pair of new `mpi4py.MPI.Datatype`
+        instances :samp:`(dst_data_type, src_data_type)`.
+
+        :type dtype: :obj:`numpy.dtype`
+        :param dtype: The array element type.
+        :type order: :obj:`str`
+        :param order: Array memory layout, :samp:`"C"` for C array,
+           or :samp:`"F"` for fortran array.
+        :rtype: :obj:`tuple`
+        :return: Pair of new `mpi4py.MPI.Datatype`
+           instances :samp:`(dst_data_type, src_data_type)`.
+        """
+        dst_mpi_order = _mpi.ORDER_C
+        if dst_mpi_order == "F":
+            dst_mpi_order = _mpi.ORDER_FORTRAN
+
+        dst_data_type = \
+            _mpi._typedict[dst_dtype.char].Create_subarray(
+                self._dst_extent.shape_h,
+                self._dst_update_extent.shape,
+                self._dst_extent.globale_to_locale_h(self._dst_update_extent.start),
+                order=dst_mpi_order
+            )
+        dst_data_type.Commit()
+
+        src_mpi_order = _mpi.ORDER_C
+        if src_mpi_order == "F":
+            src_mpi_order = _mpi.ORDER_FORTRAN
+
+        src_data_type = \
+            _mpi._typedict[src_dtype.char].Create_subarray(
+                self._src_extent.shape_h,
+                self._src_update_extent.shape,
+                self._src_extent.globale_to_locale_h(self._src_update_extent.start),
+                order=src_mpi_order
+            )
+        src_data_type.Commit()
+
+        return dst_data_type, src_data_type
+
+    @property
+    def dst_data_type(self):
+        """
+        A :obj:`mpi4py.MPI.Datatype` object created
+        using :meth:`mpi4py.MPI.Datatype.Create_subarray` which
+        defines the sub-array of halo elements which are to
+        receive update values.
+        """
+        return self._dst_data_type
+
+    @property
+    def src_data_type(self):
+        """
+        A :obj:`mpi4py.MPI.Datatype` object created
+        using :meth:`mpi4py.MPI.Datatype.Create_subarray` which
+        defines the sub-array of halo elements from which
+        receive update values.
+        """
+        return self._src_data_type
+
+    def __str__(self):
+        """
+        Stringify.
+        """
+        dst_mpi_dtype = None
+        if self._dst_dtype is not None:
+            dst_mpi_dtype = _mpi._typedict[self._dst_dtype.char].Get_name()
+        src_mpi_dtype = None
+        if self._src_dtype is not None:
+            src_mpi_dtype = _mpi._typedict[self._src_dtype.char].Get_name()
+
+        return \
+            (
+                self._str_format
+                %
+                (
+                    self.dst_extent.cart_rank,
+                    self.dst_extent.start_h,
+                    self.dst_extent.stop_h,
+                    self.dst_extent.globale_to_locale_h(self.dst_update_extent.start),
+                    self.dst_extent.globale_to_locale_h(self.dst_update_extent.stop),
+                    self.dst_update_extent.start,
+                    self.dst_update_extent.stop,
+                    dst_mpi_dtype,
+                    self.src_extent.cart_rank,
+                    self.src_extent.start_h,
+                    self.src_extent.stop_h,
+                    self.src_extent.globale_to_locale_h(self.src_update_extent.start),
+                    self.src_extent.globale_to_locale_h(self.src_update_extent.stop),
+                    self.src_update_extent.start,
+                    self.src_update_extent.stop,
+                    src_mpi_dtype
+                )
+            )
+
+
+class HaloSingleExtentUpdate(ExtentUpdate):
+
+    """
+    Source and destination indexing info for updating a halo portion.
+    """
+
+    def __init__(self, dst_extent, src_extent, update_extent):
+        ExtentUpdate.__init__(self, dst_extent, src_extent)
+        self._update_extent = update_extent  #: portion from source required for update
+
     @property
     def update_extent(self):
         """
@@ -406,17 +671,17 @@ class SingleExtentUpdate(object):
         return self._update_extent
 
 
-class MpiSingleExtentUpdate(SingleExtentUpdate):
+class MpiHaloSingleExtentUpdate(HaloSingleExtentUpdate):
 
     """
-    Source and destination indexing info for updating the whole of an extent.
-    Extends :obj:`SingleExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
+    Source and destination indexing info for updating the whole of a halo portion.
+    Extends :obj:`HaloSingleExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
     instances (using :meth:`mpi4py.MPI.Datatype.Create_subarray`) for convenient
     transfer of sub-array data.
     """
 
     def __init__(self, dst_extent, src_extent, update_extent):
-        SingleExtentUpdate.__init__(self, dst_extent, src_extent, update_extent)
+        HaloSingleExtentUpdate.__init__(self, dst_extent, src_extent, update_extent)
         self._order = None
         self._dtype = None
         self._dst_data_type = None
@@ -583,7 +848,7 @@ class HalosUpdate(object):
 
     def create_single_extent_update(self, dst_extent, src_extent, halo_extent):
         """
-        Factory method for creating instances of type :obj:`SingleExtentUpdate`.
+        Factory method for creating instances of type :obj:`HaloSingleExtentUpdate`.
 
         :type dst_extent: :obj:`IndexingExtent`
         :param dst_extent: The destination locale extent for halo element update.
@@ -592,10 +857,10 @@ class HalosUpdate(object):
         :type halo_extent: :obj:`IndexingExtent`
         :param halo_extent: The extent indicating the sub-array of halo elements.
 
-        :rtype: :obj:`SingleExtentUpdate`
-        :return: Returns new instance of :obj:`SingleExtentUpdate`.
+        :rtype: :obj:`HaloSingleExtentUpdate`
+        :return: Returns new instance of :obj:`HaloSingleExtentUpdate`.
         """
-        return SingleExtentUpdate(dst_extent, src_extent, halo_extent)
+        return HaloSingleExtentUpdate(dst_extent, src_extent, halo_extent)
 
     def calc_halo_intersection(self, dst_extent, src_extent, axis, dir):
         """
@@ -687,7 +952,7 @@ class HalosUpdate(object):
     def updates_per_axis(self):
         """
         A :attr:`ndim` length list of pair elements, each element of the pair
-        is a list of :obj:`SingleExtentUpdate` objects.
+        is a list of :obj:`HaloSingleExtentUpdate` objects.
         """
         return self._updates
 
@@ -698,12 +963,12 @@ class MpiHalosUpdate(HalosUpdate):
     Indexing info for updating the halo regions of a single tile
     on MPI rank :samp:`self.dst_rank`.
     Over-rides the :meth:`create_single_extent_update` to
-    return :obj:`MpiSingleExtentUpdate` instances.
+    return :obj:`MpiHaloSingleExtentUpdate` instances.
     """
 
     def create_single_extent_update(self, dst_extent, src_extent, halo_extent):
         """
-        Factory method for creating instances of type :obj:`MpiSingleExtentUpdate`.
+        Factory method for creating instances of type :obj:`MpiHaloSingleExtentUpdate`.
 
         :type dst_extent: :obj:`IndexingExtent`
         :param dst_extent: The destination locale extent for halo element update.
@@ -712,10 +977,197 @@ class MpiHalosUpdate(HalosUpdate):
         :type halo_extent: :obj:`IndexingExtent`
         :param halo_extent: The extent indicating the sub-array of halo elements.
 
-        :rtype: :obj:`MpiSingleExtentUpdate`
-        :return: Returns new instance of :obj:`MpiSingleExtentUpdate`.
+        :rtype: :obj:`MpiHaloSingleExtentUpdate`
+        :return: Returns new instance of :obj:`MpiHaloSingleExtentUpdate`.
         """
-        return MpiSingleExtentUpdate(dst_extent, src_extent, halo_extent)
+        return MpiHaloSingleExtentUpdate(dst_extent, src_extent, halo_extent)
+
+
+class UpdatesForRedistribute(object):
+
+    """
+    Collection of update extents for re-distribution of array
+    elements from one decomposition to another.
+    """
+
+    def __init__(self, dst_decomp, src_decomp):
+        """
+        """
+        self._dst_decomp = dst_decomp
+        self._src_decomp = src_decomp
+        self._inter_comm = None
+        self._inter_win = None
+
+        self._updates_dict = None
+        self.update_dst_halo = False
+
+        self.initialise()
+
+    def calc_can_use_existing_inter_locale_comm(self):
+        can_use_existing_inter_locale_comm = \
+            (self._dst_decomp.inter_locale_comm is not None)
+        if self._dst_decomp.have_valid_inter_locale_comm:
+            if self._src_decomp.have_valid_inter_locale_comm:
+                can_use_existing_inter_locale_comm = \
+                    (
+                        (
+                            _mpi.Group.Union(
+                                self._dst_decomp.inter_locale_comm.group,
+                                self._src_decomp.inter_locale_comm.group
+                            ).size
+                            ==
+                            self._dst_decomp.inter_locale_comm.group.size
+                        )
+                        and
+                        (
+                            _mpi.Group.Intersection(
+                                self._dst_decomp.inter_locale_comm.group,
+                                self._src_decomp.inter_locale_comm.group
+                            ).size
+                            ==
+                            self._dst_decomp.inter_locale_comm.group.size
+                        )
+                    )
+            else:
+                can_use_existing_inter_locale_comm = False
+        self.rank_logger.debug("BEG: self._dst_decomp.intra_locale_comm.allreduce...")
+        can_use_existing_inter_locale_comm = \
+            self._dst_decomp.intra_locale_comm.allreduce(
+                can_use_existing_inter_locale_comm,
+                _mpi.BAND
+            )
+        self.rank_logger.debug("END: self._dst_decomp.intra_locale_comm.allreduce.")
+        self.rank_logger.debug(
+            "can_use_existing_inter_locale_comm = %s",
+            can_use_existing_inter_locale_comm
+        )
+        return can_use_existing_inter_locale_comm
+
+    def create_pair_extent_update(
+        self,
+        dst_extent,
+        src_extent,
+        intersection_extent
+    ):
+        peu = \
+            MpiPairExtentUpdate(
+                self._dst_decomp.get_extent_for_rank(dst_extent.inter_locale_rank),
+                self._src_decomp.get_extent_for_rank(src_extent.inter_locale_rank),
+                intersection_extent,
+                intersection_extent
+            )
+
+        return [peu, ]
+
+    def calc_intersection_split(self, dst_extent, src_extent):
+        """
+        Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+        Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
+        are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
+        The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
+        are returned as a :obj:`list` of *update* :obj:`MpiPairExtentUpdate` elements.
+        Returns :obj:`tuple` pair :samp:`(leftovers, updates)`
+
+        :type dst_extent: :obj:`HaloIndexingExtent`
+        :param dst_extent: Extent which is to receive update from intersection
+           with :samp:`{src_extent}`.
+        :type src_extent: :obj:`HaloIndexingExtent`
+        :param src_extent: Extent which is to provide update for the intersecting
+           region of :samp:`{dst_extent}`.
+        :rtype: :obj:`tuple`
+        :return: Returns :obj:`tuple` pair of :samp:`(leftovers, updates)`.
+        """
+        return \
+            _calc_intersection_split(
+                dst_extent,
+                src_extent,
+                self.create_pair_extent_update,
+                self.update_dst_halo
+            )
+
+    def calc_direct_mem_copy_updates(self):
+        if (self._inter_comm is not None) and (self._inter_comm != _mpi.COMM_NULL):
+
+            dst_rank_to_src_rank = \
+                _mpi.Group.Translate_ranks(
+                    self._dst_decomp.inter_locale_comm.group,
+                    range(0, self._dst_decomp.inter_locale_comm.size),
+                    self._src_decomp.inter_locale_comm.group
+                )
+
+            for dst_rank in range(self._dst_decomp.inter_locale_comm.size):
+                src_rank = dst_rank_to_src_rank[dst_rank]
+                dst_extent = self._dst_decomp.get_extent_for_rank(dst_rank)
+                src_extent = self._src_decomp.get_extent_for_rank(src_rank)
+                dst_leftovers, dst_updates = self.calc_intersection_split(dst_extent, src_extent)
+                self._dst_extent_queue.extend(dst_leftovers)
+                self._dst_updates[dst_rank] += dst_updates
+
+    def calc_rma_updates(self):
+        if (self._inter_comm is not None) and (self._inter_comm != _mpi.COMM_NULL):
+
+            dst_rank_to_src_rank = \
+                _mpi.Group.Translate_ranks(
+                    self._dst_decomp.inter_locale_comm.group,
+                    range(0, self._dst_decomp.inter_locale_comm.size),
+                    self._src_decomp.inter_locale_comm.group
+                )
+
+            for dst_rank in range(self._dst_decomp.inter_locale_comm.size):
+                src_rank = dst_rank_to_src_rank[dst_rank]
+                src_extent = self._src_decomp.get_extent_for_rank(src_rank)
+                all_dst_leftovers = []
+                while len(self._dst_extent_queue) > 0:
+                    dst_extent = self._dst_extent_queue.pop()
+                    dst_rank = dst_extent.inter_locale_rank
+                    dst_leftovers, dst_updates = \
+                        self.calc_intersection_split(dst_extent, src_extent)
+                    self._dst_updates[dst_rank] += dst_updates
+                    all_dst_leftovers += dst_leftovers
+                self._dst_extent_queue.extend(all_dst_leftovers)
+            if len(self._dst_extent_queue) > 0:
+                self._dst_decomp.rank_logger.warning(
+                    "Non-empty leftover queue=%s",
+                    self._dst_extent_queue
+                )
+
+    def initialise(self):
+        """
+        """
+        can_use_existing_inter_locale_comm = self.calc_can_use_existing_inter_locale_comm()
+
+        self._dst_extent_queue = _collections.deque()
+        self._dst_updates = _collections.defaultdict(list)
+        if can_use_existing_inter_locale_comm:
+            self._inter_comm = self._src_decomp.inter_locale_comm
+            self._inter_win = self._src_decomp.inter_locale_win
+            self.calc_direct_mem_copy_updates()
+            self.calc_rma_updates()
+            self._dst_decomp.rank_logger.debug(
+                "self._dst_updates=%s",
+                self._dst_updates
+            )
+
+        elif self._dst_decomp.num_locales > 1:
+            raise NotImplementedError(
+                "Cannot redistribute amongst disparate inter_locale_comm's."
+            )
+
+    def do_locale_update(self):
+        """
+        """
+        pass
+
+    @property
+    def rank_logger(self):
+        return self._dst_decomp.rank_logger
+
+    def barrier(self):
+        pass
+
+    @property
+    def update_win(self):
+        return None
 
 
 class CartesianDecomposition(object):
@@ -869,6 +1321,7 @@ class CartesianDecomposition(object):
                 cart_coords = _np.array(self.cart_comm.Get_coords(cart_rank))
                 self._cart_rank_to_extents_dict[cart_rank] = \
                     DecompExtent(
+                        rank=self.rank_comm.rank,
                         cart_rank=cart_rank,
                         cart_coord=cart_coords,
                         cart_shape=cart_dims,
@@ -888,6 +1341,7 @@ class CartesianDecomposition(object):
             slice_tuple = tuple([slice(0, self._shape[i]) for i in range(len(self._shape))])
             self._lndarray_extent = \
                     DecompExtent(
+                        rank=0,
                         cart_rank=0,
                         cart_coord=[0, ] * len(self._shape),
                         cart_shape=[1, ] * len(self._shape),
@@ -896,8 +1350,11 @@ class CartesianDecomposition(object):
                         halo=self._halo,
                         bounds_policy=shape_splitter.tile_bounds_policy
                     )  # noqa: E123
+            self._cart_rank_to_extents_dict =\
+                {self._lndarray_extent.cart_rank: self._lndarray_extent}
 
-        self._lndarray_extent = self.shared_mem_comm.bcast(self._lndarray_extent, 0)
+        self._lndarray_extent, self._cart_rank_to_extents_dict = \
+            self.shared_mem_comm.bcast((self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
 
         self._lndarray_view_slice_n = \
             IndexingExtent(
@@ -1015,6 +1472,23 @@ class CartesianDecomposition(object):
         self.recalculate(new_shape, self._halo)
 
     @property
+    def locale_extents(self):
+        """
+        A :obj:`list` of :obj:`DecompExtent` instances.
+        """
+        return [
+            self._cart_rank_to_extents_dict[cart_rank]
+            for cart_rank in self._cart_rank_to_extents_dict.keys()
+        ]
+
+    def get_extent_for_rank(self, inter_locale_rank):
+        """
+        Returns extent associated with the specified rank
+        of the :attr:`inter_locale_comm` communicator.
+        """
+        return self._cart_rank_to_extents_dict[inter_locale_rank]
+
+    @property
     def shape_decomp(self):
         """
         The partition of :samp:`self.shape` over memory nodes.
@@ -1029,11 +1503,25 @@ class CartesianDecomposition(object):
         return self._mem_alloc_topology.num_shared_mem_nodes
 
     @property
+    def num_locales(self):
+        """
+        See :attr:`num_shared_mem_nodes`.
+        """
+        return self.num_shared_mem_nodes
+
+    @property
     def shared_mem_comm(self):
         """
         See :attr:`MemAllocTopology.shared_mem_comm`.
         """
         return self._mem_alloc_topology.shared_mem_comm
+
+    @property
+    def intra_locale_comm(self):
+        """
+        See :attr:`shared_mem_comm`.
+        """
+        return self.shared_mem_comm
 
     @property
     def cart_comm(self):
@@ -1043,11 +1531,25 @@ class CartesianDecomposition(object):
         return self._mem_alloc_topology.cart_comm
 
     @property
+    def inter_locale_comm(self):
+        """
+        See :attr:`cart_comm`.
+        """
+        return self.cart_comm
+
+    @property
     def cart_win(self):
         """
-        Window for RMA halo updates.
+        Window for RMA updates.
         """
         return self._cart_win
+
+    @property
+    def inter_locale_win(self):
+        """
+        See :attr:`cart_win`.
+        """
+        return self.cart_win
 
     @property
     def have_valid_cart_comm(self):
@@ -1055,6 +1557,13 @@ class CartesianDecomposition(object):
         See :attr:`MemAllocTopology.have_valid_cart_comm`.
         """
         return self._mem_alloc_topology.have_valid_cart_comm
+
+    @property
+    def have_valid_inter_locale_comm(self):
+        """
+        See :attr:`have_valid_cart_comm`.
+        """
+        return self.have_valid_cart_comm
 
     @property
     def rank_comm(self):

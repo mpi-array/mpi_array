@@ -40,8 +40,11 @@ class MpiTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi4py` one-sided comms.
     """
 
+    def setUp(self):
+        self.rank_logger = _logging.get_rank_logger(name=self.id(), comm=_mpi.COMM_WORLD)
+
     def create_window(self, np_ndarray, comm=_mpi.COMM_WORLD):
-        win = _mpi.Win.Create(np_ndarray.data, np_ndarray.itemsize, comm=comm)
+        win = _mpi.Win.Create(np_ndarray, np_ndarray.itemsize, comm=comm)
         return win
 
     def test_numpy_array_get_builtin_datatype(self):
@@ -50,18 +53,18 @@ class MpiTest(_unittest.TestCase):
         """
         comm = _mpi.COMM_WORLD
         comm.barrier()
-        ary = _np.zeros((1000,), dtype="int32")
-        dst_ary = ary.copy()
+        src_ary = _np.zeros((1000,), dtype="int32")
+        dst_ary = _np.zeros_like(src_ary)
 
-        win = self.create_window(ary, comm)
+        win = self.create_window(src_ary, comm)
         my_rank = comm.rank
         ne_rank = (my_rank + 1) % comm.size
-        ary[...] = my_rank
+        src_ary[...] = my_rank
         win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
         win.Get(
-            [dst_ary, 1000, _mpi._typedict[dst_ary.dtype.char]],
+            [dst_ary, dst_ary.size, _mpi._typedict[dst_ary.dtype.char]],
             ne_rank,
-            [0, 1000, _mpi._typedict[ary.dtype.char]]
+            [0, src_ary.size, _mpi._typedict[src_ary.dtype.char]]
         )
         win.Fence(_mpi.MODE_NOSUCCEED)
         self.assertTrue(_np.all(dst_ary == ne_rank))

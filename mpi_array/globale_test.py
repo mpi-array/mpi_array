@@ -21,6 +21,7 @@ Classes
 """
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
+
 import mpi_array.unittest as _unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
@@ -371,6 +372,9 @@ class GndarrayTest(_unittest.TestCase):
         self.assertTrue((gary1 == gary).all())
 
     def test_all(self):
+        """
+        Tests for :meth:`mpi_array.globale.gndarray.all`.
+        """
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
@@ -379,6 +383,76 @@ class GndarrayTest(_unittest.TestCase):
         gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
         gary1 = mpi_array.globale.ones(decomp=decomp, dtype="int64")
         self.assertFalse((gary0 == gary1).all())
+
+    def do_test_copyto(self, halo=0, dst_dtype="int32", src_dtype="int32"):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        lshape = (128, 128)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
+        mat_src = \
+            MemAllocTopology(
+                dims=(0, 1),
+                rank_comm=_mpi.COMM_WORLD,
+                shared_mem_comm=_mpi.COMM_SELF
+            )
+        decomp_src = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_src, halo=halo)
+
+        gary_src = mpi_array.globale.zeros(decomp=decomp_src, dtype=src_dtype)
+        rank_val = gary_src.decomp.lndarray_extent.cart_rank + 1
+        gary_src.rank_view_n[...] = rank_val
+        gary_src.update()
+
+        mat_dst = \
+            MemAllocTopology(
+                dims=(1, 0),
+                rank_comm=_mpi.COMM_WORLD,
+                shared_mem_comm=_mpi.COMM_SELF
+            )
+        decomp_dst = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_dst, halo=halo)
+        gary_dst = mpi_array.globale.zeros(decomp=decomp_dst, dtype=dst_dtype)
+        gary_dst.update()
+        self.assertTrue(_np.all(gary_dst.lndarray.slndarray[...] == 0))
+
+        if gary_src.decomp.rank_comm.size <= 1:
+            self.assertSequenceEqual(gary_src.lndarray.shape, gary_dst.lndarray.shape)
+        else:
+            self.assertTrue(_np.any(_np.array(gary_src.lndarray.shape) != gary_dst.lndarray.shape))
+
+        mpi_array.globale.copyto(gary_dst, gary_src)
+
+        for le0 in gary_src.decomp.locale_extents:
+            intersection_extent = le0.calc_intersection(gary_dst.decomp.lndarray_extent)
+            rank_val = le0.cart_rank + 1
+            self.assertNotEqual(0, rank_val)
+            locale_slice = \
+                gary_dst.decomp.lndarray_extent.globale_to_locale_extent_h(
+                    intersection_extent
+                ).to_slice()
+            self.assertTrue(_np.all(_np.array(intersection_extent.shape) > 0))
+            self.assertTrue(_np.all(gary_dst.lndarray[locale_slice] == rank_val))
+
+    def test_copyto_no_halo(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto(halo=0)
+
+    def test_copyto_halo(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto(halo=4)
+
+    def test_copyto_arg_check(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        gary = mpi_array.globale.zeros(shape=(10, 10, 10), dtype="uint64")
+
+        self.assertRaises(ValueError, mpi_array.globale.copyto, gary, [1, ])
+        self.assertRaises(ValueError, mpi_array.globale.copyto, [1, ], gary)
+        self.assertRaises(ValueError, mpi_array.globale.copyto, [1, ], [1, ])
 
 
 _unittest.main(__name__)
