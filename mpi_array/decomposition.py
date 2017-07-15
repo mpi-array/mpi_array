@@ -177,7 +177,7 @@ class CartLocaleComms(object):
         intra_locale_comm=None
     ):
         """
-        Initialises cartesian communicator for memory-allocation-nodes.
+        Initialises cartesian communicator for inter-locale data exchange.
         Need to specify at least one of the :samp:`{ndims}` or :samp:`{dims}`.
         to indicate the dimension of the cartesian partitioning.
 
