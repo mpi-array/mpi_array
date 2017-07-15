@@ -209,7 +209,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.empty(decomp=decomp, dtype="int64")
@@ -254,7 +254,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.zeros(decomp=decomp, dtype="int64")
@@ -293,7 +293,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
@@ -331,7 +331,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
@@ -358,7 +358,7 @@ class LndarrayTest(_unittest.TestCase):
                 MemAllocTopology(
                     ndims=gshape.size,
                     rank_comm=_mpi.COMM_WORLD,
-                    shared_mem_comm=_mpi.COMM_SELF
+                    intra_locale_comm=_mpi.COMM_SELF
                 )
             ]
         for mat in mats:
@@ -385,13 +385,13 @@ class LndarrayTest(_unittest.TestCase):
                 )
             )
 
-            if lary.decomp.shared_mem_comm.rank == 0:
+            if lary.decomp.intra_locale_comm.rank == 0:
                 lary.view_h[...] = -1
-            lary.decomp.shared_mem_comm.barrier()
+            lary.decomp.intra_locale_comm.barrier()
 
             lary.rank_view_n[...] = lary.decomp.rank_comm.rank
-            lary.decomp.shared_mem_comm.barrier()
-            if lary.decomp.shared_mem_comm.size > 1:
+            lary.decomp.intra_locale_comm.barrier()
+            if lary.decomp.intra_locale_comm.size > 1:
                 self.assertTrue(_np.any(lary.rank_view_h != lary.decomp.rank_comm.rank))
             self.assertSequenceEqual(
                 lary.rank_view_h[lary.decomp.rank_view_relative_slice_n].tolist(),

@@ -66,66 +66,69 @@ class SharedMemInfo(object):
     Info on possible shared memory allocation for a specified MPI communicator.
     """
 
-    def __init__(self, comm=None, shared_mem_comm=None):
+    def __init__(self, comm=None, intra_locale_comm=None):
         """
         Construct.
 
         :type comm: :obj:`mpi4py.MPI.Comm`
-        :param comm: Communicator used to split according to
+        :param comm: Communicator which is split according to
            shared memory allocation (uses :meth:`mpi4py.MPI.Comm.Split_type`).
-        :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
-        :param shared_mem_comm: Shared memory communicator, can explicitly
-           specify (should be a subset of processes returned
-           by :samp:`{comm}.Split_type(_mpi.COMM_TYPE_SHARED)`.
+        :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
+        :param intra_locale_comm: Intra-locale communicator.
+           Should be a subset of processes returned
+           by :samp:`{comm}.Split_type(mpi4py.MPI.COMM_TYPE_SHARED)`.
            If :samp:`None`, :samp:`{comm}` is *split* into groups
-           which can use a MPI window to allocate shared memory.
+           which can use a MPI window to allocate shared memory
+           (i.e. locale is a (NUMA) node).
+           Can also specify as :samp:`mpi4py.MPI.COMM_SELF`, in which case the
+           locale is a single process.
         """
         if comm is None:
             comm = _mpi.COMM_WORLD
         rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm)
-        if shared_mem_comm is None:
+        if intra_locale_comm is None:
             if mpi_version() >= 3:
                 rank_logger.debug(
                     "BEG: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
                 )
-                shared_mem_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
+                intra_locale_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
                 rank_logger.debug(
                     "END: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
                 )
             else:
-                shared_mem_comm = _mpi.COMM_SELF
+                intra_locale_comm = _mpi.COMM_SELF
 
-        self._shared_mem_comm = shared_mem_comm
+        self._intra_locale_comm = intra_locale_comm
 
-        # Count the number of self._shared_mem_comm rank-0 processes
+        # Count the number of self._intra_locale_comm rank-0 processes
         # to work out how many communicators comm was split into.
-        is_rank_zero = int(self._shared_mem_comm.rank == 0)
+        is_rank_zero = int(self._intra_locale_comm.rank == 0)
 
-        rank_logger.debug("BEG: comm.allreduce to calculate number of shared-memory nodes.")
-        self._num_shared_mem_nodes = comm.allreduce(is_rank_zero, _mpi.SUM)
-        rank_logger.debug("END: comm.allreduce to calculate number of shared-memory nodes.")
-
-    @property
-    def num_shared_mem_nodes(self):
-        """
-        An integer indicating the number of *memory nodes* over which an array is distributed.
-        """
-        return self._num_shared_mem_nodes
+        rank_logger.debug("BEG: comm.allreduce to calculate number of locales...")
+        self._num_locales = comm.allreduce(is_rank_zero, _mpi.SUM)
+        rank_logger.debug("END: comm.allreduce to calculate number of locales.")
 
     @property
-    def shared_mem_comm(self):
+    def num_locales(self):
+        """
+        An integer indicating the number of *locales* over which an array is distributed.
+        """
+        return self._num_locales
+
+    @property
+    def intra_locale_comm(self):
         """
         A :obj:`mpi4py.MPI.Comm` object which defines the group of processes
         which can allocate (and access) MPI window shared memory
-        (via  :meth:`mpi4py.MPI.Win.Allocate_shared`).
+        (allocated via :meth:`mpi4py.MPI.Win.Allocate_shared` if available).
         """
-        return self._shared_mem_comm
+        return self._intra_locale_comm
 
 
 class MemAllocTopology(object):
 
     """
-    Defines cartesian memory allocation (and communication) topology for MPI processes.
+    Defines cartesian communication topology for locales.
     """
 
     def __init__(
@@ -133,7 +136,7 @@ class MemAllocTopology(object):
         ndims=None,
         dims=None,
         rank_comm=None,
-        shared_mem_comm=None
+        intra_locale_comm=None
     ):
         """
         Initialises cartesian communicator for memory-allocation-nodes.
@@ -152,8 +155,8 @@ class MemAllocTopology(object):
         :param rank_comm: The MPI processes which will have access
            (via a :obj:`mpi4py.MPI.Win` object) to the distributed array.
            If :samp:`None` uses :obj:`mpi4py.MPI.COMM_WORLD`.
-        :type shared_mem_comm: :obj:`mpi4py.MPI.Comm`
-        :param shared_mem_comm: The MPI communicator used to create a window which
+        :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
+        :param intra_locale_comm: The MPI communicator used to create a window which
             can be used to allocate shared memory
             via :meth:`mpi4py.MPI.Win.Allocate_shared`.
         """
@@ -176,7 +179,7 @@ class MemAllocTopology(object):
             rank_comm = _mpi.COMM_WORLD
 
         self._rank_comm = rank_comm
-        self._shared_mem_info = SharedMemInfo(self.rank_comm, shared_mem_comm)
+        self._shared_mem_info = SharedMemInfo(self.rank_comm, intra_locale_comm)
         self._cart_comm = None
         rank_logger = \
             _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self._rank_comm)
@@ -184,13 +187,13 @@ class MemAllocTopology(object):
         self._dims = \
             _array_split.split.calculate_num_slices_per_axis(
                 dims,
-                self.num_shared_mem_nodes
+                self.num_locales
             )
 
         # Create a cartesian grid communicator
-        if self.num_shared_mem_nodes > 1:
+        if self.num_locales > 1:
             color = _mpi.UNDEFINED
-            if self.shared_mem_comm.rank == 0:
+            if self.intra_locale_comm.rank == 0:
                 color = 0
             rank_logger.debug("BEG: self.rank_comm.Split to create self.cart_comm.")
             splt_comm = self.rank_comm.Split(color, self.rank_comm.rank)
@@ -239,24 +242,24 @@ class MemAllocTopology(object):
         return self._cart_comm
 
     @property
-    def num_shared_mem_nodes(self):
+    def num_locales(self):
         """
-        See :attr:`SharedMemInfo.num_shared_mem_nodes`.
+        See :attr:`SharedMemInfo.num_locales`.
         """
-        return self._shared_mem_info.num_shared_mem_nodes
+        return self._shared_mem_info.num_locales
 
     @property
-    def shared_mem_comm(self):
+    def intra_locale_comm(self):
         """
-        See :attr:`SharedMemInfo.shared_mem_comm`.
+        See :attr:`SharedMemInfo.intra_locale_comm`.
         """
-        return self._shared_mem_info.shared_mem_comm
+        return self._shared_mem_info.intra_locale_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    MemAllocTopology.num_shared_mem_nodes.__doc__ = SharedMemInfo.num_shared_mem_nodes.__doc__
-    MemAllocTopology.shared_mem_comm.__doc__ = SharedMemInfo.shared_mem_comm.__doc__
+    MemAllocTopology.num_locales.__doc__ = SharedMemInfo.num_locales.__doc__
+    MemAllocTopology.intra_locale_comm.__doc__ = SharedMemInfo.intra_locale_comm.__doc__
 
 
 class DecompExtent(HaloIndexingExtent):
@@ -1216,7 +1219,7 @@ class CartesianDecomposition(object):
 
     def calculate_rank_view_slices(self):
         """
-        Splits local array into :samp:`self.shared_mem_comm.size` number
+        Splits local array into :samp:`self.intra_locale_comm.size` number
         of tiles. Assigns :attr:`rank_view_slice_n` and :attr:`rank_view_slice_h`
         to :obj:`tuple`-of-:obj:`slice` corresponding to the tile for this MPI rank.
         """
@@ -1224,13 +1227,13 @@ class CartesianDecomposition(object):
             shape_splitter = \
                 _array_split.ShapeSplitter(
                     array_shape=self._lndarray_extent.shape_n,
-                    axis=_shape_factors(self.shared_mem_comm.size, self.ndim)[::-1],
+                    axis=_shape_factors(self.intra_locale_comm.size, self.ndim)[::-1],
                     halo=0,
                     array_start=self._lndarray_extent.start_n
                 )
 
             split = shape_splitter.calculate_split()
-            rank_extent_n = IndexingExtent(split.flatten()[self.shared_mem_comm.rank])
+            rank_extent_n = IndexingExtent(split.flatten()[self.intra_locale_comm.rank])
             rank_extent_h = \
                 IndexingExtent(
                     start=_np.maximum(
@@ -1337,7 +1340,7 @@ class CartesianDecomposition(object):
                         self._cart_rank_to_extents_dict
                 )
             self._lndarray_extent = self._cart_rank_to_extents_dict[self.cart_comm.rank]
-        elif self.num_shared_mem_nodes <= 1:
+        elif self.num_locales <= 1:
             slice_tuple = tuple([slice(0, self._shape[i]) for i in range(len(self._shape))])
             self._lndarray_extent = \
                     DecompExtent(
@@ -1354,7 +1357,7 @@ class CartesianDecomposition(object):
                 {self._lndarray_extent.cart_rank: self._lndarray_extent}
 
         self._lndarray_extent, self._cart_rank_to_extents_dict = \
-            self.shared_mem_comm.bcast((self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
+            self.intra_locale_comm.bcast((self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
 
         self._lndarray_view_slice_n = \
             IndexingExtent(
@@ -1377,18 +1380,18 @@ class CartesianDecomposition(object):
         self.rank_logger.debug("BEG: alloc_local_buffer")
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
-        if self.shared_mem_comm.rank == 0:
-            if (self.num_shared_mem_nodes > 1) and (not self.have_valid_cart_comm):
-                raise ValueError("Root rank (=0) on shared_mem_comm does not have valid cart_comm.")
-            if self.num_shared_mem_nodes > 1:
+        if self.intra_locale_comm.rank == 0:
+            if (self.num_locales > 1) and (not self.have_valid_cart_comm):
+                raise ValueError("Root rank (=0) on intra_locale_comm does not have valid cart_comm.")
+            if self.num_locales > 1:
                 rank_shape = self._cart_rank_to_extents_dict[self.cart_comm.rank].shape_h
             else:
                 rank_shape = self.shape
             num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
-        if (mpi_version() >= 3) and (self.shared_mem_comm.size > 1):
+        if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
             self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             self._shared_mem_win = \
-                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.shared_mem_comm)
+                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.intra_locale_comm)
             self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             buffer, itemsize = self._shared_mem_win.Shared_query(0)
             self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
@@ -1405,7 +1408,7 @@ class CartesianDecomposition(object):
 
         self._cart_win = None
         lndarray_shape = self.shape
-        if self.num_shared_mem_nodes > 1:
+        if self.num_locales > 1:
             self._cart_win = _mpi.WIN_NULL
             if self.have_valid_cart_comm:
                 self.rank_logger.debug("BEG: Win.Create for self.cart_comm")
@@ -1496,32 +1499,18 @@ class CartesianDecomposition(object):
         return self._shape_decomp
 
     @property
-    def num_shared_mem_nodes(self):
-        """
-        See :attr:`MemAllocTopology.num_shared_mem_nodes`.
-        """
-        return self._mem_alloc_topology.num_shared_mem_nodes
-
-    @property
     def num_locales(self):
         """
-        See :attr:`num_shared_mem_nodes`.
+        See :attr:`MemAllocTopology.num_locales`.
         """
-        return self.num_shared_mem_nodes
-
-    @property
-    def shared_mem_comm(self):
-        """
-        See :attr:`MemAllocTopology.shared_mem_comm`.
-        """
-        return self._mem_alloc_topology.shared_mem_comm
+        return self._mem_alloc_topology.num_locales
 
     @property
     def intra_locale_comm(self):
         """
-        See :attr:`shared_mem_comm`.
+        See :attr:`MemAllocTopology.intra_locale_comm`.
         """
-        return self.shared_mem_comm
+        return self._mem_alloc_topology.intra_locale_comm
 
     @property
     def cart_comm(self):
@@ -1649,9 +1638,9 @@ class CartesianDecomposition(object):
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    CartesianDecomposition.num_shared_mem_nodes.__doc__ = \
-        MemAllocTopology.num_shared_mem_nodes.__doc__
-    CartesianDecomposition.shared_mem_comm.__doc__ = MemAllocTopology.shared_mem_comm.__doc__
+    CartesianDecomposition.num_locales.__doc__ = \
+        MemAllocTopology.num_locales.__doc__
+    CartesianDecomposition.intra_locale_comm.__doc__ = MemAllocTopology.intra_locale_comm.__doc__
     CartesianDecomposition.cart_comm.__doc__ = MemAllocTopology.cart_comm.__doc__
     CartesianDecomposition.have_valid_cart_comm.__doc__ = \
         MemAllocTopology.have_valid_cart_comm.__doc__

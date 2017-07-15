@@ -252,11 +252,11 @@ class gndarray(object):
         """
         """
         # If running on single locale then there are no halos to update.
-        if self.decomp.num_shared_mem_nodes > 1:
+        if self.decomp.num_locales > 1:
             # Only do comms between the ranks of self.decomp.cart_comm
-            self.decomp.rank_logger.debug("BEG: self.decomp.shared_mem_comm.barrier()...")
-            self.decomp.shared_mem_comm.barrier()
-            self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
+            self.decomp.rank_logger.debug("BEG: self.decomp.intra_locale_comm.barrier()...")
+            self.decomp.intra_locale_comm.barrier()
+            self.decomp.rank_logger.debug("END: self.decomp.intra_locale_comm.barrier().")
             if self.decomp.have_valid_cart_comm:
                 self.decomp.rank_logger.debug("BEG: self.decomp.cart_mem_comm.barrier()...")
                 self.decomp.cart_comm.barrier()
@@ -306,9 +306,9 @@ class gndarray(object):
                             )
 
             # All ranks on locale wait for halo update to complete
-            self.decomp.rank_logger.debug("BEG: self.decomp.shared_mem_comm.barrier()...")
-            self.decomp.shared_mem_comm.barrier()
-            self.decomp.rank_logger.debug("END: self.decomp.shared_mem_comm.barrier().")
+            self.decomp.rank_logger.debug("BEG: self.decomp.intra_locale_comm.barrier()...")
+            self.decomp.intra_locale_comm.barrier()
+            self.decomp.rank_logger.debug("END: self.decomp.intra_locale_comm.barrier().")
 
     def calculate_copyfrom_updates(self, src):
         return \
@@ -398,9 +398,9 @@ def zeros(shape=None, dtype="float64", decomp=None, order='C'):
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.zeros(1, dtype)
 
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
-    ary.decomp.shared_mem_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
+    ary.decomp.intra_locale_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
 
     return ary
 
@@ -419,9 +419,9 @@ def zeros_like(ary, *args, **kwargs):
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.zeros(1, ary.dtype)
 
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
-    ary.decomp.shared_mem_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
+    ary.decomp.intra_locale_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
 
     return ary
 
@@ -443,9 +443,9 @@ def ones(shape=None, dtype="float64", decomp=None, order='C'):
     ary = empty(shape, dtype=dtype, decomp=decomp)
     ary.rank_view_n[...] = _np.ones(1, dtype)
 
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
-    ary.decomp.shared_mem_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
+    ary.decomp.intra_locale_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
 
     return ary
 
@@ -464,9 +464,9 @@ def ones_like(ary, *args, **kwargs):
     ary = empty_like(ary, *args, **kwargs)
     ary.rank_view_n[...] = _np.ones(1, ary.dtype)
 
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.shared_mem_comm...")
-    ary.decomp.shared_mem_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.shared_mem_comm.")
+    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
+    ary.decomp.intra_locale_comm.barrier()
+    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
 
     return ary
 
@@ -483,9 +483,9 @@ def copy(ary, **kwargs):
     ary_out = empty_like(ary)
     ary_out.rank_view_n[...] = ary.rank_view_n[...]
 
-    ary_out.decomp.rank_logger.debug("BEG: ary_out.decomp.shared_mem_comm...")
-    ary_out.decomp.shared_mem_comm.barrier()
-    ary_out.decomp.rank_logger.debug("END: ary_out.decomp.shared_mem_comm.")
+    ary_out.decomp.rank_logger.debug("BEG: ary_out.decomp.intra_locale_comm...")
+    ary_out.decomp.intra_locale_comm.barrier()
+    ary_out.decomp.rank_logger.debug("END: ary_out.decomp.intra_locale_comm.")
 
     return ary_out
 

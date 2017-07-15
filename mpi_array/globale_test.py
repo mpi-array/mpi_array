@@ -73,7 +73,7 @@ class GndarrayTest(_unittest.TestCase):
             mem_alloc_topology = \
                 MemAllocTopology(
                     ndims=len(gshape),
-                    shared_mem_comm=_mpi.COMM_SELF
+                    intra_locale_comm=_mpi.COMM_SELF
                 )
             decomp = \
                 CartesianDecomposition(
@@ -82,9 +82,9 @@ class GndarrayTest(_unittest.TestCase):
                     mem_alloc_topology=mem_alloc_topology
                 )
             gary = mpi_array.globale.empty(decomp=decomp, dtype="int8")
-            if gary.decomp.shared_mem_comm.rank == 0:
+            if gary.decomp.intra_locale_comm.rank == 0:
                 gary.lndarray.view_h[...] = 0
-            gary.decomp.shared_mem_comm.barrier()
+            gary.decomp.intra_locale_comm.barrier()
             decomp.rank_logger.info("all zero gary.rank_view_h = %s" % (gary.rank_view_h,))
             rank_val = gary.decomp.rank_comm.rank + 1
             gary.rank_view_n[...] = rank_val
@@ -133,7 +133,7 @@ class GndarrayTest(_unittest.TestCase):
                     ndims=ndims,
                     dims=(0,) + (1,) * (ndims - 1),
                     rank_comm=_mpi.COMM_WORLD,
-                    shared_mem_comm=_mpi.COMM_SELF
+                    intra_locale_comm=_mpi.COMM_SELF
                 )
             non_shared_decomp = \
                 CartesianDecomposition(shape=gshape, mem_alloc_topology=mat, halo=halo)
@@ -145,7 +145,7 @@ class GndarrayTest(_unittest.TestCase):
                     dims=(0,) + (1,) * (ndims - 1),
                     rank_comm=_mpi.COMM_WORLD
                 )
-            gshape = (mat.num_shared_mem_nodes * lshape[0],) + lshape[1:]
+            gshape = (mat.num_locales * lshape[0],) + lshape[1:]
             halo = 4
             shared_decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat, halo=halo)
 
@@ -197,7 +197,7 @@ class GndarrayTest(_unittest.TestCase):
                                     (cart_rank_val + 1)
                                 )
                             )
-                gary.decomp.shared_mem_comm.barrier()
+                gary.decomp.intra_locale_comm.barrier()
 
     def test_empty_shared_1d(self):
         """
@@ -237,7 +237,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
@@ -282,7 +282,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
@@ -321,7 +321,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -359,7 +359,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -377,7 +377,7 @@ class GndarrayTest(_unittest.TestCase):
         """
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
@@ -394,7 +394,7 @@ class GndarrayTest(_unittest.TestCase):
             MemAllocTopology(
                 dims=(0, 1),
                 rank_comm=_mpi.COMM_WORLD,
-                shared_mem_comm=_mpi.COMM_SELF
+                intra_locale_comm=_mpi.COMM_SELF
             )
         decomp_src = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_src, halo=halo)
 
@@ -407,7 +407,7 @@ class GndarrayTest(_unittest.TestCase):
             MemAllocTopology(
                 dims=(1, 0),
                 rank_comm=_mpi.COMM_WORLD,
-                shared_mem_comm=_mpi.COMM_SELF
+                intra_locale_comm=_mpi.COMM_SELF
             )
         decomp_dst = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_dst, halo=halo)
         gary_dst = mpi_array.globale.zeros(decomp=decomp_dst, dtype=dst_dtype)

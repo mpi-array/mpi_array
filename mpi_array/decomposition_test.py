@@ -556,13 +556,13 @@ class SharedMemInfoTest(_unittest.TestCase):
         """
         i = SharedMemInfo(comm=_mpi.COMM_WORLD)
 
-        self.assertTrue(i.shared_mem_comm is not None)
-        self.assertTrue(i.shared_mem_comm.size >= 1)
+        self.assertTrue(i.intra_locale_comm is not None)
+        self.assertTrue(i.intra_locale_comm.size >= 1)
 
         i = SharedMemInfo()
 
-        self.assertTrue(i.shared_mem_comm is not None)
-        self.assertTrue(i.shared_mem_comm.size >= 1)
+        self.assertTrue(i.intra_locale_comm is not None)
+        self.assertTrue(i.intra_locale_comm.size >= 1)
 
 
 class MemAllocTopologyTest(_unittest.TestCase):
@@ -603,9 +603,9 @@ class MemAllocTopologyTest(_unittest.TestCase):
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
     def test_construct_no_shared(self):
-        mat = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        mat = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
-        self.assertEqual(1, mat.shared_mem_comm.size)
+        self.assertEqual(1, mat.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
@@ -754,7 +754,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
 
@@ -775,7 +775,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size,),
@@ -796,7 +796,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
             decomp = CartesianDecomposition((_mpi.COMM_WORLD.size // 2,), halo=0)
             self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-            mnt = MemAllocTopology(ndims=1, shared_mem_comm=_mpi.COMM_SELF)
+            mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
             decomp = \
                 CartesianDecomposition(
                     (_mpi.COMM_WORLD.size // 2,),
@@ -815,7 +815,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
@@ -837,7 +837,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
             )
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=2, shared_mem_comm=_mpi.COMM_SELF)
+        mnt = MemAllocTopology(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
@@ -860,7 +860,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
                 MemAllocTopology(
                     ndims=2,
                     rank_comm=_mpi.COMM_WORLD,
-                    shared_mem_comm=_mpi.COMM_SELF
+                    intra_locale_comm=_mpi.COMM_SELF
                 )
             ]
         for mat in mats:
