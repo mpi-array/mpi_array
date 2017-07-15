@@ -17,7 +17,7 @@ Classes and Functions
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
-   SharedMemInfo - Shared-memory communicator generation.
+   LocaleComms - Shared-memory communicator generation.
    MemAllocTopology - Topology of MPI processes which allocate shared memory.
    CartesianDecomposition - Partition of an array *shape* overs MPI processes and/or nodes.
 
@@ -60,7 +60,7 @@ def mpi_version():
     return _mpi.VERSION
 
 
-class SharedMemInfo(object):
+class LocaleComms(object):
 
     """
     Info on possible shared memory allocation for a specified MPI communicator.
@@ -179,7 +179,7 @@ class MemAllocTopology(object):
             rank_comm = _mpi.COMM_WORLD
 
         self._rank_comm = rank_comm
-        self._shared_mem_info = SharedMemInfo(self.rank_comm, intra_locale_comm)
+        self._locale_comms = LocaleComms(self.rank_comm, intra_locale_comm)
         self._cart_comm = None
         rank_logger = \
             _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self._rank_comm)
@@ -244,22 +244,22 @@ class MemAllocTopology(object):
     @property
     def num_locales(self):
         """
-        See :attr:`SharedMemInfo.num_locales`.
+        See :attr:`LocaleComms.num_locales`.
         """
-        return self._shared_mem_info.num_locales
+        return self._locale_comms.num_locales
 
     @property
     def intra_locale_comm(self):
         """
-        See :attr:`SharedMemInfo.intra_locale_comm`.
+        See :attr:`LocaleComms.intra_locale_comm`.
         """
-        return self._shared_mem_info.intra_locale_comm
+        return self._locale_comms.intra_locale_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    MemAllocTopology.num_locales.__doc__ = SharedMemInfo.num_locales.__doc__
-    MemAllocTopology.intra_locale_comm.__doc__ = SharedMemInfo.intra_locale_comm.__doc__
+    MemAllocTopology.num_locales.__doc__ = LocaleComms.num_locales.__doc__
+    MemAllocTopology.intra_locale_comm.__doc__ = LocaleComms.intra_locale_comm.__doc__
 
 
 class DecompExtent(HaloIndexingExtent):

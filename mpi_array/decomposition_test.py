@@ -30,7 +30,7 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, SharedMemInfo
+from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, LocaleComms
 from mpi_array.decomposition import DecompExtent, MpiHaloSingleExtentUpdate, HalosUpdate
 import array_split as _array_split
 
@@ -544,22 +544,22 @@ class DecompExtentTest(_unittest.TestCase):
         )
 
 
-class SharedMemInfoTest(_unittest.TestCase):
+class LocaleCommsTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.SharedMemInfo`.
+    Tests for :obj:`mpi_array.decomposition.LocaleComms`.
     """
 
     def test_construct(self):
         """
-        Test :meth:`mpi_array.decomposition.SharedMemInfo.__init__`
+        Test :meth:`mpi_array.decomposition.LocaleComms.__init__`
         """
-        i = SharedMemInfo(comm=_mpi.COMM_WORLD)
+        i = LocaleComms(comm=_mpi.COMM_WORLD)
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
 
-        i = SharedMemInfo()
+        i = LocaleComms()
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
