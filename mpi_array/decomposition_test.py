@@ -32,6 +32,7 @@ import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
 from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, LocaleComms
 from mpi_array.decomposition import DecompExtent, MpiHaloSingleExtentUpdate, HalosUpdate
+from mpi_array.decomposition import MpiPairExtentUpdate
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -558,11 +559,23 @@ class LocaleCommsTest(_unittest.TestCase):
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
+        self.assertTrue(i.rank_comm is not None)
+        self.assertTrue(i.rank_comm.size >= 1)
 
         i = LocaleComms()
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
+        self.assertTrue(i.rank_comm is not None)
+        self.assertTrue(i.rank_comm.size >= 1)
+        if i.num_locales <= 1:
+            self.assertEqual(None, i.inter_locale_comm)
+        i.inter_locale_comm = _mpi.COMM_NULL
+        self.assertEqual(_mpi.COMM_NULL, i.inter_locale_comm)
+        i.inter_locale_comm = None
+        self.assertEqual(None, i.inter_locale_comm)
+
+        self.assertRaises(ValueError, LocaleComms, _mpi.COMM_SELF, _mpi.COMM_SELF, _mpi.COMM_WORLD)
 
 
 class MemAllocTopologyTest(_unittest.TestCase):
@@ -607,6 +620,95 @@ class MemAllocTopologyTest(_unittest.TestCase):
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
         self.assertEqual(1, mat.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
+
+
+class MpiPairExtentUpdateTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.decomposition.MpiPairExtentUpdate`.
+    """
+
+    def setUp(self):
+        self.se = \
+            DecompExtent(
+                rank=0,
+                cart_rank=0,
+                cart_coord=(0,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(0, 100),),
+                halo=((10, 10),)
+            )
+        self.de = \
+            DecompExtent(
+                rank=1,
+                cart_rank=1,
+                cart_coord=(1,),
+                cart_shape=(2,),
+                array_shape=(100,),
+                slice=(slice(100, 200),),
+                halo=((10, 10),)
+            )
+        self.due = IndexingExtent(start=(90,), stop=(100,))
+        self.sue = IndexingExtent(start=(90,), stop=(100,))
+
+    def test_construct(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiPairExtentUpdate.__init__`.
+        """
+        se = self.se
+        de = self.de
+        due = self.due
+        sue = self.sue
+
+        u = MpiPairExtentUpdate(de, se, due, sue)
+        self.assertTrue(u.dst_extent is de)
+        self.assertTrue(u.src_extent is se)
+        self.assertTrue(u.dst_update_extent is due)
+        self.assertTrue(u.src_update_extent is sue)
+
+    def test_str(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiPairExtentUpdate.__str__`.
+        """
+        se = self.se
+        de = self.de
+        due = self.due
+        sue = self.sue
+
+        u = MpiPairExtentUpdate(de, se, due, sue)
+        self.assertTrue(len(str(u)) > 0)
+
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="C", src_order="C")
+        self.assertTrue(len(str(u)) > 0)
+
+    def test_data_type(self):
+        """
+        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
+        """
+        se = self.se
+        de = self.de
+        due = self.due
+        sue = self.sue
+
+        u = MpiPairExtentUpdate(de, se, due, sue)
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="C", src_order="C")
+        self.assertTrue(u.dst_data_type is not None)
+        self.assertTrue(isinstance(u.dst_data_type, _mpi.Datatype))
+        self.assertTrue(u.src_data_type is not None)
+        self.assertTrue(isinstance(u.src_data_type, _mpi.Datatype))
+
+        ddt = u.dst_data_type
+        sdt = u.src_data_type
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="C", src_order="C")
+        self.assertTrue(u.dst_data_type is ddt)
+        self.assertTrue(u.src_data_type is sdt)
+
+        ddt = u.dst_data_type
+        sdt = u.src_data_type
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="F", src_order="F")
+        self.assertTrue(u.dst_data_type is not ddt)
+        self.assertTrue(u.src_data_type is not sdt)
 
 
 class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):

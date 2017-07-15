@@ -66,7 +66,7 @@ class LocaleComms(object):
     Info on possible shared memory allocation for a specified MPI communicator.
     """
 
-    def __init__(self, comm=None, intra_locale_comm=None):
+    def __init__(self, comm=None, intra_locale_comm=None, inter_locale_comm=None):
         """
         Construct.
 
@@ -82,9 +82,13 @@ class LocaleComms(object):
            (i.e. locale is a (NUMA) node).
            Can also specify as :samp:`mpi4py.MPI.COMM_SELF`, in which case the
            locale is a single process.
+        :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
+        :param inter_locale_comm: Inter-locale communicator used to exchange
+            data between different locales.
         """
         if comm is None:
             comm = _mpi.COMM_WORLD
+        self._rank_comm = comm
         rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm)
         if intra_locale_comm is None:
             if mpi_version() >= 3:
@@ -108,12 +112,34 @@ class LocaleComms(object):
         self._num_locales = comm.allreduce(is_rank_zero, _mpi.SUM)
         rank_logger.debug("END: comm.allreduce to calculate number of locales.")
 
+        self._inter_locale_comm = None
+
+        if (self._num_locales > 1):
+            if inter_locale_comm is None:
+                color = _mpi.UNDEFINED
+                if self.intra_locale_comm.rank == 0:
+                    color = 0
+                rank_logger.debug("BEG: self.rank_comm.Split to create self.inter_locale_comm.")
+                inter_locale_comm = self._rank_comm.Split(color, self._rank_comm.rank)
+                rank_logger.debug("END: self.rank_comm.Split to create self.inter_locale_comm.")
+            self._inter_locale_comm = inter_locale_comm
+        elif (inter_locale_comm is not None) and (inter_locale_comm != _mpi.COMM_NULL):
+            raise ValueError("Got valid inter_local_comm when self.num_locales <= 1")
+
     @property
     def num_locales(self):
         """
         An integer indicating the number of *locales* over which an array is distributed.
         """
         return self._num_locales
+
+    @property
+    def rank_comm(self):
+        """
+        MPI communicator which is super-set of :attr:`intra_locale_comm`
+        and :attr:`inter_locale_comm`.
+        """
+        return self._rank_comm
 
     @property
     def intra_locale_comm(self):
@@ -123,6 +149,18 @@ class LocaleComms(object):
         (allocated via :meth:`mpi4py.MPI.Win.Allocate_shared` if available).
         """
         return self._intra_locale_comm
+
+    @property
+    def inter_locale_comm(self):
+        """
+        A :obj:`mpi4py.MPI.Comm` object which defines the group of processes
+        used to exchange data between locales.
+        """
+        return self._inter_locale_comm
+
+    @inter_locale_comm.setter
+    def inter_locale_comm(self, inter_locale_comm):
+        self._inter_locale_comm = inter_locale_comm
 
 
 class MemAllocTopology(object):
@@ -178,11 +216,11 @@ class MemAllocTopology(object):
         if rank_comm is None:
             rank_comm = _mpi.COMM_WORLD
 
-        self._rank_comm = rank_comm
-        self._locale_comms = LocaleComms(self.rank_comm, intra_locale_comm)
+        self._locale_comms = LocaleComms(rank_comm, intra_locale_comm)
+
         self._cart_comm = None
         rank_logger = \
-            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self._rank_comm)
+            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.rank_comm)
 
         self._dims = \
             _array_split.split.calculate_num_slices_per_axis(
@@ -192,16 +230,11 @@ class MemAllocTopology(object):
 
         # Create a cartesian grid communicator
         if self.num_locales > 1:
-            color = _mpi.UNDEFINED
-            if self.intra_locale_comm.rank == 0:
-                color = 0
-            rank_logger.debug("BEG: self.rank_comm.Split to create self.cart_comm.")
-            splt_comm = self.rank_comm.Split(color, self.rank_comm.rank)
-            rank_logger.debug("END: self.rank_comm.Split to create self.cart_comm.")
-            if splt_comm != _mpi.COMM_NULL:
-                rank_logger.debug("BEG: splt_comm.Create to create self.cart_comm.")
-                self._cart_comm = splt_comm.Create_cart(self.dims, periods, reorder=True)
-                rank_logger.debug("END: splt_comm.Create to create self.cart_comm.")
+            if self.inter_locale_comm != _mpi.COMM_NULL:
+                rank_logger.debug("BEG: self.inter_locale_comm.Create to create self.cart_comm.")
+                self._cart_comm = \
+                    self.inter_locale_comm.Create_cart(self.dims, periods, reorder=True)
+                rank_logger.debug("END: self.inter_locale_comm.Create to create self.cart_comm.")
             else:
                 self._cart_comm = _mpi.COMM_NULL
 
@@ -231,7 +264,7 @@ class MemAllocTopology(object):
         """
         The group of all MPI processes which have access to array elements.
         """
-        return self._rank_comm
+        return self._locale_comms.rank_comm
 
     @property
     def cart_comm(self):
@@ -254,6 +287,13 @@ class MemAllocTopology(object):
         See :attr:`LocaleComms.intra_locale_comm`.
         """
         return self._locale_comms.intra_locale_comm
+
+    @property
+    def inter_locale_comm(self):
+        """
+        See :attr:`LocaleComms.inter_locale_comm`.
+        """
+        return self._locale_comms.inter_locale_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
@@ -573,7 +613,7 @@ class MpiPairExtentUpdate(PairExtentUpdate):
            instances :samp:`(dst_data_type, src_data_type)`.
         """
         dst_mpi_order = _mpi.ORDER_C
-        if dst_mpi_order == "F":
+        if dst_order == "F":
             dst_mpi_order = _mpi.ORDER_FORTRAN
 
         dst_data_type = \
@@ -586,7 +626,7 @@ class MpiPairExtentUpdate(PairExtentUpdate):
         dst_data_type.Commit()
 
         src_mpi_order = _mpi.ORDER_C
-        if src_mpi_order == "F":
+        if src_order == "F":
             src_mpi_order = _mpi.ORDER_FORTRAN
 
         src_data_type = \
@@ -1156,21 +1196,9 @@ class UpdatesForRedistribute(object):
                 "Cannot redistribute amongst disparate inter_locale_comm's."
             )
 
-    def do_locale_update(self):
-        """
-        """
-        pass
-
     @property
     def rank_logger(self):
         return self._dst_decomp.rank_logger
-
-    def barrier(self):
-        pass
-
-    @property
-    def update_win(self):
-        return None
 
 
 class CartesianDecomposition(object):
@@ -1357,7 +1385,8 @@ class CartesianDecomposition(object):
                 {self._lndarray_extent.cart_rank: self._lndarray_extent}
 
         self._lndarray_extent, self._cart_rank_to_extents_dict = \
-            self.intra_locale_comm.bcast((self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
+            self.intra_locale_comm.bcast(
+                (self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
 
         self._lndarray_view_slice_n = \
             IndexingExtent(
@@ -1382,7 +1411,8 @@ class CartesianDecomposition(object):
         dtype = _np.dtype(dtype)
         if self.intra_locale_comm.rank == 0:
             if (self.num_locales > 1) and (not self.have_valid_cart_comm):
-                raise ValueError("Root rank (=0) on intra_locale_comm does not have valid cart_comm.")
+                raise ValueError(
+                    "Root rank (=0) on intra_locale_comm does not have valid cart_comm.")
             if self.num_locales > 1:
                 rank_shape = self._cart_rank_to_extents_dict[self.cart_comm.rank].shape_h
             else:
@@ -1391,7 +1421,8 @@ class CartesianDecomposition(object):
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
             self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             self._shared_mem_win = \
-                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize, comm=self.intra_locale_comm)
+                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
+                                         comm=self.intra_locale_comm)
             self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             buffer, itemsize = self._shared_mem_win.Shared_query(0)
             self.rank_logger.debug("BEG: Win.Create for self.rank_comm")

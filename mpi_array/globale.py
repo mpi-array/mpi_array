@@ -126,6 +126,18 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         else:
             _np.copyto(self._dst.lndarray.slndarray, self._src.lndarray.slndarray)
 
+    def barrier(self):
+        """
+        MPI barrier.
+        """
+        self._dst_decomp.rank_logger.debug(
+            "BEG: self._src.decomp.intra_locale_comm.barrier()..."
+        )
+        self._src.decomp.intra_locale_comm.barrier()
+        self._dst_decomp.rank_logger.debug(
+            "END: self._src.decomp.intra_locale_comm.barrier()."
+        )
+
 
 class gndarray(object):
 
