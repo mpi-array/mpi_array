@@ -16,7 +16,7 @@ Classes
    :toctree: generated/
 
    DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
-   MemAllocTopologyTest - Tests for :obj:`mpi_array.decomposition.MemAllocTopology`.
+   CartLocaleCommsTest - Tests for :obj:`mpi_array.decomposition.CartLocaleComms`.
    CartesianDecompositionTest - Tests for :obj:`mpi_array.decomposition.CartesianDecomposition`.
 
 
@@ -30,7 +30,7 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, LocaleComms
+from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms, LocaleComms
 from mpi_array.decomposition import DecompExtent, MpiHaloSingleExtentUpdate, HalosUpdate
 from mpi_array.decomposition import MpiPairExtentUpdate
 import array_split as _array_split
@@ -578,45 +578,45 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertRaises(ValueError, LocaleComms, _mpi.COMM_SELF, _mpi.COMM_SELF, _mpi.COMM_WORLD)
 
 
-class MemAllocTopologyTest(_unittest.TestCase):
+class CartLocaleCommsTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.MemAllocTopology`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartLocaleComms`.
     """
 
     def test_construct_invalid_dims(self):
         mat = None
         with self.assertRaises(ValueError):
-            mat = MemAllocTopology()
+            mat = CartLocaleComms()
         with self.assertRaises(ValueError):
-            mat = MemAllocTopology(ndims=None, dims=None)
+            mat = CartLocaleComms(ndims=None, dims=None)
         with self.assertRaises(ValueError):
-            mat = MemAllocTopology(dims=tuple(), ndims=1)
+            mat = CartLocaleComms(dims=tuple(), ndims=1)
         with self.assertRaises(ValueError):
-            mat = MemAllocTopology(dims=tuple([0, 2]), ndims=1)
+            mat = CartLocaleComms(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
-            mat = MemAllocTopology(dims=tuple([1, 2]), ndims=3)
+            mat = CartLocaleComms(dims=tuple([1, 2]), ndims=3)
 
         self.assertEqual(None, mat)
 
     def test_construct_shared(self):
-        mat = MemAllocTopology(ndims=1)
+        mat = CartLocaleComms(ndims=1)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mat = MemAllocTopology(ndims=4)
+        mat = CartLocaleComms(ndims=4)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mat = MemAllocTopology(dims=(0,))
+        mat = CartLocaleComms(dims=(0,))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mat = MemAllocTopology(dims=(0, 0))
+        mat = CartLocaleComms(dims=(0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
-        mat = MemAllocTopology(dims=(0, 0, 0))
+        mat = CartLocaleComms(dims=(0, 0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
 
     def test_construct_no_shared(self):
-        mat = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
         self.assertEqual(1, mat.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
@@ -856,7 +856,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
 
@@ -877,7 +877,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size,),
@@ -898,7 +898,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
             decomp = CartesianDecomposition((_mpi.COMM_WORLD.size // 2,), halo=0)
             self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-            mnt = MemAllocTopology(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+            mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
             decomp = \
                 CartesianDecomposition(
                     (_mpi.COMM_WORLD.size // 2,),
@@ -917,7 +917,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
+        mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
@@ -939,7 +939,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
             )
         self.assertNotEqual(None, decomp._mem_alloc_topology)
 
-        mnt = MemAllocTopology(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
+        mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
@@ -959,7 +959,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         mats = \
             [
                 None,
-                MemAllocTopology(
+                CartLocaleComms(
                     ndims=2,
                     rank_comm=_mpi.COMM_WORLD,
                     intra_locale_comm=_mpi.COMM_SELF

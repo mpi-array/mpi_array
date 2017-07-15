@@ -25,7 +25,7 @@ from .license import license as _license, copyright as _copyright
 import mpi_array.unittest as _unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology
+from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms
 from mpi_array.decomposition import IndexingExtent
 import mpi_array.globale
 import mpi4py.MPI as _mpi
@@ -71,7 +71,7 @@ class GndarrayTest(_unittest.TestCase):
         for halo in halos:
             gshape = (50, 17, 23)
             mem_alloc_topology = \
-                MemAllocTopology(
+                CartLocaleComms(
                     ndims=len(gshape),
                     intra_locale_comm=_mpi.COMM_SELF
                 )
@@ -129,7 +129,7 @@ class GndarrayTest(_unittest.TestCase):
             gshape = (_mpi.COMM_WORLD.size * lshape[0],) + lshape[1:]
             ndims = len(lshape)
             mat = \
-                MemAllocTopology(
+                CartLocaleComms(
                     ndims=ndims,
                     dims=(0,) + (1,) * (ndims - 1),
                     rank_comm=_mpi.COMM_WORLD,
@@ -140,7 +140,7 @@ class GndarrayTest(_unittest.TestCase):
 
             lshape = (10000,) + lshape[1:]
             mat = \
-                MemAllocTopology(
+                CartLocaleComms(
                     ndims=ndims,
                     dims=(0,) + (1,) * (ndims - 1),
                     rank_comm=_mpi.COMM_WORLD
@@ -237,7 +237,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
@@ -282,7 +282,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
@@ -321,7 +321,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -359,7 +359,7 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -377,7 +377,7 @@ class GndarrayTest(_unittest.TestCase):
         """
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
@@ -391,7 +391,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (128, 128)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
         mat_src = \
-            MemAllocTopology(
+            CartLocaleComms(
                 dims=(0, 1),
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF
@@ -404,7 +404,7 @@ class GndarrayTest(_unittest.TestCase):
         gary_src.update()
 
         mat_dst = \
-            MemAllocTopology(
+            CartLocaleComms(
                 dims=(1, 0),
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF

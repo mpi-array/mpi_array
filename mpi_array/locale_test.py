@@ -27,7 +27,7 @@ import mpi_array as _mpi_array
 from array_split.split import shape_factors as _shape_factors
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import CartesianDecomposition, MemAllocTopology, IndexingExtent
+from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms, IndexingExtent
 import mpi_array.locale
 
 __author__ = "Shane J. Latham"
@@ -209,7 +209,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.empty(decomp=decomp, dtype="int64")
@@ -254,7 +254,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.zeros(decomp=decomp, dtype="int64")
@@ -293,7 +293,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
@@ -331,7 +331,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = MemAllocTopology(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
         decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
@@ -355,7 +355,7 @@ class LndarrayTest(_unittest.TestCase):
         mats = \
             [
                 None,
-                MemAllocTopology(
+                CartLocaleComms(
                     ndims=gshape.size,
                     rank_comm=_mpi.COMM_WORLD,
                     intra_locale_comm=_mpi.COMM_SELF

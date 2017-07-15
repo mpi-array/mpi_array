@@ -18,7 +18,7 @@ Classes and Functions
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
    LocaleComms - Shared-memory communicator generation.
-   MemAllocTopology - Topology of MPI processes which allocate shared memory.
+   CartLocaleComms - Topology of MPI processes which allocate shared memory.
    CartesianDecomposition - Partition of an array *shape* overs MPI processes and/or nodes.
 
 
@@ -153,8 +153,8 @@ class LocaleComms(object):
     @property
     def inter_locale_comm(self):
         """
-        A :obj:`mpi4py.MPI.Comm` object which defines the group of processes
-        used to exchange data between locales.
+        A :obj:`mpi4py.MPI.Comm` communicator defining the group of processes
+        which exchange data between locales.
         """
         return self._inter_locale_comm
 
@@ -163,7 +163,7 @@ class LocaleComms(object):
         self._inter_locale_comm = inter_locale_comm
 
 
-class MemAllocTopology(object):
+class CartLocaleComms(object):
 
     """
     Defines cartesian communication topology for locales.
@@ -201,7 +201,7 @@ class MemAllocTopology(object):
         # No implementation for periodic boundaries yet
         periods = None
         if (ndims is None) and (dims is None):
-            raise ValueError("Must specify one of dims or ndims in MemAllocTopology constructor.")
+            raise ValueError("Must specify one of dims or ndims in CartLocaleComms constructor.")
         elif (ndims is not None) and (dims is not None) and (len(dims) != ndims):
             raise ValueError(
                 "Length of dims (len(dims)=%s) not equal to ndims=%s." % (len(dims), ndims)
@@ -233,7 +233,11 @@ class MemAllocTopology(object):
             if self.inter_locale_comm != _mpi.COMM_NULL:
                 rank_logger.debug("BEG: self.inter_locale_comm.Create to create self.cart_comm.")
                 self._cart_comm = \
-                    self.inter_locale_comm.Create_cart(self.dims, periods, reorder=True)
+                    self._locale_comms.inter_locale_comm.Create_cart(
+                        self.dims,
+                        periods,
+                        reorder=True
+                    )
                 rank_logger.debug("END: self.inter_locale_comm.Create to create self.cart_comm.")
             else:
                 self._cart_comm = _mpi.COMM_NULL
@@ -262,15 +266,19 @@ class MemAllocTopology(object):
     @property
     def rank_comm(self):
         """
-        The group of all MPI processes which have access to array elements.
+        A :obj:`mpi4py.MPI.Comm` communicator defining all processes in all
+        locales over which an  array is to be distributed
+        (i.e. all processes which have direct memory access
+        to some region, possibly empty, of array elements).
         """
         return self._locale_comms.rank_comm
 
     @property
     def cart_comm(self):
         """
-        The group of MPI processes (typically one process per memory node)
-        which communicate to exchange array data (halo data say) between memory nodes.
+        A :obj:`mpi4py.MPI.CartComm` communicator defining a cartesian topology of
+        MPI processes (typically one process per locale) used for inter-locale
+        exchange of array data.
         """
         return self._cart_comm
 
@@ -293,13 +301,13 @@ class MemAllocTopology(object):
         """
         See :attr:`LocaleComms.inter_locale_comm`.
         """
-        return self._locale_comms.inter_locale_comm
+        return self._cart_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    MemAllocTopology.num_locales.__doc__ = LocaleComms.num_locales.__doc__
-    MemAllocTopology.intra_locale_comm.__doc__ = LocaleComms.intra_locale_comm.__doc__
+    CartLocaleComms.num_locales.__doc__ = LocaleComms.num_locales.__doc__
+    CartLocaleComms.intra_locale_comm.__doc__ = LocaleComms.intra_locale_comm.__doc__
 
 
 class DecompExtent(HaloIndexingExtent):
@@ -1228,11 +1236,11 @@ class CartesianDecomposition(object):
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low and high indices can be different).
-        :type mem_alloc_topology: :obj:`MemAllocTopology`
+        :type mem_alloc_topology: :obj:`CartLocaleComms`
         :param mem_alloc_topology: Object which defines how array
            memory is allocated (distributed) over memory nodes and
            the cartesian topology communicator used to exchange (halo)
-           data. If :samp:`None` uses :samp:`MemAllocTopology(dims=numpy.zeros_like({shape}))`.
+           data. If :samp:`None` uses :samp:`CartLocaleComms(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
         self._shape = None
@@ -1323,10 +1331,10 @@ class CartesianDecomposition(object):
         :param new_halo: New partition calculated for this shape.
         """
         if self._mem_alloc_topology is None:
-            self._mem_alloc_topology = MemAllocTopology(ndims=len(new_shape))
+            self._mem_alloc_topology = CartLocaleComms(ndims=len(new_shape))
         elif (self._shape is not None) and (len(self._shape) != len(new_shape)):
             self._shape = _np.array(new_shape)
-            self._mem_alloc_topology = MemAllocTopology(ndims=self._shape.size)
+            self._mem_alloc_topology = CartLocaleComms(ndims=self._shape.size)
         self._shape = _np.array(new_shape)
         self._halo = new_halo
 
@@ -1532,21 +1540,21 @@ class CartesianDecomposition(object):
     @property
     def num_locales(self):
         """
-        See :attr:`MemAllocTopology.num_locales`.
+        See :attr:`CartLocaleComms.num_locales`.
         """
         return self._mem_alloc_topology.num_locales
 
     @property
     def intra_locale_comm(self):
         """
-        See :attr:`MemAllocTopology.intra_locale_comm`.
+        See :attr:`CartLocaleComms.intra_locale_comm`.
         """
         return self._mem_alloc_topology.intra_locale_comm
 
     @property
     def cart_comm(self):
         """
-        See :attr:`MemAllocTopology.cart_comm`.
+        See :attr:`CartLocaleComms.cart_comm`.
         """
         return self._mem_alloc_topology.cart_comm
 
@@ -1574,7 +1582,7 @@ class CartesianDecomposition(object):
     @property
     def have_valid_cart_comm(self):
         """
-        See :attr:`MemAllocTopology.have_valid_cart_comm`.
+        See :attr:`CartLocaleComms.have_valid_cart_comm`.
         """
         return self._mem_alloc_topology.have_valid_cart_comm
 
@@ -1588,7 +1596,7 @@ class CartesianDecomposition(object):
     @property
     def rank_comm(self):
         """
-        See :attr:`MemAllocTopology.rank_comm`.
+        See :attr:`CartLocaleComms.rank_comm`.
         """
         return self._mem_alloc_topology.rank_comm
 
@@ -1670,12 +1678,12 @@ class CartesianDecomposition(object):
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
     CartesianDecomposition.num_locales.__doc__ = \
-        MemAllocTopology.num_locales.__doc__
-    CartesianDecomposition.intra_locale_comm.__doc__ = MemAllocTopology.intra_locale_comm.__doc__
-    CartesianDecomposition.cart_comm.__doc__ = MemAllocTopology.cart_comm.__doc__
+        CartLocaleComms.num_locales.__doc__
+    CartesianDecomposition.intra_locale_comm.__doc__ = CartLocaleComms.intra_locale_comm.__doc__
+    CartesianDecomposition.cart_comm.__doc__ = CartLocaleComms.cart_comm.__doc__
     CartesianDecomposition.have_valid_cart_comm.__doc__ = \
-        MemAllocTopology.have_valid_cart_comm.__doc__
-    CartesianDecomposition.rank_comm.__doc__ = MemAllocTopology.rank_comm.__doc__
+        CartLocaleComms.have_valid_cart_comm.__doc__
+    CartesianDecomposition.rank_comm.__doc__ = CartLocaleComms.rank_comm.__doc__
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
