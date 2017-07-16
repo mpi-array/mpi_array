@@ -310,6 +310,132 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     CartLocaleComms.intra_locale_comm.__doc__ = LocaleComms.intra_locale_comm.__doc__
 
 
+class GlobaleExtent(HaloIndexingExtent):
+
+    """
+    Indexing extent for an entire array.
+    """
+
+    pass
+
+
+class LocaleExtent(HaloIndexingExtent):
+
+    """
+    Indexing extent for single region of array residing on a locale.
+    """
+
+    def __init__(
+        self,
+        rank,
+        inter_locale_rank,
+        array_shape,
+        slice=None,
+        halo=0,
+        bounds_policy=ARRAY_BOUNDS,
+        start=None,
+        stop=None
+    ):
+        """
+        Construct.
+
+        :type rank: :obj:`int`
+        :param rank: Rank of MPI process in :samp:`rank_comm` communicator.
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: Rank of MPI process in :samp:`inter_locale_comm` communicator.
+        :type slice: sequence of :obj:`slice`
+        :param slice: Per-axis start and stop indices (**not including ghost elements**).
+        :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
+        :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
+           per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
+           of ghost elements on the low-index *side* and :samp:`halo[:,1]` is the number of
+           ghost elements on the high-index *side*.
+        """
+        self._rank = rank
+        self._array_shape = _np.array(array_shape, dtype="int64")
+        HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
+        halo = convert_halo_to_array_form(halo, ndim=len(self._cart_coord))
+        if bounds_policy == ARRAY_BOUNDS:
+            # Make the halo
+            halo = \
+                _np.array(
+                    (
+                        _np.minimum(
+                            self.start_n,
+                            halo[:, self.LO]
+                        ),
+                        _np.minimum(
+                            self._array_shape - self.stop_n,
+                            halo[:, self.HI]
+                        ),
+                    ),
+                    dtype=halo.dtype
+                ).T
+        self._halo = halo
+
+    @property
+    def rank(self):
+        """
+        MPI rank of the process in the :samp:`rank_comm` communicator
+        which corresponds to the :attr:`inter_locale_rank` in
+        the :samp:`inter_locale_comm` communicator.
+        """
+        return self._rank
+
+    @property
+    def inter_locale_rank(self):
+        """
+        MPI rank of the process in the :samp:`inter_locale_comm`.
+        """
+        return self._cart_rank
+
+    def halo_slab_extent(self, axis, dir):
+        """
+        Returns indexing extent of the halo *slab* for specified axis.
+
+        :type axis: :obj:`int`
+        :param axis: Indexing extent of halo slab for this axis.
+        :type dir: :attr:`LO` or :attr:`HI`
+        :param dir: Indicates low-index halo slab or high-index halo slab.
+        :rtype: :obj:`IndexingExtent`
+        :return: Indexing extent for halo slab.
+        """
+        start = self.start_h.copy()
+        stop = self.stop_h.copy()
+        if dir == self.LO:
+            stop[axis] = start[axis] + self.halo[axis, self.LO]
+        else:
+            start[axis] = stop[axis] - self.halo[axis, self.HI]
+
+        return \
+            IndexingExtent(
+                start=start,
+                stop=stop
+            )
+
+    def no_halo_extent(self, axis):
+        """
+        Returns the indexing extent identical to this extent, except
+        has the halo trimmed from the axis specified by :samp:`{axis}`.
+
+        :type axis: :obj:`int` or sequence of :obj:`int`
+        :param axis: Axis (or axes) for which halo is trimmed.
+        :rtype: :obj:`IndexingExtent`
+        :return: Indexing extent with halo trimmed from specified axis (or axes) :samp:`{axis}`.
+        """
+        start = self.start_h.copy()
+        stop = self.stop_h.copy()
+        if axis is not None:
+            start[axis] += self.halo[axis, self.LO]
+            stop[axis] -= self.halo[axis, self.HI]
+
+        return \
+            IndexingExtent(
+                start=start,
+                stop=stop
+            )
+
+
 class DecompExtent(HaloIndexingExtent):
 
     """
