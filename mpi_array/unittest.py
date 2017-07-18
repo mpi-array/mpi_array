@@ -18,6 +18,7 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
+   TestProgam
    main - Convenience command-line test-case *search and run* function.
 
 """
@@ -26,65 +27,6 @@ from __future__ import absolute_import
 import unittest as _builtin_unittest
 import mpi_array.logging
 import numpy as _np
-
-
-def main(
-    module_name,
-    log_level=mpi_array.logging.DEBUG,
-    init_logger_names=None,
-    verbosity=None,
-    failfast=None
-):
-    """
-    Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
-    Loads a set of tests from module and runs them;
-    this is primarily for making test modules conveniently executable.
-    The simplest use for this function is to include the following line at
-    the end of a test module::
-
-       mpi_array.unittest.main(__name__)
-
-    If :samp:`__name__ == "__main__"`, then *discoverable* :obj:`unittest.TestCase`
-    test cases are executed.
-    Logging level can be explicitly set for a group of modules using::
-
-       import logging
-
-       mpi_array.unittest.main(
-           __name__,
-           logging.DEBUG,
-           [__name__, "module_name_0", "module_name_1", "package.module_name_2"]
-       )
-
-
-    :type module_name: :obj:`str`
-    :param module_name: If :samp:`{module_name} == "__main__"` then unit-tests
-       are *discovered* and run.
-    :type log_level: :obj:`int`
-    :param log_level: The default logging level for all
-       :obj:`mpi_array.logging.Logger` objects.
-    :type init_logger_names: sequence of :obj:`str`
-    :param init_logger_names: List of logger names to initialise
-       (using :func:`mpi_array.logging.initialise_loggers`). If :samp:`None`,
-       then the list defaults to :samp:`[{module_name}, "mpi_array"]`. If list
-       is empty no loggers are initialised.
-
-    """
-    if module_name == "__main__":
-        if (init_logger_names is None):
-            init_logger_names = [module_name, "mpi_array"]
-
-        if (len(init_logger_names) > 0):
-            mpi_array.logging.initialise_loggers(
-                init_logger_names, log_level=log_level)
-
-        kwargs = dict()
-        if failfast is not None:
-            kwargs["failfast"] = failfast
-        if verbosity is not None:
-            kwargs["verbosity"] = verbosity
-
-        _builtin_unittest.main(**kwargs)
 
 
 def _fix_docstring_for_sphinx(docstr):
@@ -340,6 +282,157 @@ else:
         _builtin_unittest.TestCase.assertSequenceEqual(self, *args, **kwargs)
 
     setattr(TestCase, "assertSequenceEqual", assertSequenceEqual)
+
+
+class LoggerDecorator:
+
+    def __init__(self, logger):
+        self.logger = logger
+
+    def write(self, v):
+        self.logger.info(v)
+
+    def flush(self):
+        pass
+
+
+class TextTestRunner(_builtin_unittest.TextTestRunner):
+
+    """
+    A test runner class that displays results in textual form.
+
+    It logs out the names of tests as they are run, errors as they
+    occur, and a summary of the results at the end of the test run.
+    """
+
+    def __init__(self, *args, **kwargs):
+
+        verbosity = None
+        if len(args) >= 3:
+            verbosity = args[2]
+        if "verbosity" in kwargs.keys():
+            verbosity = kwargs["verbosity"]
+
+        if verbosity is None:
+            verbosity = 0
+
+        if len(args) >= 1:
+            args[0] = verbosity
+        if "verbosity" in kwargs.keys():
+            kwargs["verbosity"] = verbosity
+        if (len(args) < 1) and ("verbosity" not in kwargs.keys()):
+            kwargs["verbosity"] = verbosity
+
+        stream = None
+        if len(args) >= 1:
+            stream = args[0]
+        if "stream" in kwargs.keys():
+            stream = kwargs["stream"]
+
+        if stream is None:
+            logger_name = __name__ + ".TextTestRunner"
+            if verbosity <= 1:
+                logger = mpi_array.logging.get_root_logger(logger_name)
+            else:
+                logger = mpi_array.logging.get_rank_logger(logger_name)
+            mpi_array.logging.initialise_loggers([logger_name, ], mpi_array.logging.INFO)
+            stream = LoggerDecorator(logger)
+
+        if len(args) >= 1:
+            args[0] = stream
+        if "stream" in kwargs.keys():
+            kwargs["stream"] = stream
+        if (len(args) < 1) and ("stream" not in kwargs.keys()):
+            kwargs["stream"] = stream
+
+        _builtin_unittest.TextTestRunner.__init__(self, *args, **kwargs)
+
+
+class TestProgram(_builtin_unittest.TestProgram):
+
+    """
+    A command-line program that runs a set of tests, extends :obj:`unittest.TestProgram`
+    by using logging rather than standard stream.
+    """
+
+    def __init__(self, *args, **kwargs):
+        testRunner = None
+        if len(args) >= 4:
+            testRunner = args[3]
+        if "testRunner" in kwargs:
+            testRunner = kwargs["testRunner"]
+
+        if testRunner is None:
+            testRunner = TextTestRunner
+
+        if len(args) >= 4:
+            args[3] = testRunner
+        if "testRunner" in kwargs:
+            kwargs["testRunner"] = testRunner
+
+        if (len(args) < 4) and ("testRunner" not in kwargs):
+            kwargs["testRunner"] = testRunner
+
+        _builtin_unittest.TestProgram.__init__(self, *args, **kwargs)
+
+
+def main(
+    module_name,
+    log_level=mpi_array.logging.DEBUG,
+    init_logger_names=None,
+    verbosity=None,
+    failfast=None
+):
+    """
+    Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
+    Loads a set of tests from module and runs them;
+    this is primarily for making test modules conveniently executable.
+    The simplest use for this function is to include the following line at
+    the end of a test module::
+
+       mpi_array.unittest.main(__name__)
+
+    If :samp:`__name__ == "__main__"`, then *discoverable* :obj:`unittest.TestCase`
+    test cases are executed.
+    Logging level can be explicitly set for a group of modules using::
+
+       import logging
+
+       mpi_array.unittest.main(
+           __name__,
+           logging.DEBUG,
+           [__name__, "module_name_0", "module_name_1", "package.module_name_2"]
+       )
+
+
+    :type module_name: :obj:`str`
+    :param module_name: If :samp:`{module_name} == "__main__"` then unit-tests
+       are *discovered* and run.
+    :type log_level: :obj:`int`
+    :param log_level: The default logging level for all
+       :obj:`mpi_array.logging.Logger` objects.
+    :type init_logger_names: sequence of :obj:`str`
+    :param init_logger_names: List of logger names to initialise
+       (using :func:`mpi_array.logging.initialise_loggers`). If :samp:`None`,
+       then the list defaults to :samp:`[{module_name}, "mpi_array"]`. If list
+       is empty no loggers are initialised.
+
+    """
+    if module_name == "__main__":
+        if (init_logger_names is None):
+            init_logger_names = [module_name, "mpi_array"]
+
+        if (len(init_logger_names) > 0):
+            mpi_array.logging.initialise_loggers(
+                init_logger_names, log_level=log_level)
+
+        kwargs = dict()
+        if failfast is not None:
+            kwargs["failfast"] = failfast
+        if verbosity is not None:
+            kwargs["verbosity"] = verbosity
+
+        TestProgram(**kwargs)
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
