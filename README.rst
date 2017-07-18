@@ -51,11 +51,11 @@ performs some element assignments::
 The `quickstart.py` script can be executed serially
 (single process) as::
 
-   python script.py
+   python quickstart.py
 
 or in parallel (using 8 processes) as::
 
-   mpirun -n 8 python script.py
+   mpirun -n 8 python quickstart.py
 
 
 Related Work
