@@ -40,7 +40,7 @@ import mpi4py.MPI as _mpi
 import numpy as _np
 from mpi_array.locale import lndarray as _lndarray
 from mpi_array.decomposition import CartesianDecomposition as _CartDecomp
-from mpi_array.decomposition import UpdatesForRedistribute as _UpdatesForRedistribute
+from mpi_array.update import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
 __license__ = _license()

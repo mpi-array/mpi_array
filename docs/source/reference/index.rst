@@ -14,6 +14,8 @@
    mpi_array_globale_test
    mpi_array_locale
    mpi_array_locale_test
+   mpi_array_update
+   mpi_array_update_test
    mpi_array_tests
    mpi_array_logging
    mpi_array_unittest
