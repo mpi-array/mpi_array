@@ -14,6 +14,7 @@ Classes
 
 .. autosummary::
    :toctree: generated/
+   :template: autosummary/inherits_TestCase_class.rst
 
    IndexingExtentTest - Tests for :obj:`mpi_array.indexing.IndexingExtent`.
    HaloIndexingExtentTest - Tests for :obj:`mpi_array.indexing.IndexingExtent`.

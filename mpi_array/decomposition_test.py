@@ -14,8 +14,9 @@ Classes
 
 .. autosummary::
    :toctree: generated/
+   :template: autosummary/inherits_TestCase_class.rst
 
-   DecompExtentTest - Tests for :obj:`mpi_array.decomposition.DecompExtent`.
+   CartLocaleExtentTest - Tests for :obj:`mpi_array.decomposition.CartLocaleExtent`.
    CartLocaleCommsTest - Tests for :obj:`mpi_array.decomposition.CartLocaleComms`.
    CartesianDecompositionTest - Tests for :obj:`mpi_array.decomposition.CartesianDecomposition`.
 
@@ -31,8 +32,8 @@ import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
 from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms, LocaleComms
-from mpi_array.decomposition import DecompExtent, MpiHaloSingleExtentUpdate, HalosUpdate
-from mpi_array.decomposition import MpiPairExtentUpdate
+from mpi_array.decomposition import CartLocaleExtent, MpiHaloSingleExtentUpdate, HalosUpdate
+from mpi_array.decomposition import MpiPairExtentUpdate, GlobaleExtent, LocaleExtent
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -41,10 +42,10 @@ __copyright__ = _copyright()
 __version__ = _mpi_array.__version__
 
 
-class DecompExtentTest(_unittest.TestCase):
+class CartLocaleExtentTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.DecompExtent`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartLocaleExtent`.
     """
 
     def test_construct_attribs(self):
@@ -52,12 +53,12 @@ class DecompExtentTest(_unittest.TestCase):
         Assertions for properties.
         """
         de = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(1,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(0, 100),),
                 halo=((10, 10),)
             )
@@ -69,12 +70,12 @@ class DecompExtentTest(_unittest.TestCase):
         self.assertTrue(_np.all(de.halo == 0))
 
         de = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=56,
                 cart_rank=7,
                 cart_coord=(7,),
                 cart_shape=(8,),
-                array_shape=(640,),
+                globale_extent=GlobaleExtent(stop=(640,)),
                 slice=(slice(560, 640),),
                 halo=((10, 10),)
             )
@@ -83,20 +84,20 @@ class DecompExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_1d_thick_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
         when halo size is smaller than the tile size.
         """
         halo = ((10, 10),)
         splt = _array_split.shape_split((300,), axis=(3,), halo=0)
         de = \
             [
-                DecompExtent(
+                CartLocaleExtent(
                     rank=r,
                     cart_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
-                    array_shape=(300,),
+                    globale_extent=GlobaleExtent(stop=(300,)),
                     slice=splt[r],
                     halo=halo
                 )
@@ -156,20 +157,20 @@ class DecompExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_1d_thin_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
         when halo size is larger than the tile size, 1D fixture.
         """
         halo = ((5, 5),)
         splt = _array_split.shape_split((15,), axis=(5,), halo=0)
         de = \
             [
-                DecompExtent(
+                CartLocaleExtent(
                     rank=r,
                     cart_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
-                    array_shape=(15,),
+                    globale_extent=GlobaleExtent(stop=(15,)),
                     slice=splt[r],
                     halo=halo
                 )
@@ -263,20 +264,20 @@ class DecompExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_2d_thick_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.DecompExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.DecompExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
         when halo size is smaller than the tile size, 2D fixture.
         """
         halo = ((10, 10), (5, 5))
         splt = _array_split.shape_split((300, 600), axis=(3, 3), halo=0)
         de = \
             [
-                DecompExtent(
+                CartLocaleExtent(
                     rank=r,
                     cart_rank=r,
                     cart_coord=_np.unravel_index(r, splt.shape),
                     cart_shape=splt.shape,
-                    array_shape=(300, 600),
+                    globale_extent=GlobaleExtent(stop=(300, 600)),
                     slice=splt[tuple(_np.unravel_index(r, splt.shape))],
                     halo=halo
                 )
@@ -630,22 +631,22 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
 
     def setUp(self):
         self.se = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(0, 100),),
                 halo=((10, 10),)
             )
         self.de = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=1,
                 cart_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(100, 200),),
                 halo=((10, 10),)
             )
@@ -719,22 +720,22 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     def setUp(self):
         self.se = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(0, 100),),
                 halo=((10, 10),)
             )
         self.de = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=1,
                 cart_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(100, 200),),
                 halo=((10, 10),)
             )
@@ -803,22 +804,22 @@ class HalosUpdateTest(_unittest.TestCase):
 
     def setUp(self):
         self.se = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=0,
                 cart_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(0, 100),),
                 halo=((10, 10),)
             )
         self.de = \
-            DecompExtent(
+            CartLocaleExtent(
                 rank=1,
                 cart_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
-                array_shape=(100,),
+                globale_extent=GlobaleExtent(stop=(100,)),
                 slice=(slice(100, 200),),
                 halo=((10, 10),)
             )

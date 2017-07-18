@@ -11,9 +11,14 @@ Classes and Functions
 
 .. autosummary::
    :toctree: generated/
+   :template: autosummary/inherits_TestCase_class.rst
+
+   TestCase - Extends :obj:`unittest.TestCase` with :obj:`TestCase.assertArraySplitEqual`.
+
+.. autosummary::
+   :toctree: generated/
 
    main - Convenience command-line test-case *search and run* function.
-   TestCase - Extends :obj:`unittest.TestCase` with :obj:`TestCase.assertArraySplitEqual`.
 
 """
 from __future__ import absolute_import

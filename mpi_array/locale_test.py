@@ -14,6 +14,7 @@ Classes
 
 .. autosummary::
    :toctree: generated/
+   :template: autosummary/inherits_TestCase_class.rst
 
    LndarrayTest - Tests for :obj:`mpi_array.locale.lndarray`.
 

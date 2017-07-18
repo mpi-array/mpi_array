@@ -142,7 +142,7 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
 class gndarray(object):
 
     """
-    A distributed array with :obj:`numpy.ndarray` API.
+    A Partitioned Global Address Space array with :obj:`numpy.ndarray` API.
     """
 
     def __new__(

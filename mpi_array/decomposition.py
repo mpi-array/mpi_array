@@ -16,10 +16,12 @@ Classes and Functions
    MpiPairExtentUpdate - Extends :obj:`PairExtentUpdate` with MPI data type factory.
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
-   DecompExtent - Indexing and halo info for a tile in a cartesian decomposition.
-   LocaleComms - Shared-memory communicator generation.
-   CartLocaleComms - Topology of MPI processes which allocate shared memory.
-   CartesianDecomposition - Partition of an array *shape* overs MPI processes and/or nodes.
+   GlobaleExtent - Indexing and halo info for globale array.
+   LocaleExtent - Indexing and halo info for locale array region.
+   CartLocaleExtent - Indexing and halo info for a tile in a cartesian decomposition.
+   LocaleComms - Intra-locale and inter-locale communicators.
+   CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
+   CartesianDecomposition - Block decomposition (partitioning) of an array *shape* overs locales.
 
 
 """
@@ -124,7 +126,11 @@ class LocaleComms(object):
                 rank_logger.debug("END: self.rank_comm.Split to create self.inter_locale_comm.")
             self._inter_locale_comm = inter_locale_comm
         elif (inter_locale_comm is not None) and (inter_locale_comm != _mpi.COMM_NULL):
-            raise ValueError("Got valid inter_local_comm when self.num_locales <= 1")
+            raise ValueError(
+                "Got valid inter_local_comm=%s when self.num_locales <= 1"
+                %
+                (inter_locale_comm, )
+            )
 
     @property
     def num_locales(self):
@@ -174,7 +180,9 @@ class CartLocaleComms(object):
         ndims=None,
         dims=None,
         rank_comm=None,
-        intra_locale_comm=None
+        intra_locale_comm=None,
+        inter_locale_comm=None,
+        cart_comm=None
     ):
         """
         Initialises cartesian communicator for inter-locale data exchange.
@@ -197,7 +205,14 @@ class CartLocaleComms(object):
         :param intra_locale_comm: The MPI communicator used to create a window which
             can be used to allocate shared memory
             via :meth:`mpi4py.MPI.Win.Allocate_shared`.
+        :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
+        :param inter_locale_comm: Inter-locale communicator used to exchange
+            data between different locales.
+        :type cart_comm: :obj:`mpi4py.MPI.Comm`
+        :param cart_comm: Cartesian topology inter-locale communicator used to exchange
+            data between different locales.
         """
+        object.__init__(self)
         # No implementation for periodic boundaries yet
         periods = None
         if (ndims is None) and (dims is None):
@@ -216,9 +231,14 @@ class CartLocaleComms(object):
         if rank_comm is None:
             rank_comm = _mpi.COMM_WORLD
 
-        self._locale_comms = LocaleComms(rank_comm, intra_locale_comm)
+        self._locale_comms = \
+            LocaleComms(
+                comm=rank_comm,
+                intra_locale_comm=intra_locale_comm,
+                inter_locale_comm=inter_locale_comm
+            )
 
-        self._cart_comm = None
+        self._cart_comm = cart_comm
         rank_logger = \
             _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.rank_comm)
 
@@ -229,18 +249,36 @@ class CartLocaleComms(object):
             )
 
         # Create a cartesian grid communicator
+        inter_locale_comm = self._locale_comms._inter_locale_comm
         if self.num_locales > 1:
-            if self.inter_locale_comm != _mpi.COMM_NULL:
-                rank_logger.debug("BEG: self.inter_locale_comm.Create to create self.cart_comm.")
-                self._cart_comm = \
-                    self._locale_comms.inter_locale_comm.Create_cart(
+            if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
+                rank_logger.debug("BEG: inter_locale_comm.Create to create cart_comm.")
+                cart_comm = \
+                    inter_locale_comm.Create_cart(
                         self.dims,
                         periods,
                         reorder=True
                     )
-                rank_logger.debug("END: self.inter_locale_comm.Create to create self.cart_comm.")
-            else:
-                self._cart_comm = _mpi.COMM_NULL
+                rank_logger.debug("END: inter_locale_comm.Create to create cart_comm.")
+            elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
+                cart_comm = _mpi.COMM_NULL
+            elif cart_comm != _mpi.COMM_NULL:
+                raise ValueError(
+                    (
+                        "Got object cart_comm=%s when expecting cart_comm to match "
+                        +
+                        "self._inter_locale_comm=%s"
+                    )
+                    %
+                    (cart_comm, inter_locale_comm)
+                )
+            self._cart_comm = cart_comm
+        elif (cart_comm is not None) and (cart_comm != _mpi.COMM_NULL):
+            raise ValueError(
+                "Got object cart_comm=%s when self.num_locales <= 1, should be None"
+                %
+                (cart_comm, )
+            )
 
     @property
     def dims(self):
@@ -301,7 +339,7 @@ class CartLocaleComms(object):
         """
         See :attr:`LocaleComms.inter_locale_comm`.
         """
-        return self._cart_comm
+        return self._locale_comms._inter_locale_comm
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
@@ -329,10 +367,9 @@ class LocaleExtent(HaloIndexingExtent):
         self,
         rank,
         inter_locale_rank,
-        array_shape,
+        globale_extent,
         slice=None,
         halo=0,
-        bounds_policy=ARRAY_BOUNDS,
         start=None,
         stop=None
     ):
@@ -340,37 +377,48 @@ class LocaleExtent(HaloIndexingExtent):
         Construct.
 
         :type rank: :obj:`int`
-        :param rank: Rank of MPI process in :samp:`rank_comm` communicator.
+        :param rank: Rank of MPI process in :samp:`rank_comm` communicator which
+           corresponds to :samp:`{inter_locale_rank}` rank of :samp:`{inter_locale_comm}`.
         :type inter_locale_rank: :obj:`int`
         :param inter_locale_rank: Rank of MPI process in :samp:`inter_locale_comm` communicator.
+        :type globale_extent: :obj:`GlobaleExtent`
+        :param globale_extent: The indexing extent of the entire array.
         :type slice: sequence of :obj:`slice`
         :param slice: Per-axis start and stop indices (**not including ghost elements**).
         :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
-        :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
-           per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
-           of ghost elements on the low-index *side* and :samp:`halo[:,1]` is the number of
-           ghost elements on the high-index *side*.
+        :param halo: Desired halo, a :samp:`(len(self.start), 2)` shaped array of :obj:`int`
+           indicating the per-axis number of outer ghost elements. :samp:`halo[:,0]` is the
+           number of ghost elements on the low-index *side* and :samp:`halo[:,1]` is the number
+           of ghost elements on the high-index *side*. **Note**: that the halo will be truncated
+           so that this halo extent does not extend beyond the halo :samp:`{globale_extent}`.
+        :type start: sequence of :obj:`slice`
+        :param start: Per-axis start indices (**not including ghost elements**).
+        :type stop: sequence of :obj:`slice`
+        :param stop: Per-axis stop indices (**not including ghost elements**).
         """
         self._rank = rank
-        self._array_shape = _np.array(array_shape, dtype="int64")
+        self._inter_locale_rank = inter_locale_rank
         HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
-        halo = convert_halo_to_array_form(halo, ndim=len(self._cart_coord))
-        if bounds_policy == ARRAY_BOUNDS:
-            # Make the halo
-            halo = \
+        halo = convert_halo_to_array_form(halo, ndim=self.ndim)
+        # Calculate the locale halo, truncate if it strays outside
+        # the globale_extent halo region.
+        halo = \
+            _np.maximum(
+                _np.array((0,), dtype=halo.dtype),
                 _np.array(
                     (
                         _np.minimum(
-                            self.start_n,
+                            self.start_n - globale_extent.start_h,
                             halo[:, self.LO]
                         ),
                         _np.minimum(
-                            self._array_shape - self.stop_n,
+                            globale_extent.stop_h - self.stop_n,
                             halo[:, self.HI]
                         ),
                     ),
                     dtype=halo.dtype
                 ).T
+            )
         self._halo = halo
 
     @property
@@ -387,7 +435,7 @@ class LocaleExtent(HaloIndexingExtent):
         """
         MPI rank of the process in the :samp:`inter_locale_comm`.
         """
-        return self._cart_rank
+        return self._inter_locale_rank
 
     def halo_slab_extent(self, axis, dir):
         """
@@ -436,7 +484,7 @@ class LocaleExtent(HaloIndexingExtent):
             )
 
 
-class DecompExtent(HaloIndexingExtent):
+class CartLocaleExtent(LocaleExtent):
 
     """
     Indexing extents for single tile of cartesian domain decomposition.
@@ -448,135 +496,79 @@ class DecompExtent(HaloIndexingExtent):
         cart_rank,
         cart_coord,
         cart_shape,
-        array_shape,
-        slice,
-        halo,
-        bounds_policy=ARRAY_BOUNDS
+        globale_extent,
+        slice=None,
+        halo=None,
+        start=None,
+        stop=None
     ):
         """
         Construct.
 
         :type rank: :obj:`int`
-        :param rank: Rank of MPI process in :samp:`rank_comm` communicator.
+        :param rank: Rank of MPI process in :samp:`rank_comm` communicator which
+           corresponds to the :samp:`{cart_rank}` rank in the :samp:`cart_comm`
+           cartesian communicator.
         :type cart_rank: :obj:`int`
-        :param cart_rank: Rank of MPI process in cartesian communicator.
+        :param cart_rank: Rank of MPI process in :samp:`cart_comm` cartesian communicator
+           which corresponds to the :samp:`{rank_comm}` rank in the :samp:`rank_comm` communicator.
         :type cart_coord: sequence of :obj:`int`
-        :param cart_coord: Coordinate index of this tile in the cartesian domain decomposition.
+        :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
+           this :obj:`LocaleExtent` in the cartesian domain decomposition.
         :type cart_shape: sequence of :obj:`int`
-        :param cart_shape: Number of tiles in each axis direction.
+        :param cart_shape: Number of :obj:`LocaleExtent` regions in each axis direction
+           of the cartesian decomposition.
+        :type globale_extent: :obj:`GlobaleExtent`
+        :param globale_extent: The indexing extent of the entire array.
         :type slice: sequence of :obj:`slice`
         :param slice: Per-axis start and stop indices (**not including ghost elements**).
         :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
-        :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
-           per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
-           of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
-           elements on the high-index *side*.
+        :param halo: Desired halo, a :samp:`(len(self.start), 2)` shaped array of :obj:`int`
+           indicating the per-axis number of outer ghost elements. :samp:`halo[:,0]` is the
+           number of ghost elements on the low-index *side* and :samp:`halo[:,1]` is the number
+           of ghost elements on the high-index *side*. **Note**: that the halo will be truncated
+           so that this halo extent does not extend beyond the halo :samp:`{globale_extent}`.
+        :type start: sequence of :obj:`slice`
+        :param start: Per-axis start indices (**not including ghost elements**).
+        :type stop: sequence of :obj:`slice`
+        :param stop: Per-axis stop indices (**not including ghost elements**).
         """
-        self._rank = rank
-        self._cart_rank = cart_rank
+        LocaleExtent.__init__(
+            self,
+            rank=rank,
+            inter_locale_rank=cart_rank,
+            globale_extent=globale_extent,
+            slice=slice,
+            halo=halo,
+            start=start,
+            stop=stop
+        )
         self._cart_coord = _np.array(cart_coord, dtype="int64")
         self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
-        self._array_shape = _np.array(array_shape, dtype=self._cart_coord.dtype)
-        HaloIndexingExtent.__init__(self, slice, halo=None)
-        halo = convert_halo_to_array_form(halo, ndim=len(self._cart_coord))
-        if bounds_policy == ARRAY_BOUNDS:
-            # Make the halo
-            halo = \
-                _np.array(
-                    (
-                        _np.minimum(
-                            self.start_n,
-                            halo[:, self.LO]
-                        ),
-                        _np.minimum(
-                            self._array_shape - self.stop_n,
-                            halo[:, self.HI]
-                        ),
-                    ),
-                    dtype=halo.dtype
-                ).T
-        self._halo = halo
-
-    @property
-    def rank(self):
-        """
-        MPI rank of the process in the :samp:`rank_comm` communicator.
-        """
-        return self._rank
 
     @property
     def cart_rank(self):
         """
-        MPI rank of the process in the cartesian decomposition.
+        Rank of MPI process in :samp:`cart_comm` cartesian communicator
+        which corresponds to the :attr:`{rank}` rank in the :samp:`rank_comm` communicator.
         """
-        return self._cart_rank
-
-    @property
-    def inter_locale_rank(self):
-        """
-        MPI rank of the process in the :samp:`inter_locale_comm`.
-        """
-        return self._cart_rank
+        return self.inter_locale_rank
 
     @property
     def cart_coord(self):
         """
-        Cartesian coordinate of cartesian decomposition.
+        Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
+        this :obj:`LocaleExtent` in the cartesian domain decomposition.
         """
         return self._cart_coord
 
     @property
     def cart_shape(self):
         """
-        Shape of cartesian decomposition (number of tiles along each axis).
+        Number of :obj:`LocaleExtent` regions in each axis direction
+        of the cartesian decomposition.
         """
         return self._cart_shape
-
-    def halo_slab_extent(self, axis, dir):
-        """
-        Returns indexing extent of the halo *slab* for specified axis.
-
-        :type axis: :obj:`int`
-        :param axis: Indexing extent of halo slab for this axis.
-        :type dir: :attr:`LO` or :attr:`HI`
-        :param dir: Indicates low-index halo slab or high-index halo slab.
-        :rtype: :obj:`IndexingExtent`
-        :return: Indexing extent for halo slab.
-        """
-        start = self.start_h.copy()
-        stop = self.stop_h.copy()
-        if dir == self.LO:
-            stop[axis] = start[axis] + self.halo[axis, self.LO]
-        else:
-            start[axis] = stop[axis] - self.halo[axis, self.HI]
-
-        return \
-            IndexingExtent(
-                start=start,
-                stop=stop
-            )
-
-    def no_halo_extent(self, axis):
-        """
-        Returns the indexing extent identical to this extent, except
-        has the halo trimmed from the axis specified by :samp:`{axis}`.
-
-        :type axis: :obj:`int` or sequence of :obj:`int`
-        :param axis: Axis (or axes) for which halo is trimmed.
-        :rtype: :obj:`IndexingExtent`
-        :return: Indexing extent with halo trimmed from specified axis (or axes) :samp:`{axis}`.
-        """
-        start = self.start_h.copy()
-        stop = self.stop_h.copy()
-        if axis is not None:
-            start[axis] += self.halo[axis, self.LO]
-            stop[axis] -= self.halo[axis, self.HI]
-
-        return \
-            IndexingExtent(
-                start=start,
-                stop=stop
-            )
 
 
 class ExtentUpdate(object):
@@ -589,9 +581,9 @@ class ExtentUpdate(object):
         """
         Initialise.
 
-        :type dst_extent: :obj:`DecompExtent`
+        :type dst_extent: :obj:`CartLocaleExtent`
         :param dst_extent: Whole locale extent which receives update.
-        :type src_extent: :obj:`DecompExtent`
+        :type src_extent: :obj:`CartLocaleExtent`
         :param src_extent: Whole locale extent from which update is read.
         """
         object.__init__(self)
@@ -601,14 +593,14 @@ class ExtentUpdate(object):
     @property
     def dst_extent(self):
         """
-        The locale :obj:`DecompExtent` which is to receive sub-array update.
+        The locale :obj:`CartLocaleExtent` which is to receive sub-array update.
         """
         return self._dst_extent
 
     @property
     def src_extent(self):
         """
-        The locale :obj:`DecompExtent` from which the sub-array update is read.
+        The locale :obj:`CartLocaleExtent` from which the sub-array update is read.
         """
         return self._src_extent
 
@@ -1018,7 +1010,7 @@ class HalosUpdate(object):
         :type rank_to_extents_dict: :obj:`dict`
         :param rank_to_extents_dict: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
-           is a :obj:`DecompExtent` object indicating the indexing extent
+           is a :obj:`CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
         """
         self.initialise(dst_rank, rank_to_extents_dict)
@@ -1044,10 +1036,10 @@ class HalosUpdate(object):
         Calculates the intersection of :samp:`{dst_extent}` halo slab with
         the update region of :samp:`{src_extent}`.
 
-        :type dst_extent: :obj:`DecompExtent`
+        :type dst_extent: :obj:`CartLocaleExtent`
         :param dst_extent: Halo slab indicated by :samp:`{axis}` and :samp:`{dir}`
            taken from this extent.
-        :type src_extent: :obj:`DecompExtent`
+        :type src_extent: :obj:`CartLocaleExtent`
         :param src_extent: This extent, minus the halo in the :samp:`{axis}` dimension,
            is intersected with the halo slab.
         :type axis: :obj:`int`
@@ -1068,12 +1060,12 @@ class HalosUpdate(object):
         Partitions the specified extent into smaller extents with number
         of elements no more than :samp:`{max_elements}`.
 
-        :type extent: :obj:`DecompExtent`
+        :type extent: :obj:`CartLocaleExtent`
         :param extent: The extent to be split.
         :type max_elements: :obj:`int`
         :param max_elements: Each partition of the returned split has no more
            than this many elements.
-        :rtype: :obj:`list` of :obj:`DecompExtent`
+        :rtype: :obj:`list` of :obj:`CartLocaleExtent`
         :return: List of extents forming a partition of :samp:`{extent}`
            with each extent having no more than :samp:`{max_element}` elements.
         """
@@ -1090,7 +1082,7 @@ class HalosUpdate(object):
         :type rank_to_extents_dict: :obj:`dict`
         :param rank_to_extents_dict: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
-           is a :obj:`DecompExtent` object indicating the indexing extent
+           is a :obj:`CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
         """
         self._dst_rank = dst_rank
@@ -1369,7 +1361,7 @@ class CartesianDecomposition(object):
            data. If :samp:`None` uses :samp:`CartLocaleComms(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
-        self._shape = None
+        self._globale_extent = None
         self._mem_alloc_topology = mem_alloc_topology
         self._shape_decomp = None
         self._rank_logger = None
@@ -1458,22 +1450,34 @@ class CartesianDecomposition(object):
         """
         if self._mem_alloc_topology is None:
             self._mem_alloc_topology = CartLocaleComms(ndims=len(new_shape))
-        elif (self._shape is not None) and (len(self._shape) != len(new_shape)):
-            self._shape = _np.array(new_shape)
-            self._mem_alloc_topology = CartLocaleComms(ndims=self._shape.size)
-        self._shape = _np.array(new_shape)
+        elif (self._globale_extent is not None) and (self._globale_extent.ndim != len(new_shape)):
+            new_shape = _np.array(new_shape)
+            self._mem_alloc_topology = \
+                CartLocaleComms(
+                    rank_comm=self._mem_alloc_topology.rank_comm,
+                    intra_locale_comm=self._mem_alloc_topology.intra_locale_comm,
+                    inter_locale_comm=self._mem_alloc_topology.inter_locale_comm,
+                    ndims=len(new_shape)
+                )
         self._halo = new_halo
+        self._globale_extent = GlobaleExtent(stop=new_shape)
 
         shape_splitter = \
             _array_split.ShapeSplitter(
-                array_shape=self._shape,
+                array_shape=self._globale_extent.shape_n,
                 axis=self._mem_alloc_topology.dims,
                 halo=0
             )
 
-        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=len(self._shape))
+        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=len(self.shape))
 
         self._shape_decomp = shape_splitter.calculate_split()
+
+        self.rank_logger.debug(
+            "Split global extent=%s into %s locale extents.",
+            self._globale_extent,
+            "x".join([str(i) for i in self._shape_decomp.shape])
+        )
 
         self._cart_rank_to_extents_dict = None
         self._halo_updates_dict = None
@@ -1485,15 +1489,14 @@ class CartesianDecomposition(object):
             for cart_rank in range(0, self.cart_comm.size):
                 cart_coords = _np.array(self.cart_comm.Get_coords(cart_rank))
                 self._cart_rank_to_extents_dict[cart_rank] = \
-                    DecompExtent(
+                    CartLocaleExtent(
                         rank=self.rank_comm.rank,
                         cart_rank=cart_rank,
                         cart_coord=cart_coords,
                         cart_shape=cart_dims,
-                        array_shape=self._shape,
+                        globale_extent=self._globale_extent,
                         slice=self._shape_decomp[tuple(cart_coords)],
-                        halo=self._halo,
-                        bounds_policy=shape_splitter.tile_bounds_policy
+                        halo=self._halo
                     )  # noqa: E123
             for cart_rank in range(0, self.cart_comm.size):
                 self._halo_updates_dict[cart_rank] = \
@@ -1503,17 +1506,16 @@ class CartesianDecomposition(object):
                 )
             self._lndarray_extent = self._cart_rank_to_extents_dict[self.cart_comm.rank]
         elif self.num_locales <= 1:
-            slice_tuple = tuple([slice(0, self._shape[i]) for i in range(len(self._shape))])
+            slice_tuple = tuple([slice(0, self.shape[i]) for i in range(self.ndim)])
             self._lndarray_extent = \
-                    DecompExtent(
+                    CartLocaleExtent(
                         rank=0,
                         cart_rank=0,
-                        cart_coord=[0, ] * len(self._shape),
-                        cart_shape=[1, ] * len(self._shape),
-                        array_shape=self._shape,
+                        cart_coord=[0, ] * self._globale_extent.ndim,
+                        cart_shape=[1, ] * self._globale_extent.ndim,
+                        globale_extent=self._globale_extent,
                         slice=slice_tuple,
-                        halo=self._halo,
-                        bounds_policy=shape_splitter.tile_bounds_policy
+                        halo=self._halo
                     )  # noqa: E123
             self._cart_rank_to_extents_dict =\
                 {self._lndarray_extent.cart_rank: self._lndarray_extent}
@@ -1612,7 +1614,7 @@ class CartesianDecomposition(object):
         """
         Dimension of array.
         """
-        return self._shape.size
+        return self._globale_extent.ndim
 
     @property
     def halo(self):
@@ -1626,14 +1628,14 @@ class CartesianDecomposition(object):
         if halo is None:
             halo = 0
 
-        self.recalculate(self._shape, halo)
+        self.recalculate(self.shape, halo)
 
     @property
     def shape(self):
         """
-        The shape of the array to be distributed over MPI memory nodes.
+        The globale shape of the array to be distributed over locales.
         """
-        return self._shape
+        return self._globale_extent.shape
 
     @shape.setter
     def shape(self, new_shape):
@@ -1642,7 +1644,7 @@ class CartesianDecomposition(object):
     @property
     def locale_extents(self):
         """
-        A :obj:`list` of :obj:`DecompExtent` instances.
+        A :obj:`list` of :obj:`CartLocaleExtent` instances.
         """
         return [
             self._cart_rank_to_extents_dict[cart_rank]

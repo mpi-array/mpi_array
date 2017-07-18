@@ -31,7 +31,7 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
 
-from . import array  # noqa: E402,F401
-from .array import ndarray, zeros  # noqa: E402,F401
+from .globale import gndarray, copy, empty, empty_like  # noqa: E402,F401
+from .globale import ones, ones_like, zeros, zeros_like  # noqa: E402,F401
 
 __all__ = [s for s in dir() if not s.startswith('_')]

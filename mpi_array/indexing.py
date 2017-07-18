@@ -36,12 +36,13 @@ class IndexingExtent(object):
     Indexing bounds for a single tile of domain decomposition.
     """
 
-    def __init__(self, split=None, start=None, stop=None):
+    def __init__(self, slice=None, start=None, stop=None):
         """
-        Construct.
+        Construct, must specify either :samp:`{slice}` or
+        both of :samp:`{start}` and :samp:`{stop}`.
 
-        :type split: sequence of :obj:`slice`
-        :param split: Per axis start and stop indices defining the extent.
+        :type slice: sequence of :obj:`slice`
+        :param slice: Per axis start and stop indices defining the extent.
         :type start: sequence of :obj:`int`
         :param start: Per axis *start* indices defining the start of extent.
         :type stop: sequence of :obj:`int`
@@ -49,9 +50,12 @@ class IndexingExtent(object):
 
         """
         object.__init__(self)
-        if split is not None:
-            self._beg = _np.array([s.start for s in split], dtype="int64")
-            self._end = _np.array([s.stop for s in split], dtype=self._beg.dtype)
+        if slice is not None:
+            self._beg = _np.array([s.start for s in slice], dtype="int64")
+            self._end = _np.array([s.stop for s in slice], dtype=self._beg.dtype)
+        elif (start is None) and (stop is not None):
+            self._end = _np.array(stop, dtype="int64")
+            self._beg = _np.zeros_like(self._end)
         elif (start is not None) and (stop is not None):
             self._beg = _np.array(start, dtype="int64")
             self._end = _np.array(stop, dtype="int64")
@@ -208,6 +212,20 @@ class HaloIndexingExtent(IndexingExtent):
 
     """
     Indexing bounds with ghost (halo) elements, for a single tile of domain decomposition.
+
+    Example::
+
+        >>> from mpi_array.indexing import HaloIndexingExtent
+        >>>
+        >>> hie = HaloIndexingExtent(start=(10,), stop=(20,), halo=((2,4),))
+        >>> print("hie.start_n = %s" % (hie.start_n,)) # start without halo
+        hie.start_n = [10]
+        >>> print("hie.start_h = %s" % (hie.start_h,)) # start with halo
+        hie.start_h = [8]
+        >>> print("hie.stop_n  = %s" % (hie.stop_n,))  # stop without halo
+        hie.stop_n  = [20]
+        >>> print("hie.stop_h  = %s" % (hie.stop_h,))  # stop with halo
+        hie.stop_h  = [24]
     """
 
     #: The "low index" indices.
@@ -216,21 +234,27 @@ class HaloIndexingExtent(IndexingExtent):
     #: The "high index" indices.
     HI = 1
 
-    def __init__(self, split=None, start=None, stop=None, halo=None):
+    def __init__(self, slice=None, start=None, stop=None, halo=None):
         """
         Construct.
 
-        :type split: sequence of :obj:`slice`
-        :param split: Per axis start and stop indices defining the extent (**not including ghost
+        :type slice: sequence of :obj:`slice`
+        :param slice: Per axis start and stop indices defining the extent (**not including ghost
            elements**).
-        :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
+        :type start: sequence of :obj:`int`
+        :param start: Per axis *start* indices defining the start of extent  (**not including ghost
+           elements**).
+        :type stop: sequence of :obj:`int`
+        :param stop: Per axis *stop* indices defining the extent  (**not including ghost
+           elements**).
+        :type halo: :samp:`(len({slice}), 2)` shaped array of :obj:`int`
         :param halo: A :samp:`(len(self.start), 2)` shaped array of :obj:`int` indicating the
            per-axis number of outer ghost elements. :samp:`halo[:,0]` is the number
            of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
            elements on the high-index *side*.
 
         """
-        IndexingExtent.__init__(self, split, start, stop)
+        IndexingExtent.__init__(self, slice, start, stop)
         if halo is None:
             halo = _np.zeros((self._beg.shape[0], 2), dtype=self._beg.dtype)
         else:

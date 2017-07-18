@@ -14,6 +14,7 @@ Classes
 
 .. autosummary::
    :toctree: generated/
+   :template: autosummary/inherits_TestCase_class.rst
 
    GndarrayTest - Tests for :obj:`mpi_array.globale.gndarray`.
 

@@ -18,10 +18,11 @@
 .. image:: https://img.shields.io/github/license/mashape/apistatus.svg
    :target: https://github.com/mpi-array/mpi_array/blob/dev/LICENSE.txt
    :alt: MIT License
-   
+
 The `mpi_array <http://mpi-array.readthedocs.io/en/latest>`_ python package provides
-a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_
-*distributed array* which utilizes
+a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_ API to a
+`Partitioned Global Address Space <https://en.wikipedia.org/wiki/Partitioned_global_address_space>`_
+array which utilizes
 `MPI <https://en.wikipedia.org/wiki/Message_Passing_Interface>`_
 (via `mpi4py <http://pythonhosted.org/mpi4py/>`_) for parallelism.
 
@@ -29,11 +30,33 @@ a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html
 Quick Start Example
 ===================
 
+The following `quickstart.py` script creates a zero-initialised array and
+performs some element assignments::
 
-   >>> import mpi_array as mpia
-   >>>
-   >>> dary = mpia.zeros((1000, 1000, 1000), dtype="uint16") # creates zero-initialized distributed array
-   >>> 
+   import mpi_array as mpia
+   
+   # creates zero-initialized PGAS (distributed) array
+   dary = mpia.zeros((1000, 1000, 1000), dtype="uint16") 
+   
+   # Add one to all elements of array
+   dary += 1
+   
+   # Assign to slice
+   dary[250:750, :, 250:750] = 16
+
+   # ufuncs
+   dary = mpia.pow(mpia, 1.0/3.0)
+
+
+The `quickstart.py` script can be executed serially
+(single process) as::
+
+   python script.py
+
+or in parallel (using 8 processes) as
+
+   mpirun -n 8 python script.py
+
 
 Related Work
 ============

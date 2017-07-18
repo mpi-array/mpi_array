@@ -51,7 +51,6 @@ def load_tests(loader, tests, pattern):
         loader.loadTestsFromNames(
             [
                 "mpi_array.mpi_test",
-                "mpi_array.array_test",
                 "mpi_array.indexing_test",
                 "mpi_array.decomposition_test",
                 "mpi_array.locale_test",
@@ -59,6 +58,10 @@ def load_tests(loader, tests, pattern):
             ]
         )
     suite.addTests(DocTestTestSuite())
+
+    import mpi_array.indexing as _indexing
+    suite.addTests(_doctest.DocTestSuite(_indexing))
+
     return suite
 
 
