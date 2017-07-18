@@ -53,7 +53,7 @@ The `quickstart.py` script can be executed serially
 
    python script.py
 
-or in parallel (using 8 processes) as
+or in parallel (using 8 processes) as::
 
    mpirun -n 8 python script.py
 
