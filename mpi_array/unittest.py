@@ -18,7 +18,8 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
-   TestProgam
+   TestProgram - Over-ride to use logging.
+   TextTestRunner - Over-ride to use logging.
    main - Convenience command-line test-case *search and run* function.
 
 """
