@@ -42,10 +42,10 @@ performs some element assignments::
    dary += 1
    
    # Assign to slice
-   dary[250:750, :, 250:750] = 16
+   dary[250:750, :, 250:750] = 8
 
    # ufuncs
-   dary = mpia.pow(mpia, 1.0/3.0)
+   dary[...] = mpia.power(dary, 1.0/3.0)
 
 
 The `quickstart.py` script can be executed serially
