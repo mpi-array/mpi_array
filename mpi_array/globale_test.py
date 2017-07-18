@@ -71,7 +71,7 @@ class GndarrayTest(_unittest.TestCase):
         halos = [0, 3]
         for halo in halos:
             gshape = (50, 17, 23)
-            mem_alloc_topology = \
+            locale_comms = \
                 CartLocaleComms(
                     ndims=len(gshape),
                     intra_locale_comm=_mpi.COMM_SELF
@@ -80,7 +80,7 @@ class GndarrayTest(_unittest.TestCase):
                 CartesianDecomposition(
                     shape=gshape,
                     halo=halo,
-                    mem_alloc_topology=mem_alloc_topology
+                    locale_comms=locale_comms
                 )
             gary = mpi_array.globale.empty(decomp=decomp, dtype="int8")
             if gary.decomp.intra_locale_comm.rank == 0:
@@ -137,7 +137,7 @@ class GndarrayTest(_unittest.TestCase):
                     intra_locale_comm=_mpi.COMM_SELF
                 )
             non_shared_decomp = \
-                CartesianDecomposition(shape=gshape, mem_alloc_topology=mat, halo=halo)
+                CartesianDecomposition(shape=gshape, locale_comms=mat, halo=halo)
 
             lshape = (10000,) + lshape[1:]
             mat = \
@@ -148,7 +148,7 @@ class GndarrayTest(_unittest.TestCase):
                 )
             gshape = (mat.num_locales * lshape[0],) + lshape[1:]
             halo = 4
-            shared_decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat, halo=halo)
+            shared_decomp = CartesianDecomposition(shape=gshape, locale_comms=mat, halo=halo)
 
             decomp_list = [non_shared_decomp, shared_decomp]
 
@@ -239,7 +239,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -284,7 +284,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -323,7 +323,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -361,7 +361,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -379,7 +379,7 @@ class GndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
         gary1 = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -397,7 +397,7 @@ class GndarrayTest(_unittest.TestCase):
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF
             )
-        decomp_src = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_src, halo=halo)
+        decomp_src = CartesianDecomposition(shape=gshape, locale_comms=mat_src, halo=halo)
 
         gary_src = mpi_array.globale.zeros(decomp=decomp_src, dtype=src_dtype)
         rank_val = gary_src.decomp.lndarray_extent.cart_rank + 1
@@ -410,7 +410,7 @@ class GndarrayTest(_unittest.TestCase):
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF
             )
-        decomp_dst = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat_dst, halo=halo)
+        decomp_dst = CartesianDecomposition(shape=gshape, locale_comms=mat_dst, halo=halo)
         gary_dst = mpi_array.globale.zeros(decomp=decomp_dst, dtype=dst_dtype)
         gary_dst.update()
         self.assertTrue(_np.all(gary_dst.lndarray.slndarray[...] == 0))

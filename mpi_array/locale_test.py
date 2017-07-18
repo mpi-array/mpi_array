@@ -211,7 +211,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.empty(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -256,7 +256,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.zeros(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -295,7 +295,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -333,7 +333,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, mem_alloc_topology=mat)
+        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -363,7 +363,7 @@ class LndarrayTest(_unittest.TestCase):
                 )
             ]
         for mat in mats:
-            decomp = CartesianDecomposition(shape=gshape, halo=2, mem_alloc_topology=mat)
+            decomp = CartesianDecomposition(shape=gshape, halo=2, locale_comms=mat)
 
             lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
             self.assertEqual(_np.dtype("int64"), lary.dtype)

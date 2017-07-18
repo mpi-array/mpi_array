@@ -579,7 +579,7 @@ class CartesianDecomposition(object):
         self,
         shape,
         halo=0,
-        mem_alloc_topology=None,
+        locale_comms=None,
         order="C"
     ):
         """
@@ -590,15 +590,15 @@ class CartesianDecomposition(object):
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low and high indices can be different).
-        :type mem_alloc_topology: :obj:`CartLocaleComms`
-        :param mem_alloc_topology: Object which defines how array
+        :type locale_comms: :obj:`CartLocaleComms`
+        :param locale_comms: Object which defines how array
            memory is allocated (distributed) over memory nodes and
            the cartesian topology communicator used to exchange (halo)
            data. If :samp:`None` uses :samp:`CartLocaleComms(dims=numpy.zeros_like({shape}))`.
         """
         self._halo = halo
         self._globale_extent = None
-        self._mem_alloc_topology = mem_alloc_topology
+        self._locale_comms = locale_comms
         self._shape_decomp = None
         self._rank_logger = None
         self._root_logger = None
@@ -684,15 +684,15 @@ class CartesianDecomposition(object):
         :type new_halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len{new_shape, 2))` array.
         :param new_halo: New partition calculated for this shape.
         """
-        if self._mem_alloc_topology is None:
-            self._mem_alloc_topology = CartLocaleComms(ndims=len(new_shape))
+        if self._locale_comms is None:
+            self._locale_comms = CartLocaleComms(ndims=len(new_shape))
         elif (self._globale_extent is not None) and (self._globale_extent.ndim != len(new_shape)):
             new_shape = _np.array(new_shape)
-            self._mem_alloc_topology = \
+            self._locale_comms = \
                 CartLocaleComms(
-                    rank_comm=self._mem_alloc_topology.rank_comm,
-                    intra_locale_comm=self._mem_alloc_topology.intra_locale_comm,
-                    inter_locale_comm=self._mem_alloc_topology.inter_locale_comm,
+                    rank_comm=self._locale_comms.rank_comm,
+                    intra_locale_comm=self._locale_comms.intra_locale_comm,
+                    inter_locale_comm=self._locale_comms.inter_locale_comm,
                     ndims=len(new_shape)
                 )
         self._halo = new_halo
@@ -701,7 +701,7 @@ class CartesianDecomposition(object):
         shape_splitter = \
             _array_split.ShapeSplitter(
                 array_shape=self._globale_extent.shape_n,
-                axis=self._mem_alloc_topology.dims,
+                axis=self._locale_comms.dims,
                 halo=0
             )
 
@@ -900,21 +900,21 @@ class CartesianDecomposition(object):
         """
         See :attr:`CartLocaleComms.num_locales`.
         """
-        return self._mem_alloc_topology.num_locales
+        return self._locale_comms.num_locales
 
     @property
     def intra_locale_comm(self):
         """
         See :attr:`CartLocaleComms.intra_locale_comm`.
         """
-        return self._mem_alloc_topology.intra_locale_comm
+        return self._locale_comms.intra_locale_comm
 
     @property
     def cart_comm(self):
         """
         See :attr:`CartLocaleComms.cart_comm`.
         """
-        return self._mem_alloc_topology.cart_comm
+        return self._locale_comms.cart_comm
 
     @property
     def inter_locale_comm(self):
@@ -942,7 +942,7 @@ class CartesianDecomposition(object):
         """
         See :attr:`CartLocaleComms.have_valid_cart_comm`.
         """
-        return self._mem_alloc_topology.have_valid_cart_comm
+        return self._locale_comms.have_valid_cart_comm
 
     @property
     def have_valid_inter_locale_comm(self):
@@ -956,7 +956,7 @@ class CartesianDecomposition(object):
         """
         See :attr:`CartLocaleComms.rank_comm`.
         """
-        return self._mem_alloc_topology.rank_comm
+        return self._locale_comms.rank_comm
 
     @property
     def rank_view_slice_n(self):

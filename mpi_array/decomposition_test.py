@@ -634,11 +634,11 @@ class CartesianDecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
-        self.assertNotEqual(None, decomp._mem_alloc_topology)
+        self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
-            CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), mem_alloc_topology=mnt)
+            CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), locale_comms=mnt)
 
         decomp.root_logger.info("START " + self.id())
         decomp.root_logger.info(str(decomp))
@@ -655,14 +655,14 @@ class CartesianDecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
-        self.assertNotEqual(None, decomp._mem_alloc_topology)
+        self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size,),
                 halo=((2, 4),),
-                mem_alloc_topology=mnt
+                locale_comms=mnt
             )
 
         decomp.root_logger.info("START " + self.id())
@@ -676,14 +676,14 @@ class CartesianDecompositionTest(_unittest.TestCase):
         """
         if (_mpi.COMM_WORLD.size > 1):
             decomp = CartesianDecomposition((_mpi.COMM_WORLD.size // 2,), halo=0)
-            self.assertNotEqual(None, decomp._mem_alloc_topology)
+            self.assertNotEqual(None, decomp._locale_comms)
 
             mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
             decomp = \
                 CartesianDecomposition(
                     (_mpi.COMM_WORLD.size // 2,),
                     halo=0,
-                    mem_alloc_topology=mnt
+                    locale_comms=mnt
                 )
 
             decomp.root_logger.info("START " + self.id())
@@ -695,13 +695,13 @@ class CartesianDecompositionTest(_unittest.TestCase):
         Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
-        self.assertNotEqual(None, decomp._mem_alloc_topology)
+        self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                mem_alloc_topology=mnt
+                locale_comms=mnt
             )
 
         decomp.root_logger.info("START " + self.id())
@@ -717,14 +717,14 @@ class CartesianDecompositionTest(_unittest.TestCase):
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((2, 2), (4, 4))
             )
-        self.assertNotEqual(None, decomp._mem_alloc_topology)
+        self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
             CartesianDecomposition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((1, 2), (3, 4)),
-                mem_alloc_topology=mnt
+                locale_comms=mnt
             )
 
         root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
@@ -750,7 +750,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
             decomp = \
                 CartesianDecomposition(
                     orig_shape,
-                    mem_alloc_topology=mat,
+                    locale_comms=mat,
                     halo=((2, 2), (4, 4))
                 )
 
