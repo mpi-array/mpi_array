@@ -454,6 +454,9 @@ class TextTestRunner(_builtin_unittest.TextTestRunner):
         if hasattr(self.stream, "stream") and isinstance(self.stream.stream, LoggerDecorator):
             self.stream = self.stream.stream
 
+        if not hasattr(self, "warnings"):
+            self.warnings = None
+
     def run(self, test):
         """
         Run the given test case or test suite.
