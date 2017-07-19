@@ -18,8 +18,9 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
-   TestProgram - Over-ride to use logging.
-   TextTestRunner - Over-ride to use logging.
+   TestProgram - Over-ride to use :obj:`logging.Logger` output.
+   TextTestRunner - Over-ride to use :obj:`logging.Logger` output.
+   TextTestResult - Over-ride to use :obj:`logging.Logger` output.
    main - Convenience command-line test-case *search and run* function.
 
 """
@@ -28,6 +29,7 @@ from __future__ import absolute_import
 import unittest as _builtin_unittest
 import mpi_array.logging
 import numpy as _np
+import mpi4py.MPI as _mpi
 
 
 def _fix_docstring_for_sphinx(docstr):
@@ -287,14 +289,134 @@ else:
 
 class LoggerDecorator:
 
+    """
+    Decorator for :obj:`logging.Logger` to provide :meth:`write`, :meth:`writeln`
+    and :meth:`flush` methods.
+    """
+
     def __init__(self, logger):
         self.logger = logger
 
-    def write(self, v):
+    def write(self, v=""):
         self.logger.info(v)
+
+    def writeln(self, v=""):
+        self.logger.info(v)
+
+    def write_error(self, v):
+        self.logger.error(v)
 
     def flush(self):
         pass
+
+
+class TextTestResult(_builtin_unittest.TextTestResult):
+
+    """
+    """
+
+    def startTest(self, test):
+        _builtin_unittest.result.TestResult.startTest(self, test)
+        if self.showAll:
+            self.stream.write(self.getDescription(test) + "...")
+            self.stream.flush()
+
+    def addSuccess(self, test):
+        _builtin_unittest.result.TestResult.addSuccess(self, test)
+        if self.showAll:
+            self.stream.write(self.getDescription(test) + "..." + "ok")
+        elif self.dots:
+            self.stream.write('.')
+            self.stream.flush()
+
+    def addError(self, test, err):
+        _builtin_unittest.result.TestResult.addError(self, test, err)
+        if self.showAll:
+            self.stream.write_error("ERROR")
+        elif self.dots:
+            self.stream.write_error('E')
+            self.stream.flush()
+
+    def addFailure(self, test, err):
+        _builtin_unittest.result.TestResult.addFailure(self, test, err)
+        if self.showAll:
+            self.stream.write_error("FAIL")
+        elif self.dots:
+            self.stream.write_error('F')
+            self.stream.flush()
+
+    def addSkip(self, test, reason):
+        _builtin_unittest.result.TestResult.addSkip(self, test, reason)
+        if self.showAll:
+            self.stream.write("skipped {0!r}".format(reason))
+        elif self.dots:
+            self.stream.write("s")
+            self.stream.flush()
+
+    def addExpectedFailure(self, test, err):
+        _builtin_unittest.result.TestResult.addExpectedFailure(self, test, err)
+        if self.showAll:
+            self.stream.write("expected failure")
+        elif self.dots:
+            self.stream.write("x")
+            self.stream.flush()
+
+    def addUnexpectedSuccess(self, test):
+        _builtin_unittest.result.TestResult.addUnexpectedSuccess(self, test)
+        if self.showAll:
+            self.stream.write("unexpected success")
+        elif self.dots:
+            self.stream.write("u")
+            self.stream.flush()
+
+    def printErrors(self):
+        if self.dots or self.showAll:
+            self.stream.write()
+        self.printErrorList('ERROR', self.errors)
+        self.printErrorList('FAIL', self.failures)
+
+    def printErrorList(self, flavour, errors):
+        for test, err in errors:
+            self.stream.write_error(self.separator1)
+            self.stream.write_error("%s: %s" % (flavour, self.getDescription(test)))
+            self.stream.write_error(self.separator2)
+            self.stream.write_error("%s" % err)
+
+
+def handle_arg(arg_index, arg_key, arg_value, args, kwargs):
+    """
+    Replace an argument with a specified value if it does not
+    appear in :samp:`{args}` or :samp:`{kwargs}` argument list.
+
+    :type arg_index: :obj:`int`
+    :param arg_index: Index of argument in :samp:`{args}`
+    :type arg_key: :obj:`str`
+    :param arg_index: String key of argument in :samp:`{kwargs}`
+    :type arg_value: :obj:`object`
+    :param arg_value: Value for argument if it does not appear in argument
+       lists or has :samp:`None` value in argument lists.
+    :type args: :obj:`list`
+    :param args: List of arguments.
+    :type kwargs: :obj:`dict`
+    :param kwargs: Dictionary of key-word arguments.
+    """
+    a = None
+    if len(args) > arg_index:
+        a = args[arg_index]
+    if arg_key in kwargs.keys():
+        a = kwargs[arg_key]
+
+    if a is None:
+        a = arg_value
+
+    if len(args) > arg_index:
+        args[arg_index] = a
+    if arg_key in kwargs.keys():
+        kwargs[arg_key] = a
+    if (len(args) <= arg_index) and (arg_key not in kwargs.keys()):
+        kwargs[arg_key] = a
+
+    return a
 
 
 class TextTestRunner(_builtin_unittest.TextTestRunner):
@@ -302,51 +424,33 @@ class TextTestRunner(_builtin_unittest.TextTestRunner):
     """
     A test runner class that displays results in textual form.
 
-    It logs out the names of tests as they are run, errors as they
-    occur, and a summary of the results at the end of the test run.
+    Extends :obj:`unittest.TextTestRunner` with logging output
+    instead of :obj:`sys.stderr` output.
     """
 
     def __init__(self, *args, **kwargs):
 
-        verbosity = None
-        if len(args) >= 3:
-            verbosity = args[2]
-        if "verbosity" in kwargs.keys():
-            verbosity = kwargs["verbosity"]
+        handle_arg(5, "resultclass", TextTestResult, args, kwargs)
+        verbosity = handle_arg(2, "verbosity", 0, args, kwargs)
 
-        if verbosity is None:
-            verbosity = 0
+        logger_name = __name__ + ".TextTestRunner"
+        logger = mpi_array.logging.get_rank_logger(logger_name)
+        log_level = mpi_array.logging.WARN
+        if verbosity <= 1:
+            if _mpi.COMM_WORLD.rank == 0:
+                log_level = mpi_array.logging.INFO
+        else:
+            log_level = mpi_array.logging.INFO
+        mpi_array.logging.initialise_loggers([logger_name, ], log_level)
+        stream = LoggerDecorator(logger)
 
-        if len(args) >= 1:
-            args[0] = verbosity
-        if "verbosity" in kwargs.keys():
-            kwargs["verbosity"] = verbosity
-        if (len(args) < 1) and ("verbosity" not in kwargs.keys()):
-            kwargs["verbosity"] = verbosity
-
-        stream = None
-        if len(args) >= 1:
-            stream = args[0]
-        if "stream" in kwargs.keys():
-            stream = kwargs["stream"]
-
-        if stream is None:
-            logger_name = __name__ + ".TextTestRunner"
-            if verbosity <= 1:
-                logger = mpi_array.logging.get_root_logger(logger_name)
-            else:
-                logger = mpi_array.logging.get_rank_logger(logger_name)
-            mpi_array.logging.initialise_loggers([logger_name, ], mpi_array.logging.INFO)
-            stream = LoggerDecorator(logger)
-
-        if len(args) >= 1:
-            args[0] = stream
-        if "stream" in kwargs.keys():
-            kwargs["stream"] = stream
-        if (len(args) < 1) and ("stream" not in kwargs.keys()):
-            kwargs["stream"] = stream
+        handle_arg(0, "stream", stream, args, kwargs)
 
         _builtin_unittest.TextTestRunner.__init__(self, *args, **kwargs)
+
+        # Remove _WritelnDecorator decoration for LoggerDecorator
+        if hasattr(self.stream, "stream") and isinstance(self.stream.stream, LoggerDecorator):
+            self.stream = self.stream.stream
 
 
 class TestProgram(_builtin_unittest.TestProgram):
@@ -357,23 +461,7 @@ class TestProgram(_builtin_unittest.TestProgram):
     """
 
     def __init__(self, *args, **kwargs):
-        testRunner = None
-        if len(args) >= 4:
-            testRunner = args[3]
-        if "testRunner" in kwargs:
-            testRunner = kwargs["testRunner"]
-
-        if testRunner is None:
-            testRunner = TextTestRunner
-
-        if len(args) >= 4:
-            args[3] = testRunner
-        if "testRunner" in kwargs:
-            kwargs["testRunner"] = testRunner
-
-        if (len(args) < 4) and ("testRunner" not in kwargs):
-            kwargs["testRunner"] = testRunner
-
+        handle_arg(3, "testRunner", TextTestRunner, args, kwargs)
         _builtin_unittest.TestProgram.__init__(self, *args, **kwargs)
 
 
