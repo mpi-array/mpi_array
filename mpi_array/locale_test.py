@@ -28,7 +28,7 @@ import mpi_array as _mpi_array
 from array_split.split import shape_factors as _shape_factors
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.distribution import CartesianDecomposition, CartLocaleComms, IndexingExtent
+from mpi_array.distribution import BlockPartition, CartLocaleComms, IndexingExtent
 import mpi_array.locale
 
 __author__ = "Shane J. Latham"
@@ -135,7 +135,7 @@ class LndarrayTest(_unittest.TestCase):
             ValueError,
             mpi_array.locale.lndarray,
             shape=(100, 100, 100),
-            decomp=CartesianDecomposition(shape=(100, 99, 100)),
+            decomp=BlockPartition(shape=(100, 99, 100)),
             dtype="int64"
         )
 
@@ -143,7 +143,7 @@ class LndarrayTest(_unittest.TestCase):
             ValueError,
             mpi_array.locale.lndarray,
             shape=None,
-            decomp=CartesianDecomposition(shape=(100,)),
+            decomp=BlockPartition(shape=(100,)),
             dtype="int64",
             buffer=[0] * 100
         )
@@ -179,7 +179,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        decomp = CartesianDecomposition(shape=gshape)
+        decomp = BlockPartition(shape=gshape)
 
         lary = mpi_array.locale.empty(decomp=decomp, dtype="int64")
 
@@ -211,7 +211,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
+        decomp = BlockPartition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.empty(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -236,7 +236,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        decomp = CartesianDecomposition(shape=gshape)
+        decomp = BlockPartition(shape=gshape)
 
         lary = mpi_array.locale.zeros(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -256,7 +256,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
+        decomp = BlockPartition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.zeros(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -275,7 +275,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        decomp = CartesianDecomposition(shape=gshape)
+        decomp = BlockPartition(shape=gshape)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -295,7 +295,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
+        decomp = BlockPartition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -314,7 +314,7 @@ class LndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        decomp = CartesianDecomposition(shape=gshape)
+        decomp = BlockPartition(shape=gshape)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -333,7 +333,7 @@ class LndarrayTest(_unittest.TestCase):
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = CartesianDecomposition(shape=gshape, locale_comms=mat)
+        decomp = BlockPartition(shape=gshape, locale_comms=mat)
 
         lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
@@ -363,7 +363,7 @@ class LndarrayTest(_unittest.TestCase):
                 )
             ]
         for mat in mats:
-            decomp = CartesianDecomposition(shape=gshape, halo=2, locale_comms=mat)
+            decomp = BlockPartition(shape=gshape, halo=2, locale_comms=mat)
 
             lary = mpi_array.locale.ones(decomp=decomp, dtype="int64")
             self.assertEqual(_np.dtype("int64"), lary.dtype)

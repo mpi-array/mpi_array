@@ -19,7 +19,7 @@ Classes
    LocaleCommsTest - Tests for :obj:`mpi_array.distribution.LocaleComms`.
    CartLocaleExtentTest - Tests for :obj:`mpi_array.distribution.CartLocaleExtent`.
    CartLocaleCommsTest - Tests for :obj:`mpi_array.distribution.CartLocaleComms`.
-   CartesianDecompositionTest - Tests for :obj:`mpi_array.distribution.CartesianDecomposition`.
+   BlockPartitionTest - Tests for :obj:`mpi_array.distribution.BlockPartition`.
 
 
 """
@@ -32,7 +32,7 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
-from mpi_array.distribution import CartesianDecomposition, CartLocaleComms, LocaleComms
+from mpi_array.distribution import BlockPartition, CartLocaleComms, LocaleComms
 from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 import array_split as _array_split
 
@@ -623,22 +623,22 @@ class CartLocaleCommsTest(_unittest.TestCase):
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
-class CartesianDecompositionTest(_unittest.TestCase):
+class BlockPartitionTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.CartesianDecomposition`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.BlockPartition`.
     """
 
     def test_construct_1d(self):
         """
-        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
+        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
-            CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), locale_comms=mnt)
+            BlockPartition((8 * _mpi.COMM_WORLD.size,), locale_comms=mnt)
 
         decomp.root_logger.info("START " + self.id())
         decomp.root_logger.info(str(decomp))
@@ -652,14 +652,14 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_1d_with_halo(self):
         """
-        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
+        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
-            CartesianDecomposition(
+            BlockPartition(
                 (8 * _mpi.COMM_WORLD.size,),
                 halo=((2, 4),),
                 locale_comms=mnt
@@ -671,16 +671,16 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_1d_empty_tiles(self):
         """
-        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction
+        Test :obj:`mpi_array.distribution.BlockPartition` construction
         when the partition leads to empty tiles.
         """
         if (_mpi.COMM_WORLD.size > 1):
-            decomp = CartesianDecomposition((_mpi.COMM_WORLD.size // 2,), halo=0)
+            decomp = BlockPartition((_mpi.COMM_WORLD.size // 2,), halo=0)
             self.assertNotEqual(None, decomp._locale_comms)
 
             mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
             decomp = \
-                CartesianDecomposition(
+                BlockPartition(
                     (_mpi.COMM_WORLD.size // 2,),
                     halo=0,
                     locale_comms=mnt
@@ -692,14 +692,14 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_2d(self):
         """
-        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
+        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._locale_comms)
 
         mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
-            CartesianDecomposition(
+            BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 locale_comms=mnt
             )
@@ -710,10 +710,10 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_2d_with_halo(self):
         """
-        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
         decomp = \
-            CartesianDecomposition(
+            BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((2, 2), (4, 4))
             )
@@ -721,7 +721,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
         mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         decomp = \
-            CartesianDecomposition(
+            BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((1, 2), (3, 4)),
                 locale_comms=mnt
@@ -734,7 +734,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_recalculate_2d(self):
         """
-        Test :meth:`mpi_array.distribution.CartesianDecomposition.recalculate` construction.
+        Test :meth:`mpi_array.distribution.BlockPartition.recalculate` construction.
         """
         mats = \
             [
@@ -748,7 +748,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
         for mat in mats:
             orig_shape = (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size)
             decomp = \
-                CartesianDecomposition(
+                BlockPartition(
                     orig_shape,
                     locale_comms=mat,
                     halo=((2, 2), (4, 4))

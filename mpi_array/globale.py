@@ -39,7 +39,7 @@ import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import numpy as _np
 from mpi_array.locale import lndarray as _lndarray
-from mpi_array.distribution import CartesianDecomposition as _CartDecomp
+from mpi_array.distribution import BlockPartition as _BlockPartition
 from mpi_array.update import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
@@ -170,7 +170,7 @@ class gndarray(object):
            shared memory.
         """
         if (shape is not None) and (decomp is None):
-            decomp = _CartDecomp(shape)
+            decomp = _BlockPartition(shape)
         elif (shape is not None) and (decomp is not None) and (_np.any(decomp.shape != shape)):
             raise ValueError(
                 "Got inconsistent shape argument=%s and decomp.shape=%s, should be the same."

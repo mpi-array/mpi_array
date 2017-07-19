@@ -55,7 +55,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import numpy as _np
-from mpi_array.distribution import CartesianDecomposition as _CartDecomp
+from mpi_array.distribution import BlockPartition as _BlockPartition
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
@@ -250,7 +250,7 @@ class lndarray(object):
 
         self = object.__new__(cls)
         if (shape is not None) and (decomp is None):
-            decomp = _CartDecomp(shape)
+            decomp = _BlockPartition(shape)
         self._slndarray = \
             slndarray(
                 shape=None,
@@ -303,7 +303,7 @@ class lndarray(object):
     @property
     def decomp(self):
         """
-        Decomposition object (e.g. :obj:`mpi_array.distribution.CartesianDecomposition`)
+        Decomposition object (e.g. :obj:`mpi_array.distribution.Distribution`)
         describing distribution of the array across memory nodes.
         """
         return self._decomp

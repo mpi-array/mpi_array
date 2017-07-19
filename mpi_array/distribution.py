@@ -16,7 +16,7 @@ Classes and Functions
    GlobaleExtent - Indexing and halo info for globale array.
    LocaleExtent - Indexing and halo info for locale array region.
    CartLocaleExtent - Indexing and halo info for a tile in a cartesian distribution.
-   CartesianDecomposition - Block distribution (partitioning) of an array *shape* overs locales.
+   BlockPartition - Block distribution (partitioning) of an array *shape* overs locales.
 
 
 """
@@ -563,7 +563,7 @@ class CartLocaleExtent(LocaleExtent):
         return self._cart_shape
 
 
-class CartesianDecomposition(object):
+class BlockPartition(object):
 
     """
     Partitions an array-shape over MPI memory-nodes.
@@ -1035,13 +1035,13 @@ class CartesianDecomposition(object):
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
-    CartesianDecomposition.num_locales.__doc__ = \
+    BlockPartition.num_locales.__doc__ = \
         CartLocaleComms.num_locales.__doc__
-    CartesianDecomposition.intra_locale_comm.__doc__ = CartLocaleComms.intra_locale_comm.__doc__
-    CartesianDecomposition.cart_comm.__doc__ = CartLocaleComms.cart_comm.__doc__
-    CartesianDecomposition.have_valid_cart_comm.__doc__ = \
+    BlockPartition.intra_locale_comm.__doc__ = CartLocaleComms.intra_locale_comm.__doc__
+    BlockPartition.cart_comm.__doc__ = CartLocaleComms.cart_comm.__doc__
+    BlockPartition.have_valid_cart_comm.__doc__ = \
         CartLocaleComms.have_valid_cart_comm.__doc__
-    CartesianDecomposition.rank_comm.__doc__ = CartLocaleComms.rank_comm.__doc__
+    BlockPartition.rank_comm.__doc__ = CartLocaleComms.rank_comm.__doc__
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
