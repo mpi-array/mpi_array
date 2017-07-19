@@ -3,10 +3,10 @@
 The :mod:`mpi_array.distribution` Module
 ========================================
 
-Sub-division of arrays over nodes and/or MPI processes.
+Apportionment of arrays over locales.
 
-Classes and Functions
-=====================
+Classes
+=======
 
 .. autosummary::
    :toctree: generated/
@@ -16,8 +16,20 @@ Classes and Functions
    GlobaleExtent - Indexing and halo info for globale array.
    LocaleExtent - Indexing and halo info for locale array region.
    CartLocaleExtent - Indexing and halo info for a tile in a cartesian distribution.
-   BlockPartition - Block distribution (partitioning) of an array *shape* overs locales.
+   Distribution - Apportionment of extents amongst locales.
+   ClonedDistribution - Entire array occurs in each locale.
+   SingleLocaleDistribution - Entire array occurs on a single locale.
+   BlockPartition - Block partition distribution of array extents amongst locales.
+   CommsAndDistribution - Pair consisting of :obj:`LocaleComms` and :obj:`Distribution`.
 
+Factory Functions
+=================
+
+.. autosummary::
+   :toctree: generated/
+
+   create_distribution - Factory function for creating :obj:`Distribution` instances.
+   create_block_distribution - Factory function for creating :obj:`BlockPartition` instances.
 
 """
 from __future__ import absolute_import
@@ -37,6 +49,8 @@ from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
 from mpi_array.update import MpiHalosUpdate
 
 import numpy as _np
+import copy as _copy
+import collections as _collections
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -124,6 +138,18 @@ class LocaleComms(object):
                 (inter_locale_comm, )
             )
 
+        self._rank_logger = \
+            _logging.get_rank_logger(
+                __name__ + "." + self.__class__.__name__,
+                comm=self._rank_comm
+            )
+
+        self._root_logger = \
+            _logging.get_root_logger(
+                __name__ + "." + self.__class__.__name__,
+                comm=self._rank_comm
+            )
+
     @property
     def num_locales(self):
         """
@@ -159,6 +185,20 @@ class LocaleComms(object):
     @inter_locale_comm.setter
     def inter_locale_comm(self, inter_locale_comm):
         self._inter_locale_comm = inter_locale_comm
+
+    @property
+    def rank_logger(self):
+        """
+        A :attr:`rank_comm` :obj:`logging.Logger`.
+        """
+        return self._rank_logger
+
+    @property
+    def root_logger(self):
+        """
+        A :attr:`rank_comm` :obj:`logging.Logger`.
+        """
+        return self._root_logger
 
 
 class CartLocaleComms(object):
@@ -272,6 +312,25 @@ class CartLocaleComms(object):
                 (cart_comm, )
             )
 
+    def get_cart_coord_to_cart_rank_map(self):
+        """
+        Returns :obj:`dict` of :obj:`tuple`
+        cartesian coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`) keys
+        which map to the associated :attr:`cart_comm` rank.
+
+        :rtype: :obj:`dict`
+        :return: Dictionary of :samp:`(cart_coord, cart_rank)` pairs.
+           Returns :samp:`None` if :samp:`self.cart_comm is None` and
+           returns empty :obj:`dict` if :samp:`self.cart_comm == mpi4py.MPI.COMM_NULL`.
+        """
+        d = dict()
+        if self.have_valid_cart_comm:
+            for cart_rank in range(self.cart_comm.size):
+                d[tuple(self.cart_comm.Get_coords(cart_rank))] = cart_rank
+        elif self.cart_comm is None:
+            d = None
+        return d
+
     @property
     def dims(self):
         """
@@ -279,6 +338,13 @@ class CartLocaleComms(object):
         the cartesian topology over which an array is distributed.
         """
         return self._dims
+
+    @property
+    def ndim(self):
+        """
+        Dimension (:obj:`int`) of the cartesian topology.
+        """
+        return self._dims.size
 
     @property
     def have_valid_cart_comm(self):
@@ -333,6 +399,19 @@ class CartLocaleComms(object):
         """
         return self._locale_comms._inter_locale_comm
 
+    @property
+    def rank_logger(self):
+        """
+        A :attr:`rank_comm` :obj:`logging.Logger`.
+        """
+        return self._locale_comms._rank_logger
+
+    @property
+    def root_logger(self):
+        """
+        A :attr:`rank_comm` :obj:`logging.Logger`.
+        """
+        return self._locale_comms._root_logger
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
@@ -563,10 +642,142 @@ class CartLocaleExtent(LocaleExtent):
         return self._cart_shape
 
 
+class Distribution(object):
+
+    """
+    Describes the apportionment of array extents amongst locales.
+    """
+
+    def __init__(self, globale_extent, locale_extents, halo=0):
+        """
+        Initialise.
+        """
+        self._halo = convert_halo_to_array_form(_copy.deepcopy(halo))
+        self._globale_extent = self.create_globale_extent(globale_extent, halo=0)
+        self._locale_extents = _copy.copy(locale_extents)
+        for i in range(len(locale_extents)):
+            self._locale_extents[i] = \
+                self.create_locale_extent(i, locale_extents[i], self._globale_extent, halo)
+
+    def create_globale_extent(self, globale_extent, halo=0):
+        """
+        Factory function for creating :obj:`GlobaleExtent` object.
+        """
+        if isinstance(globale_extent, GlobaleExtent):
+            globale_extent = _copy.deepcopy(globale_extent)
+            globale_extent.halo = halo
+        elif (
+            hasattr(globale_extent, "__iter__")
+            and
+            _np.all([isinstance(e, slice) for e in iter(globale_extent)])
+        ):
+            globale_extent = GlobaleExtent(slice=globale_extent, halo=halo)
+        elif hasattr(globale_extent, "start") and hasattr(globale_extent, "stop"):
+            globale_extent = \
+                GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop, halo=halo)
+
+        return globale_extent
+
+    def create_locale_extent(self, inter_locale_rank, locale_extent, globale_extent, halo=0):
+        """
+        Factory function for creating :obj:`LocaleExtent` object.
+        """
+        if hasattr(locale_extent, "start") and hasattr(locale_extent, "stop"):
+            locale_extent = \
+                LocaleExtent(
+                    rank=_mpi.UNDEFINED,
+                    inter_locale_rank=inter_locale_rank,
+                    globale_extent=globale_extent,
+                    start=locale_extent.start,
+                    stop=locale_extent.stop,
+                    halo=halo
+                )
+        elif (
+            hasattr(locale_extent, "__iter__")
+            and
+            _np.all([isinstance(e, slice) for e in iter(locale_extent)])
+        ):
+            locale_extent = \
+                LocaleExtent(
+                    rank=_mpi.UNDEFINED,
+                    inter_locale_rank=inter_locale_rank,
+                    globale_extent=globale_extent,
+                    slice=locale_extent,
+                    halo=halo
+                )
+
+        return locale_extent
+
+    @property
+    def globale_extent(self):
+        """
+        The global indexing extent (:obj:`GlobaleExtent`) for the distributed array.
+        """
+        return self._globale_extent
+
+    @property
+    def locale_extents(self):
+        """
+        Sequence of :samp:`LocaleExtent` objects where :samp:`locale_extents[r]`
+        is the extent assigned to locale with :samp:`inter_locale_comm` rank :samp:`r`.
+        """
+        return self._locale_extents
+
+    @property
+    def num_locales(self):
+        """
+        Number (:obj:`int`) of locales in this distribution.
+        """
+        return len(self._locale_extents)
+
+
+class ClonedDistribution(Distribution):
+
+    """
+    Distribution where entire globale extent elements occur on every locale.
+    """
+
+    def __init__(self, globale_extent, num_locales, halo=0):
+        """
+        Initialise.
+        """
+        Distribution.__init__(
+            self,
+            globale_extent=globale_extent,
+            locale_extents=[globale_extent.deep_copy() for i in range(num_locales)],
+            halo=halo
+        )
+
+
+class SingleLocaleDistribution(Distribution):
+
+    """
+    Distribution where entire globale extent elements occur on just a single locale.
+    """
+
+    def __init__(self, globale_extent, num_locales, inter_locale_rank=0, halo=0):
+        """
+        Initialise.
+        """
+        self._halo = halo
+        globale_extent = self.create_globale_extent(globale_extent)
+        sidx = _np.array(globale_extent.start_n)
+        locale_extents = [HaloIndexingExtent(start=sidx, stop=sidx) for i in range(num_locales)]
+        locale_extent = locale_extents[inter_locale_rank]
+        locale_extent.start_n = globale_extent.start_n
+        locale_extent.stop_n = globale_extent.stop_n
+        Distribution.__init__(
+            self,
+            globale_extent=globale_extent,
+            locale_extents=locale_extents,
+            halo=halo
+        )
+
+
 class BlockPartition(object):
 
     """
-    Partitions an array-shape over MPI memory-nodes.
+    Block partition of an array (shape) over locales.
     """
 
     #: The "low index" indices.
@@ -583,7 +794,7 @@ class BlockPartition(object):
         order="C"
     ):
         """
-        Create a partitioning of :samp:`{shape}` over memory-nodes.
+        Create a partitioning of :samp:`{shape}` over locales.
 
         :type shape: sequence of :obj:`int`
         :param shape: The shape of the array which is to be partitioned into smaller *sub-shapes*.
@@ -592,7 +803,7 @@ class BlockPartition(object):
            (low and high indices can be different).
         :type locale_comms: :obj:`CartLocaleComms`
         :param locale_comms: Object which defines how array
-           memory is allocated (distributed) over memory nodes and
+           blocks are allocated (distributed) over locales and
            the cartesian topology communicator used to exchange (halo)
            data. If :samp:`None` uses :samp:`CartLocaleComms(dims=numpy.zeros_like({shape}))`.
         """
@@ -1043,5 +1254,112 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         CartLocaleComms.have_valid_cart_comm.__doc__
     BlockPartition.rank_comm.__doc__ = CartLocaleComms.rank_comm.__doc__
 
+DT_BLOCK = "block"
+DT_SLAB = "slab"
+_valid_distrib_types = [DT_BLOCK, DT_SLAB]
+
+LT_NODE = "node"
+LT_PROCESS = "process"
+_valid_locale_types = [LT_NODE, LT_PROCESS]
+
+CommsAndDistribution = \
+    _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution"])
+
+
+def create_block_distribution(
+    shape,
+    locale_type=None,
+    dims=None,
+    halo=0,
+    rank_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None,
+    cart_comm=None
+):
+    """
+    Factory function for creating :obj:`BlockPartition` distribution instance.
+
+    :rtype: :obj:`CommsAndDistribution`
+    :return: A :obj:`CommsAndDistribution` pair.
+    """
+    if dims is None:
+        dims = _np.zeros_like(shape, dtype="int64")
+    cart_locale_comms = \
+        CartLocaleComms(
+            dims=dims,
+            rank_comm=rank_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm,
+            cart_comm=cart_comm
+        )
+#    cart_coord_to_cart_rank = cart_locale_comms.get_cart_coord_to_cart_rank_map(shape)
+#
+#    block_distrib = \
+#        BlockPartition(
+#            shape=shape,
+#            dims=cart_locale_comms.dims,
+#            cart_coord_to_cart_rank=cart_coord_to_cart_rank
+#        )
+    block_distrib = \
+        BlockPartition(
+            shape=shape,
+            halo=halo,
+            locale_comms=cart_locale_comms
+        )
+    return CommsAndDistribution(cart_locale_comms, block_distrib)
+
+
+def check_distrib_type(distrib_type):
+    """
+    Checks :samp:`{distrib_type}` occurs in :samp:`_valid_distrib_types`.
+    """
+    if distrib_type.lower() not in _valid_distrib_types:
+        raise ValueError(
+            "Invalid distrib_type=%s, valid types are: %s."
+            %
+            (
+                distrib_type,
+                ", ".join(_valid_distrib_types)
+            )
+        )
+
+
+def check_locale_type(locale_type):
+    """
+    Checks :samp:`{locale_type}` occurs in :samp:`_valid_locale_types`.
+    """
+    if locale_type.lower() not in _valid_locale_types:
+        raise ValueError(
+            "Invalid locale_type=%s, valid types are: %s."
+            %
+            (
+                locale_type,
+                ", ".join(_valid_locale_types)
+            )
+        )
+
+
+def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwargs):
+    """
+    Factory function for creating :obj:`Distribution` instance.
+
+    :rtype: :obj:`CommsAndDistribution`
+    :return: A :obj:`CommsAndDistribution` pair.
+    """
+    check_distrib_type(distrib_type)
+    check_locale_type(locale_type)
+    if distrib_type.lower() == DT_BLOCK:
+        create_block_distribution(shape, locale_type, **kwargs)
+    if distrib_type.lower() == DT_SLAB:
+        if "axis" in kwargs.keys():
+            axis = kwargs["axis"]
+            del kwargs["axis"]
+        else:
+            axis = 0
+        dims = _np.ones_like(shape, dtype="int64")
+        dims[axis] = 0
+        comms_and_distrib = create_block_distribution(shape, locale_type, dims=dims, **kwargs)
+
+    return comms_and_distrib
 
 __all__ = [s for s in dir() if not s.startswith('_')]

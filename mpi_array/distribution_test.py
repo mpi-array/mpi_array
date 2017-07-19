@@ -633,18 +633,18 @@ class BlockPartitionTest(_unittest.TestCase):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size,))
-        self.assertNotEqual(None, decomp._locale_comms)
+        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size,))
+        self.assertNotEqual(None, distrib._locale_comms)
 
-        mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = \
-            BlockPartition((8 * _mpi.COMM_WORLD.size,), locale_comms=mnt)
+        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        distrib = \
+            BlockPartition((8 * _mpi.COMM_WORLD.size,), locale_comms=lc)
 
-        decomp.root_logger.info("START " + self.id())
-        decomp.root_logger.info(str(decomp))
-        decomp.root_logger.info("END   " + self.id())
+        lc.root_logger.info("START " + self.id())
+        lc.root_logger.info(str(distrib))
+        lc.root_logger.info("END   " + self.id())
 
-        splt = decomp.shape_decomp
+        splt = distrib.shape_decomp
         self.assertEqual(_mpi.COMM_WORLD.size, splt.size)
         for s in splt:
             self.assertEqual(1, s.size)
@@ -654,20 +654,20 @@ class BlockPartitionTest(_unittest.TestCase):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
-        self.assertNotEqual(None, decomp._locale_comms)
+        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
+        self.assertNotEqual(None, distrib._locale_comms)
 
-        mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = \
+        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        distrib = \
             BlockPartition(
                 (8 * _mpi.COMM_WORLD.size,),
                 halo=((2, 4),),
-                locale_comms=mnt
+                locale_comms=lc
             )
 
-        decomp.root_logger.info("START " + self.id())
-        decomp.root_logger.info(str(decomp))
-        decomp.root_logger.info("END   " + self.id())
+        lc.root_logger.info("START " + self.id())
+        lc.root_logger.info(str(distrib))
+        lc.root_logger.info("END   " + self.id())
 
     def test_construct_1d_empty_tiles(self):
         """
@@ -675,61 +675,61 @@ class BlockPartitionTest(_unittest.TestCase):
         when the partition leads to empty tiles.
         """
         if (_mpi.COMM_WORLD.size > 1):
-            decomp = BlockPartition((_mpi.COMM_WORLD.size // 2,), halo=0)
-            self.assertNotEqual(None, decomp._locale_comms)
+            distrib = BlockPartition((_mpi.COMM_WORLD.size // 2,), halo=0)
+            self.assertNotEqual(None, distrib._locale_comms)
 
-            mnt = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-            decomp = \
+            lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+            distrib = \
                 BlockPartition(
                     (_mpi.COMM_WORLD.size // 2,),
                     halo=0,
-                    locale_comms=mnt
+                    locale_comms=lc
                 )
 
-            decomp.root_logger.info("START " + self.id())
-            decomp.root_logger.info(str(decomp))
-            decomp.root_logger.info("END   " + self.id())
+            lc.root_logger.info("START " + self.id())
+            lc.root_logger.info(str(distrib))
+            lc.root_logger.info("END   " + self.id())
 
     def test_construct_2d(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = BlockPartition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
-        self.assertNotEqual(None, decomp._locale_comms)
+        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
+        self.assertNotEqual(None, distrib._locale_comms)
 
-        mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = \
+        lc = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
+        distrib = \
             BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                locale_comms=mnt
+                locale_comms=lc
             )
 
-        decomp.root_logger.info("START " + self.id())
-        decomp.root_logger.info(str(decomp))
-        decomp.root_logger.info("END   " + self.id())
+        lc.root_logger.info("START " + self.id())
+        lc.root_logger.info(str(distrib))
+        lc.root_logger.info("END   " + self.id())
 
     def test_construct_2d_with_halo(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        decomp = \
+        distrib = \
             BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((2, 2), (4, 4))
             )
-        self.assertNotEqual(None, decomp._locale_comms)
+        self.assertNotEqual(None, distrib._locale_comms)
 
-        mnt = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = \
+        lc = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
+        distrib = \
             BlockPartition(
                 (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
                 halo=((1, 2), (3, 4)),
-                locale_comms=mnt
+                locale_comms=lc
             )
 
-        root_logger = _logging.get_root_logger(self.id(), comm=decomp.rank_comm)
+        root_logger = lc.root_logger
         root_logger.info("START " + self.id())
-        root_logger.info(str(decomp))
+        root_logger.info(str(distrib))
         root_logger.info("END   " + self.id())
 
     def test_recalculate_2d(self):
@@ -747,37 +747,37 @@ class BlockPartitionTest(_unittest.TestCase):
             ]
         for lc in locale_comms:
             orig_shape = (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size)
-            decomp = \
+            distrib = \
                 BlockPartition(
                     orig_shape,
                     locale_comms=lc,
                     halo=((2, 2), (4, 4))
                 )
 
-            self.assertSequenceEqual([[2, 2], [4, 4]], decomp.halo.tolist())
+            self.assertSequenceEqual([[2, 2], [4, 4]], distrib.halo.tolist())
 
-            decomp.halo = [[1, 2], [3, 4]]
-            self.assertSequenceEqual([[1, 2], [3, 4]], decomp.halo.tolist())
+            distrib.halo = [[1, 2], [3, 4]]
+            self.assertSequenceEqual([[1, 2], [3, 4]], distrib.halo.tolist())
 
-            self.assertSequenceEqual(list(orig_shape), decomp.shape.tolist())
+            self.assertSequenceEqual(list(orig_shape), distrib.shape.tolist())
             new_shape = (10 * _mpi.COMM_WORLD.size, 7 * _mpi.COMM_WORLD.size)
-            decomp.shape = new_shape
-            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
+            distrib.shape = new_shape
+            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
 
             new_shape = (23 * _mpi.COMM_WORLD.size,)
-            decomp.recalculate(new_shape, new_halo=5)
-            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
-            self.assertSequenceEqual([[5, 5], ], decomp.halo.tolist())
+            distrib.recalculate(new_shape, new_halo=5)
+            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
+            self.assertSequenceEqual([[5, 5], ], distrib.halo.tolist())
 
             new_shape = \
                 (23 * _mpi.COMM_WORLD.size, 14 * _mpi.COMM_WORLD.size, 8 * _mpi.COMM_WORLD.size)
-            decomp.recalculate(new_shape, new_halo=5)
-            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
-            self.assertSequenceEqual([[5, 5], [5, 5], [5, 5]], decomp.halo.tolist())
+            distrib.recalculate(new_shape, new_halo=5)
+            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
+            self.assertSequenceEqual([[5, 5], [5, 5], [5, 5]], distrib.halo.tolist())
 
-            decomp.halo = None
-            self.assertSequenceEqual([[0, 0], [0, 0], [0, 0]], decomp.halo.tolist())
-            self.assertSequenceEqual(list(new_shape), decomp.shape.tolist())
+            distrib.halo = None
+            self.assertSequenceEqual([[0, 0], [0, 0], [0, 0]], distrib.halo.tolist())
+            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
 
 
 _unittest.main(__name__)
