@@ -129,7 +129,7 @@ class GndarrayTest(_unittest.TestCase):
         for lshape in ((100, 200), (1000,), ):
             gshape = (_mpi.COMM_WORLD.size * lshape[0],) + lshape[1:]
             ndims = len(lshape)
-            mat = \
+            lc = \
                 CartLocaleComms(
                     ndims=ndims,
                     dims=(0,) + (1,) * (ndims - 1),
@@ -137,18 +137,18 @@ class GndarrayTest(_unittest.TestCase):
                     intra_locale_comm=_mpi.COMM_SELF
                 )
             non_shared_decomp = \
-                BlockPartition(shape=gshape, locale_comms=mat, halo=halo)
+                BlockPartition(shape=gshape, locale_comms=lc, halo=halo)
 
             lshape = (10000,) + lshape[1:]
-            mat = \
+            lc = \
                 CartLocaleComms(
                     ndims=ndims,
                     dims=(0,) + (1,) * (ndims - 1),
                     rank_comm=_mpi.COMM_WORLD
                 )
-            gshape = (mat.num_locales * lshape[0],) + lshape[1:]
+            gshape = (lc.num_locales * lshape[0],) + lshape[1:]
             halo = 4
-            shared_decomp = BlockPartition(shape=gshape, locale_comms=mat, halo=halo)
+            shared_decomp = BlockPartition(shape=gshape, locale_comms=lc, halo=halo)
 
             decomp_list = [non_shared_decomp, shared_decomp]
 
@@ -238,8 +238,8 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = BlockPartition(shape=gshape, locale_comms=mat)
+        lc = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        decomp = BlockPartition(shape=gshape, locale_comms=lc)
 
         gary = mpi_array.globale.empty(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -283,8 +283,8 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = BlockPartition(shape=gshape, locale_comms=mat)
+        lc = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        decomp = BlockPartition(shape=gshape, locale_comms=lc)
 
         gary = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -322,8 +322,8 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = BlockPartition(shape=gshape, locale_comms=mat)
+        lc = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        decomp = BlockPartition(shape=gshape, locale_comms=lc)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -360,8 +360,8 @@ class GndarrayTest(_unittest.TestCase):
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = BlockPartition(shape=gshape, locale_comms=mat)
+        lc = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        decomp = BlockPartition(shape=gshape, locale_comms=lc)
 
         gary = mpi_array.globale.ones(decomp=decomp, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
@@ -378,8 +378,8 @@ class GndarrayTest(_unittest.TestCase):
         """
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        mat = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
-        decomp = BlockPartition(shape=gshape, locale_comms=mat)
+        lc = CartLocaleComms(ndims=1, rank_comm=_mpi.COMM_WORLD, intra_locale_comm=_mpi.COMM_SELF)
+        decomp = BlockPartition(shape=gshape, locale_comms=lc)
 
         gary0 = mpi_array.globale.zeros(decomp=decomp, dtype="int64")
         gary1 = mpi_array.globale.ones(decomp=decomp, dtype="int64")
@@ -391,26 +391,26 @@ class GndarrayTest(_unittest.TestCase):
         """
         lshape = (128, 128)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
-        mat_src = \
+        lc_src = \
             CartLocaleComms(
                 dims=(0, 1),
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF
             )
-        decomp_src = BlockPartition(shape=gshape, locale_comms=mat_src, halo=halo)
+        decomp_src = BlockPartition(shape=gshape, locale_comms=lc_src, halo=halo)
 
         gary_src = mpi_array.globale.zeros(decomp=decomp_src, dtype=src_dtype)
         rank_val = gary_src.decomp.lndarray_extent.cart_rank + 1
         gary_src.rank_view_n[...] = rank_val
         gary_src.update()
 
-        mat_dst = \
+        lc_dst = \
             CartLocaleComms(
                 dims=(1, 0),
                 rank_comm=_mpi.COMM_WORLD,
                 intra_locale_comm=_mpi.COMM_SELF
             )
-        decomp_dst = BlockPartition(shape=gshape, locale_comms=mat_dst, halo=halo)
+        decomp_dst = BlockPartition(shape=gshape, locale_comms=lc_dst, halo=halo)
         gary_dst = mpi_array.globale.zeros(decomp=decomp_dst, dtype=dst_dtype)
         gary_dst.update()
         self.assertTrue(_np.all(gary_dst.lndarray.slndarray[...] == 0))

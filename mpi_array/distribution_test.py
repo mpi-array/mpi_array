@@ -586,40 +586,40 @@ class CartLocaleCommsTest(_unittest.TestCase):
     """
 
     def test_construct_invalid_dims(self):
-        mat = None
+        lc = None
         with self.assertRaises(ValueError):
-            mat = CartLocaleComms()
+            lc = CartLocaleComms()
         with self.assertRaises(ValueError):
-            mat = CartLocaleComms(ndims=None, dims=None)
+            lc = CartLocaleComms(ndims=None, dims=None)
         with self.assertRaises(ValueError):
-            mat = CartLocaleComms(dims=tuple(), ndims=1)
+            lc = CartLocaleComms(dims=tuple(), ndims=1)
         with self.assertRaises(ValueError):
-            mat = CartLocaleComms(dims=tuple([0, 2]), ndims=1)
+            lc = CartLocaleComms(dims=tuple([0, 2]), ndims=1)
         with self.assertRaises(ValueError):
-            mat = CartLocaleComms(dims=tuple([1, 2]), ndims=3)
+            lc = CartLocaleComms(dims=tuple([1, 2]), ndims=3)
 
-        self.assertEqual(None, mat)
+        self.assertEqual(None, lc)
 
     def test_construct_shared(self):
-        mat = CartLocaleComms(ndims=1)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        lc = CartLocaleComms(ndims=1)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
 
-        mat = CartLocaleComms(ndims=4)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        lc = CartLocaleComms(ndims=4)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
 
-        mat = CartLocaleComms(dims=(0,))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        lc = CartLocaleComms(dims=(0,))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
 
-        mat = CartLocaleComms(dims=(0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        lc = CartLocaleComms(dims=(0, 0))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
 
-        mat = CartLocaleComms(dims=(0, 0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
+        lc = CartLocaleComms(dims=(0, 0, 0))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
 
     def test_construct_no_shared(self):
-        mat = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, mat.rank_comm))
-        self.assertEqual(1, mat.intra_locale_comm.size)
+        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(1, lc.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
@@ -736,7 +736,7 @@ class BlockPartitionTest(_unittest.TestCase):
         """
         Test :meth:`mpi_array.distribution.BlockPartition.recalculate` construction.
         """
-        mats = \
+        locale_comms = \
             [
                 None,
                 CartLocaleComms(
@@ -745,12 +745,12 @@ class BlockPartitionTest(_unittest.TestCase):
                     intra_locale_comm=_mpi.COMM_SELF
                 )
             ]
-        for mat in mats:
+        for lc in locale_comms:
             orig_shape = (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size)
             decomp = \
                 BlockPartition(
                     orig_shape,
-                    locale_comms=mat,
+                    locale_comms=lc,
                     halo=((2, 2), (4, 4))
                 )
 
