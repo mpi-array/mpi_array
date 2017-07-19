@@ -1,12 +1,12 @@
 """
-==============================================
-The :mod:`mpi_array.decomposition_test` Module
-==============================================
+=============================================
+The :mod:`mpi_array.distribution_test` Module
+=============================================
 
-Module defining :mod:`mpi_array.decomposition` unit-tests.
+Module defining :mod:`mpi_array.distribution` unit-tests.
 Execute as::
 
-   python -m mpi_array.decomposition_test
+   python -m mpi_array.distribution_test
 
 
 Classes
@@ -16,10 +16,10 @@ Classes
    :toctree: generated/
    :template: autosummary/inherits_TestCase_class.rst
 
-   LocaleCommsTest - Tests for :obj:`mpi_array.decomposition.LocaleComms`.
-   CartLocaleExtentTest - Tests for :obj:`mpi_array.decomposition.CartLocaleExtent`.
-   CartLocaleCommsTest - Tests for :obj:`mpi_array.decomposition.CartLocaleComms`.
-   CartesianDecompositionTest - Tests for :obj:`mpi_array.decomposition.CartesianDecomposition`.
+   LocaleCommsTest - Tests for :obj:`mpi_array.distribution.LocaleComms`.
+   CartLocaleExtentTest - Tests for :obj:`mpi_array.distribution.CartLocaleExtent`.
+   CartLocaleCommsTest - Tests for :obj:`mpi_array.distribution.CartLocaleComms`.
+   CartesianDecompositionTest - Tests for :obj:`mpi_array.distribution.CartesianDecomposition`.
 
 
 """
@@ -32,8 +32,8 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
-from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms, LocaleComms
-from mpi_array.decomposition import CartLocaleExtent, GlobaleExtent
+from mpi_array.distribution import CartesianDecomposition, CartLocaleComms, LocaleComms
+from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 import array_split as _array_split
 
 __author__ = "Shane J. Latham"
@@ -45,7 +45,7 @@ __version__ = _mpi_array.__version__
 class CartLocaleExtentTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartLocaleExtent`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.CartLocaleExtent`.
     """
 
     def test_construct_attribs(self):
@@ -84,8 +84,8 @@ class CartLocaleExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_1d_thick_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.distribution.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.distribution.CartLocaleExtent.no_halo_extent` methods
         when halo size is smaller than the tile size.
         """
         halo = ((10, 10),)
@@ -157,8 +157,8 @@ class CartLocaleExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_1d_thin_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.distribution.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.distribution.CartLocaleExtent.no_halo_extent` methods
         when halo size is larger than the tile size, 1D fixture.
         """
         halo = ((5, 5),)
@@ -264,8 +264,8 @@ class CartLocaleExtentTest(_unittest.TestCase):
 
     def test_extent_calcs_2d_thick_tiles(self):
         """
-        Tests :meth:`mpi_array.decomposition.CartLocaleExtent.halo_slab_extent`
-        and :meth:`mpi_array.decomposition.CartLocaleExtent.no_halo_extent` methods
+        Tests :meth:`mpi_array.distribution.CartLocaleExtent.halo_slab_extent`
+        and :meth:`mpi_array.distribution.CartLocaleExtent.no_halo_extent` methods
         when halo size is smaller than the tile size, 2D fixture.
         """
         halo = ((10, 10), (5, 5))
@@ -549,12 +549,12 @@ class CartLocaleExtentTest(_unittest.TestCase):
 class LocaleCommsTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.LocaleComms`.
+    Tests for :obj:`mpi_array.distribution.LocaleComms`.
     """
 
     def test_construct(self):
         """
-        Test :meth:`mpi_array.decomposition.LocaleComms.__init__`
+        Test :meth:`mpi_array.distribution.LocaleComms.__init__`
         """
         i = LocaleComms(comm=_mpi.COMM_WORLD)
 
@@ -582,7 +582,7 @@ class LocaleCommsTest(_unittest.TestCase):
 class CartLocaleCommsTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartLocaleComms`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.CartLocaleComms`.
     """
 
     def test_construct_invalid_dims(self):
@@ -626,12 +626,12 @@ class CartLocaleCommsTest(_unittest.TestCase):
 class CartesianDecompositionTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.decomposition.CartesianDecomposition`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.CartesianDecomposition`.
     """
 
     def test_construct_1d(self):
         """
-        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,))
         self.assertNotEqual(None, decomp._locale_comms)
@@ -652,7 +652,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_1d_with_halo(self):
         """
-        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
         self.assertNotEqual(None, decomp._locale_comms)
@@ -671,7 +671,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_1d_empty_tiles(self):
         """
-        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction
+        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction
         when the partition leads to empty tiles.
         """
         if (_mpi.COMM_WORLD.size > 1):
@@ -692,7 +692,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_2d(self):
         """
-        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
         """
         decomp = CartesianDecomposition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
         self.assertNotEqual(None, decomp._locale_comms)
@@ -710,7 +710,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_construct_2d_with_halo(self):
         """
-        Test :obj:`mpi_array.decomposition.CartesianDecomposition` construction.
+        Test :obj:`mpi_array.distribution.CartesianDecomposition` construction.
         """
         decomp = \
             CartesianDecomposition(
@@ -734,7 +734,7 @@ class CartesianDecompositionTest(_unittest.TestCase):
 
     def test_recalculate_2d(self):
         """
-        Test :meth:`mpi_array.decomposition.CartesianDecomposition.recalculate` construction.
+        Test :meth:`mpi_array.distribution.CartesianDecomposition.recalculate` construction.
         """
         mats = \
             [

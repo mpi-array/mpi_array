@@ -28,7 +28,7 @@ import mpi_array as _mpi_array
 from array_split.split import shape_factors as _shape_factors
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms, IndexingExtent
+from mpi_array.distribution import CartesianDecomposition, CartLocaleComms, IndexingExtent
 import mpi_array.locale
 
 __author__ = "Shane J. Latham"

@@ -8,8 +8,8 @@
    mpi_array
    mpi_array_indexing
    mpi_array_indexing_test
-   mpi_array_decomposition
-   mpi_array_decomposition_test
+   mpi_array_distribution
+   mpi_array_distribution_test
    mpi_array_globale
    mpi_array_globale_test
    mpi_array_locale

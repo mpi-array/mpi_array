@@ -55,7 +55,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import numpy as _np
-from mpi_array.decomposition import CartesianDecomposition as _CartDecomp
+from mpi_array.distribution import CartesianDecomposition as _CartDecomp
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
@@ -129,9 +129,9 @@ class slndarray(_np.ndarray):
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
         :param gshape: **Global** shape of the array. If :samp:`None`
            global array shape is taken as :samp:`{decomp}.shape`.
-        :type decomp: :obj:`mpi_array.decomposition.Decomposition`
-        :param decomp: Array decomposition info and used to allocate (possibly)
-           shared memory via :meth:`mpi_array.decomposition.Decomposition.allocate_local_buffer`.
+        :type decomp: :obj:`mpi_array.distribution.Decomposition`
+        :param decomp: Array distribution info and used to allocate (possibly)
+           shared memory via :meth:`mpi_array.distribution.Decomposition.allocate_local_buffer`.
         """
         if (gshape is not None) and (decomp is not None) and (_np.any(decomp.shape != gshape)):
             raise ValueError(
@@ -211,7 +211,7 @@ class lndarray(object):
     """
     Thin container for :obj:`slndarray` instances.
     Adds the :attr:`decomp` attribute to keep track
-    of decomposition.
+    of distribution.
     """
 
     def __new__(
@@ -243,9 +243,9 @@ class lndarray(object):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :type decomp: :obj:`mpi_array.decomposition.Decomposition`
-        :param decomp: Array decomposition info and used to allocate (possibly)
-           shared memory via :meth:`mpi_array.decomposition.Decomposition.allocate_local_buffer`.
+        :type decomp: :obj:`mpi_array.distribution.Decomposition`
+        :param decomp: Array distribution info and used to allocate (possibly)
+           shared memory via :meth:`mpi_array.distribution.Decomposition.allocate_local_buffer`.
         """
 
         self = object.__new__(cls)
@@ -303,7 +303,7 @@ class lndarray(object):
     @property
     def decomp(self):
         """
-        Decomposition object (e.g. :obj:`mpi_array.decomposition.CartesianDecomposition`)
+        Decomposition object (e.g. :obj:`mpi_array.distribution.CartesianDecomposition`)
         describing distribution of the array across memory nodes.
         """
         return self._decomp

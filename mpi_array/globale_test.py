@@ -26,8 +26,8 @@ from .license import license as _license, copyright as _copyright
 import mpi_array.unittest as _unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
-from mpi_array.decomposition import CartesianDecomposition, CartLocaleComms
-from mpi_array.decomposition import IndexingExtent
+from mpi_array.distribution import CartesianDecomposition, CartLocaleComms
+from mpi_array.distribution import IndexingExtent
 import mpi_array.globale
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -122,7 +122,7 @@ class GndarrayTest(_unittest.TestCase):
 
     def test_update_1d(self):
         """
-        Test for :meth:`mpi_array.globale.gndarray.update`, 1D decomposition.
+        Test for :meth:`mpi_array.globale.gndarray.update`, 1D distribution.
         """
 
         halo = 4

@@ -1,7 +1,7 @@
 """
-=========================================
-The :mod:`mpi_array.decomposition` Module
-=========================================
+========================================
+The :mod:`mpi_array.distribution` Module
+========================================
 
 Sub-division of arrays over nodes and/or MPI processes.
 
@@ -15,8 +15,8 @@ Classes and Functions
    CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
    GlobaleExtent - Indexing and halo info for globale array.
    LocaleExtent - Indexing and halo info for locale array region.
-   CartLocaleExtent - Indexing and halo info for a tile in a cartesian decomposition.
-   CartesianDecomposition - Block decomposition (partitioning) of an array *shape* overs locales.
+   CartLocaleExtent - Indexing and halo info for a tile in a cartesian distribution.
+   CartesianDecomposition - Block distribution (partitioning) of an array *shape* overs locales.
 
 
 """
@@ -479,7 +479,7 @@ class LocaleExtent(HaloIndexingExtent):
 class CartLocaleExtent(LocaleExtent):
 
     """
-    Indexing extents for single tile of cartesian domain decomposition.
+    Indexing extents for single tile of cartesian domain distribution.
     """
 
     def __init__(
@@ -506,10 +506,10 @@ class CartLocaleExtent(LocaleExtent):
            which corresponds to the :samp:`{rank_comm}` rank in the :samp:`rank_comm` communicator.
         :type cart_coord: sequence of :obj:`int`
         :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
-           this :obj:`LocaleExtent` in the cartesian domain decomposition.
+           this :obj:`LocaleExtent` in the cartesian domain distribution.
         :type cart_shape: sequence of :obj:`int`
         :param cart_shape: Number of :obj:`LocaleExtent` regions in each axis direction
-           of the cartesian decomposition.
+           of the cartesian distribution.
         :type globale_extent: :obj:`GlobaleExtent`
         :param globale_extent: The indexing extent of the entire array.
         :type slice: sequence of :obj:`slice`
@@ -550,7 +550,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_coord(self):
         """
         Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
-        this :obj:`LocaleExtent` in the cartesian domain decomposition.
+        this :obj:`LocaleExtent` in the cartesian domain distribution.
         """
         return self._cart_coord
 
@@ -558,7 +558,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_shape(self):
         """
         Number of :obj:`LocaleExtent` regions in each axis direction
-        of the cartesian decomposition.
+        of the cartesian distribution.
         """
         return self._cart_shape
 
@@ -677,7 +677,7 @@ class CartesianDecomposition(object):
 
     def recalculate(self, new_shape, new_halo):
         """
-        Recomputes decomposition for :samp:`{new_shape}` and :samp:`{new_halo}`.
+        Recomputes distribution for :samp:`{new_shape}` and :samp:`{new_halo}`.
 
         :type new_shape: sequence of :obj:`int`
         :param new_shape: New partition calculated for this shape.

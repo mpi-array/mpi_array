@@ -31,7 +31,7 @@ import mpi_array as _mpi_array
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
 from mpi_array.indexing import IndexingExtent
-from mpi_array.decomposition import CartLocaleExtent, GlobaleExtent
+from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 from mpi_array.update import MpiHaloSingleExtentUpdate, HalosUpdate
 from mpi_array.update import MpiPairExtentUpdate
 
@@ -44,7 +44,7 @@ __version__ = _mpi_array.__version__
 class MpiPairExtentUpdateTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.MpiPairExtentUpdate`.
+    Tests for :obj:`mpi_array.distribution.MpiPairExtentUpdate`.
     """
 
     def setUp(self):
@@ -73,7 +73,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
 
     def test_construct(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiPairExtentUpdate.__init__`.
+        Tests for :meth:`mpi_array.distribution.MpiPairExtentUpdate.__init__`.
         """
         se = self.se
         de = self.de
@@ -88,7 +88,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
 
     def test_str(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiPairExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.distribution.MpiPairExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
@@ -103,7 +103,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
 
     def test_data_type(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.distribution.MpiHaloSingleExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
@@ -133,7 +133,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
 class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.MpiHaloSingleExtentUpdate`.
+    Tests for :obj:`mpi_array.distribution.MpiHaloSingleExtentUpdate`.
     """
 
     def setUp(self):
@@ -161,7 +161,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     def test_construct(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__init__`.
+        Tests for :meth:`mpi_array.distribution.MpiHaloSingleExtentUpdate.__init__`.
         """
         se = self.se
         de = self.de
@@ -174,7 +174,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     def test_str(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.distribution.MpiHaloSingleExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
@@ -188,7 +188,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 
     def test_data_type(self):
         """
-        Tests for :meth:`mpi_array.decomposition.MpiHaloSingleExtentUpdate.__str__`.
+        Tests for :meth:`mpi_array.distribution.MpiHaloSingleExtentUpdate.__str__`.
         """
         se = self.se
         de = self.de
@@ -217,7 +217,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 class HalosUpdateTest(_unittest.TestCase):
 
     """
-    Tests for :obj:`mpi_array.decomposition.HalosUpdate`.
+    Tests for :obj:`mpi_array.distribution.HalosUpdate`.
     """
 
     def setUp(self):
@@ -245,7 +245,7 @@ class HalosUpdateTest(_unittest.TestCase):
 
     def test_construct(self):
         """
-        Tests for :meth:`mpi_array.decomposition.HalosUpdate.__init__`.
+        Tests for :meth:`mpi_array.distribution.HalosUpdate.__init__`.
         """
         rank_to_extent_dict = \
             {

@@ -13,7 +13,7 @@ Classes
    :toctree: generated/
 
    gndarray - A :obj:`numpy.ndarray` like distributed array.
-   GndarrayRedistributeUpdater - Helper class for redistributing elements between decompositions.
+   GndarrayRedistributeUpdater - Helper class for redistributing elements between distributions.
 
 Factory Functions
 =================
@@ -39,7 +39,7 @@ import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import numpy as _np
 from mpi_array.locale import lndarray as _lndarray
-from mpi_array.decomposition import CartesianDecomposition as _CartDecomp
+from mpi_array.distribution import CartesianDecomposition as _CartDecomp
 from mpi_array.update import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
@@ -51,8 +51,8 @@ __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode(
 class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
 
     """
-    Helper class for redistributing array to new decomposition.
-    Calculates sequence of :obj:`mpi_array.decomposition.ExtentUpdate`
+    Helper class for redistributing array to new distribution.
+    Calculates sequence of :obj:`mpi_array.distribution.ExtentUpdate`
     objects which are used to copy elements from
     remote locales to local locale.
     """
@@ -72,7 +72,7 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
     ):
         """
         Factory method for which creates sequence of
-        of :obj:`mpi_array.decomposition.MpiPairExtentUpdate` objects.
+        of :obj:`mpi_array.distribution.MpiPairExtentUpdate` objects.
         """
         updates = \
             _UpdatesForRedistribute.create_pair_extent_update(
@@ -165,8 +165,8 @@ class gndarray(object):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :type decomp: :obj:`mpi_array.decomposition.Decomposition`
-        :param decomp: Array decomposition info and used to allocate (possibly)
+        :type decomp: :obj:`mpi_array.distribution.Decomposition`
+        :param decomp: Array distribution info and used to allocate (possibly)
            shared memory.
         """
         if (shape is not None) and (decomp is None):
