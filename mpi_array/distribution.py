@@ -413,6 +413,7 @@ class CartLocaleComms(object):
         """
         return self._locale_comms._root_logger
 
+
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     # Set docstring for properties.
     CartLocaleComms.num_locales.__doc__ = LocaleComms.num_locales.__doc__
@@ -1361,5 +1362,6 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
         comms_and_distrib = create_block_distribution(shape, locale_type, dims=dims, **kwargs)
 
     return comms_and_distrib
+
 
 __all__ = [s for s in dir() if not s.startswith('_')]
