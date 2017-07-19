@@ -30,6 +30,8 @@ import unittest as _builtin_unittest
 import mpi_array.logging
 import numpy as _np
 import mpi4py.MPI as _mpi
+import time as _time
+import warnings as _warnings
 
 
 def _fix_docstring_for_sphinx(docstr):
@@ -451,6 +453,81 @@ class TextTestRunner(_builtin_unittest.TextTestRunner):
         # Remove _WritelnDecorator decoration for LoggerDecorator
         if hasattr(self.stream, "stream") and isinstance(self.stream.stream, LoggerDecorator):
             self.stream = self.stream.stream
+
+    def run(self, test):
+        """
+        Run the given test case or test suite.
+        """
+        result = self._makeResult()
+        _builtin_unittest.registerResult(result)
+        result.failfast = self.failfast
+        result.buffer = self.buffer
+        with _warnings.catch_warnings():
+            if self.warnings:
+                # if self.warnings is set, use it to filter all the warnings
+                _warnings.simplefilter(self.warnings)
+                # if the filter is 'default' or 'always', special-case the
+                # warnings from the deprecated unittest methods to show them
+                # no more than once per module, because they can be fairly
+                # noisy.  The -Wd and -Wa flags can be used to bypass this
+                # only when self.warnings is None.
+                if self.warnings in ['default', 'always']:
+                    _warnings.filterwarnings(
+                        'module',
+                        category=DeprecationWarning,
+                        message='Please use assert\w+ instead.'
+                    )
+            startTime = _time.time()
+            startTestRun = getattr(result, 'startTestRun', None)
+            if startTestRun is not None:
+                startTestRun()
+            try:
+                test(result)
+            finally:
+                stopTestRun = getattr(result, 'stopTestRun', None)
+                if stopTestRun is not None:
+                    stopTestRun()
+            stopTime = _time.time()
+        timeTaken = stopTime - startTime
+        result.printErrors()
+        if hasattr(result, 'separator2'):
+            self.stream.writeln(result.separator2)
+        run = result.testsRun
+        self.stream.writeln("Ran %d test%s in %.3fs (COMM_WORLD.size=%3d)" %
+                            (run, run != 1 and "s" or "", timeTaken, _mpi.COMM_WORLD.size))
+        self.stream.writeln()
+
+        expectedFails = unexpectedSuccesses = skipped = 0
+        try:
+            results = map(len, (result.expectedFailures,
+                                result.unexpectedSuccesses,
+                                result.skipped))
+        except AttributeError:
+            pass
+        else:
+            expectedFails, unexpectedSuccesses, skipped = results
+
+        infos = []
+        if not result.wasSuccessful():
+            self.stream.write("FAILED")
+            failed, errored = len(result.failures), len(result.errors)
+            if failed:
+                infos.append("failures=%d" % failed)
+            if errored:
+                infos.append("errors=%d" % errored)
+        else:
+            self.stream.write("OK")
+        if skipped:
+            infos.append("skipped=%d" % skipped)
+        if expectedFails:
+            infos.append("expected failures=%d" % expectedFails)
+        if unexpectedSuccesses:
+            infos.append("unexpected successes=%d" % unexpectedSuccesses)
+        if infos:
+            self.stream.writeln(" (%s)" % (", ".join(infos),))
+        else:
+            self.stream.write("\n")
+        return result
 
 
 class TestProgram(_builtin_unittest.TestProgram):
