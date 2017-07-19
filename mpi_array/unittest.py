@@ -553,7 +553,8 @@ def main(
     failfast=None
 ):
     """
-    Small wrapper for :func:`unittest.main` which initialises :mod:`logging.Logger` objects.
+    Like :func:`unittest.main`, initialises :mod:`logging.Logger` objects
+    and instantiates a :obj:`TestProgram` to discover and run :obj:`TestCase` objects.
     Loads a set of tests from module and runs them;
     this is primarily for making test modules conveniently executable.
     The simplest use for this function is to include the following line at
