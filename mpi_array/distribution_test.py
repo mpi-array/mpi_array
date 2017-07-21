@@ -905,8 +905,7 @@ class BlockPartitionTest(_unittest.TestCase):
         """
         self.do_test_construct_2d_with_halo(halo=[[1, 2], [3, 4]])
 
-    @_builtin_unittest.skip
-    def test_recalculate_2d(self):
+    def do_not_test_recalculate_2d(self):
         """
         Test :meth:`mpi_array.distribution.BlockPartition.recalculate` construction.
         """
