@@ -554,7 +554,7 @@ def empty(
     ret = \
         lndarray(
             shape=rma_window_buffer.shape,
-            buffer=rma_window_buffer.buffer.data,
+            buffer=rma_window_buffer.buffer,
             dtype=dtype,
             order=order,
             intra_locale_rank=intra_locale_rank,

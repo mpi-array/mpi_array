@@ -70,6 +70,7 @@ def mpi_version():
     """
     return _mpi.VERSION
 
+
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "rank"])
 
 
@@ -221,6 +222,7 @@ class LocaleComms(object):
         A :attr:`rank_comm` :obj:`logging.Logger`.
         """
         return self._root_logger
+
 
 RmaWindowBuffer = \
     _collections.namedtuple(
@@ -390,7 +392,7 @@ class CartLocaleComms(object):
                 inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
                 self.rank_logger.debug("END: Win.Create for self.cart_comm")
 
-        buffer = _np.array(buffer, dtype='B', copy=False)
+        buffer = memoryview(_np.array(buffer, dtype='B', copy=False).data)
 
         self.rank_logger.debug("END: alloc_local_buffer")
         return \
