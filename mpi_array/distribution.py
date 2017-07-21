@@ -392,7 +392,7 @@ class CartLocaleComms(object):
                 inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
                 self.rank_logger.debug("END: Win.Create for self.cart_comm")
 
-        buffer = memoryview(_np.array(buffer, dtype='B', copy=False).data)
+        buffer = _np.array(buffer, dtype='B', copy=False)
 
         self.rank_logger.debug("END: alloc_local_buffer")
         return \
