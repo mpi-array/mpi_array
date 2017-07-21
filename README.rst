@@ -63,13 +63,13 @@ Related Work
 
 Related distributed array implementations with python API:
 
-- `DistArray <http://distarray.readthedocs.io/en/latest/>`_
-- `pnumpy <https://github.com/pletzer/pnumpy>`_
 - `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_
   (`ga at github <https://github.com/GlobalArrays/ga>`_) with
   `ga4py <https://github.com/GlobalArrays/ga4py>`_ python
   API and `GAiN <http://hpc.pnl.gov/globalarrays/papers/scipy11_gain.pdf>`_
   numpy API
+- `DistArray <http://distarray.readthedocs.io/en/latest/>`_
+- `pnumpy <https://github.com/pletzer/pnumpy>`_
 - `Spartan <https://www.cs.nyu.edu/media/publications/power_russell.pdf>`_
   (`at github here <https://github.com/spartan-array/spartan>`_)
 - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
@@ -79,19 +79,10 @@ Related distributed array implementations with python API:
 Installation
 ============
 
-Using ``pip``::
+Using ``pip`` from latest github source:
 
-   pip install mpi_array # with root access
-   
-or::
-   
-   pip install --user mpi_array # no root/sudo permissions required
+   ``pip install --user git+git://github.com/mpi-array/mpi_array.git#egg=mpi_array``
 
-From latest github source::
-
-    git clone https://github.com/mpi-array/mpi_array.git
-    cd mpi_array
-    python setup.py install --user
 
 Requirements
 ============
@@ -141,7 +132,7 @@ Sphinx documentation can be built from the source::
 
    python setup.py build_sphinx
      
-with the HTML generated in `docs/_build/html`.
+with the HTML generated in ``docs/_build/html``.
 
 
 Latest source code
