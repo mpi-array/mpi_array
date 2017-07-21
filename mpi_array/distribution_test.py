@@ -36,6 +36,8 @@ from mpi_array.distribution import BlockPartition, CartLocaleComms, LocaleComms
 from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 import array_split as _array_split
 
+import unittest as _builtin_unittest
+
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
@@ -55,7 +57,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         de = \
             CartLocaleExtent(
                 rank=0,
-                cart_rank=0,
+                inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(1,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -72,7 +74,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         de = \
             CartLocaleExtent(
                 rank=56,
-                cart_rank=7,
+                inter_locale_rank=7,
                 cart_coord=(7,),
                 cart_shape=(8,),
                 globale_extent=GlobaleExtent(stop=(640,)),
@@ -94,7 +96,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
             [
                 CartLocaleExtent(
                     rank=r,
-                    cart_rank=r,
+                    inter_locale_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
                     globale_extent=GlobaleExtent(stop=(300,)),
@@ -167,7 +169,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
             [
                 CartLocaleExtent(
                     rank=r,
-                    cart_rank=r,
+                    inter_locale_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
                     globale_extent=GlobaleExtent(stop=(15,)),
@@ -274,7 +276,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
             [
                 CartLocaleExtent(
                     rank=r,
-                    cart_rank=r,
+                    inter_locale_rank=r,
                     cart_coord=_np.unravel_index(r, splt.shape),
                     cart_shape=splt.shape,
                     globale_extent=GlobaleExtent(stop=(300, 600)),
@@ -622,6 +624,19 @@ class CartLocaleCommsTest(_unittest.TestCase):
         self.assertEqual(1, lc.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
+    def test_alloc_locale_buffer(self):
+        lc = CartLocaleComms(ndims=1)
+        rma_window_buff = lc.alloc_locale_buffer(shape=(100,), dtype="uint16")
+        self.assertEqual(_np.dtype("uint16"), rma_window_buff.dtype)
+        self.assertEqual(_np.dtype("uint16").itemsize, rma_window_buff.itemsize)
+        self.assertEqual(100 * rma_window_buff.dtype.itemsize, len(rma_window_buff.buffer))
+
+        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
+        rma_window_buff = lc.alloc_locale_buffer(shape=(100,), dtype="uint16")
+        self.assertEqual(_np.dtype("uint16"), rma_window_buff.dtype)
+        self.assertEqual(_np.dtype("uint16").itemsize, rma_window_buff.itemsize)
+        self.assertEqual(100 * rma_window_buff.dtype.itemsize, len(rma_window_buff.buffer))
+
 
 class BlockPartitionTest(_unittest.TestCase):
 
@@ -629,109 +644,268 @@ class BlockPartitionTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.BlockPartition`.
     """
 
-    def test_construct_1d(self):
+    def setUp(self):
+        """
+        Initialise self.root_logger.
+        """
+        self.root_logger = _logging.get_root_logger(__name__ + "." + self.id())
+        self.rank_logger = _logging.get_rank_logger(__name__ + "." + self.id())
+
+    def test_construct_single_locale_1d(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size,))
-        self.assertNotEqual(None, distrib._locale_comms)
 
-        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
         distrib = \
-            BlockPartition((8 * _mpi.COMM_WORLD.size,), locale_comms=lc)
+            BlockPartition(
+                globale_extent=(8,),
+                dims=[1, ],
+                cart_coord_to_cart_rank={(0,): 0}
+            )
+        self.assertEqual(1, len(distrib.locale_extents))
+        self.assertEqual(GlobaleExtent(stop=(8,)), distrib.globale_extent)
+        self.assertEqual(1, distrib.num_locales)
+        self.root_logger.info("START " + self.id())
+        self.root_logger.info(str(distrib))
+        self.root_logger.info("END   " + self.id())
+        self.root_logger.info("distrib.locale_extents[0]=\n%s" % (distrib.locale_extents[0],))
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(stop=(8,)),
+                cart_coord=(0,),
+                cart_shape=(1,),
+                start=(0,),
+                stop=(8,)
+            ),
+            distrib.locale_extents[0]
+        )
 
-        lc.root_logger.info("START " + self.id())
-        lc.root_logger.info(str(distrib))
-        lc.root_logger.info("END   " + self.id())
+        distrib = \
+            BlockPartition(
+                globale_extent=distrib.globale_extent,
+                dims=[4, ],
+                cart_coord_to_cart_rank={(i,): i for i in range(0, 4)}
+            )
+        self.assertEqual(4, len(distrib.locale_extents))
+        self.assertEqual(GlobaleExtent(stop=(8,)), distrib.globale_extent)
+        self.assertEqual(4, distrib.num_locales)
+        self.root_logger.info("START " + self.id())
+        self.root_logger.info(str(distrib))
+        self.root_logger.info("END   " + self.id())
 
-        splt = distrib.shape_decomp
-        self.assertEqual(_mpi.COMM_WORLD.size, splt.size)
-        for s in splt:
-            self.assertEqual(1, s.size)
-            self.assertEqual(8, s[0].stop - s[0].start)
+    def do_test_construct_1d_with_halo(self, halo=0):
+        """
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
+        """
+        distrib = \
+            BlockPartition(
+                (32,),
+                dims=[4, ],
+                halo=halo,
+                cart_coord_to_cart_rank={(i,): i for i in range(0, 4)}
+            )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(stop=(32,)),
+                cart_coord=(0,),
+                cart_shape=(4,),
+                start=(0,),
+                stop=(8,),
+                halo=halo
+            ),
+            distrib.locale_extents[0]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=1,
+                globale_extent=GlobaleExtent(stop=(32,)),
+                cart_coord=(1,),
+                cart_shape=(4,),
+                start=(8,),
+                stop=(16,),
+                halo=halo
+            ),
+            distrib.locale_extents[1]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=2,
+                globale_extent=GlobaleExtent(stop=(32,)),
+                cart_coord=(2,),
+                cart_shape=(4,),
+                start=(16,),
+                stop=(24,),
+                halo=halo
+            ),
+            distrib.locale_extents[2]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=3,
+                globale_extent=GlobaleExtent(stop=(32,)),
+                cart_coord=(3,),
+                cart_shape=(4,),
+                start=(24,),
+                stop=(32,),
+                halo=halo
+            ),
+            distrib.locale_extents[3]
+        )
+
+        self.root_logger.info("START " + self.id())
+        self.root_logger.info(str(distrib))
+        self.root_logger.info("END   " + self.id())
+
+    def test_construct_1d_no_halo(self):
+        """
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
+        """
+        self.do_test_construct_1d_with_halo(halo=0)
 
     def test_construct_1d_with_halo(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size,), halo=((2, 4),))
-        self.assertNotEqual(None, distrib._locale_comms)
-
-        lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-        distrib = \
-            BlockPartition(
-                (8 * _mpi.COMM_WORLD.size,),
-                halo=((2, 4),),
-                locale_comms=lc
-            )
-
-        lc.root_logger.info("START " + self.id())
-        lc.root_logger.info(str(distrib))
-        lc.root_logger.info("END   " + self.id())
+        self.do_test_construct_1d_with_halo(halo=[[2, 4], ])
 
     def test_construct_1d_empty_tiles(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction
-        when the partition leads to empty tiles.
+        when the partition leads to empty extents.
         """
-        if (_mpi.COMM_WORLD.size > 1):
-            distrib = BlockPartition((_mpi.COMM_WORLD.size // 2,), halo=0)
-            self.assertNotEqual(None, distrib._locale_comms)
+        halo = 0
+        distrib = \
+            BlockPartition(
+                globale_extent=(slice(0, 2),),
+                dims=(4,),
+                halo=halo,
+                cart_coord_to_cart_rank={(i,): i for i in range(0, 4)}
+            )
 
-            lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-            distrib = \
-                BlockPartition(
-                    (_mpi.COMM_WORLD.size // 2,),
-                    halo=0,
-                    locale_comms=lc
-                )
+        self.root_logger.info("START " + self.id())
+        self.root_logger.info(str(distrib))
+        self.root_logger.info("END   " + self.id())
 
-            lc.root_logger.info("START " + self.id())
-            lc.root_logger.info(str(distrib))
-            lc.root_logger.info("END   " + self.id())
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(stop=(2,)),
+                cart_coord=(0,),
+                cart_shape=(4,),
+                start=(0,),
+                stop=(1,),
+                halo=halo
+            ),
+            distrib.locale_extents[0]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=1,
+                globale_extent=GlobaleExtent(stop=(2,)),
+                cart_coord=(1,),
+                cart_shape=(4,),
+                start=(1,),
+                stop=(2,),
+                halo=halo
+            ),
+            distrib.locale_extents[1]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=2,
+                globale_extent=GlobaleExtent(stop=(2,)),
+                cart_coord=(2,),
+                cart_shape=(4,),
+                start=(2,),
+                stop=(2,),
+                halo=halo
+            ),
+            distrib.locale_extents[2]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=3,
+                globale_extent=GlobaleExtent(stop=(2,)),
+                cart_coord=(3,),
+                cart_shape=(4,),
+                start=(2,),
+                stop=(2,),
+                halo=halo
+            ),
+            distrib.locale_extents[3]
+        )
 
-    def test_construct_2d(self):
+    def do_test_construct_2d_with_halo(self, halo=0):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        distrib = BlockPartition((8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size))
-        self.assertNotEqual(None, distrib._locale_comms)
-
-        lc = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
         distrib = \
             BlockPartition(
-                (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                locale_comms=lc
+                globale_extent=(16, 32),
+                dims=(2, 4),
+                halo=halo,
+                cart_coord_to_cart_rank={
+                    tuple(_np.unravel_index(i, (2, 4))): i for i in range(0, 8)
+                }
             )
+        self.root_logger.info("START " + self.id())
+        self.root_logger.info(str(distrib))
+        self.root_logger.info("END   " + self.id())
 
-        lc.root_logger.info("START " + self.id())
-        lc.root_logger.info(str(distrib))
-        lc.root_logger.info("END   " + self.id())
+        self.assertEqual(8, distrib.num_locales)
+        self.assertEqual(8, len(distrib.locale_extents))
+
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(stop=(16, 32,)),
+                cart_coord=(0, 0),
+                cart_shape=(2, 4),
+                start=(0, 0),
+                stop=(8, 8),
+                halo=halo
+            ),
+            distrib.locale_extents[0]
+        )
+        self.assertEqual(
+            CartLocaleExtent(
+                rank=_mpi.UNDEFINED,
+                inter_locale_rank=7,
+                globale_extent=GlobaleExtent(stop=(16, 32,)),
+                cart_coord=(1, 3),
+                cart_shape=(2, 4),
+                start=(8, 24),
+                stop=(16, 32),
+                halo=halo
+            ),
+            distrib.locale_extents[7]
+        )
+
+    def test_construct_2d_no_halo(self):
+        """
+        Test :obj:`mpi_array.distribution.BlockPartition` construction.
+        """
+        self.do_test_construct_2d_with_halo(halo=0)
 
     def test_construct_2d_with_halo(self):
         """
         Test :obj:`mpi_array.distribution.BlockPartition` construction.
         """
-        distrib = \
-            BlockPartition(
-                (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                halo=((2, 2), (4, 4))
-            )
-        self.assertNotEqual(None, distrib._locale_comms)
+        self.do_test_construct_2d_with_halo(halo=[[1, 2], [3, 4]])
 
-        lc = CartLocaleComms(ndims=2, intra_locale_comm=_mpi.COMM_SELF)
-        distrib = \
-            BlockPartition(
-                (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size),
-                halo=((1, 2), (3, 4)),
-                locale_comms=lc
-            )
-
-        root_logger = lc.root_logger
-        root_logger.info("START " + self.id())
-        root_logger.info(str(distrib))
-        root_logger.info("END   " + self.id())
-
+    @_builtin_unittest.skip
     def test_recalculate_2d(self):
         """
         Test :meth:`mpi_array.distribution.BlockPartition.recalculate` construction.

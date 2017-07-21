@@ -38,8 +38,8 @@ from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import numpy as _np
-from mpi_array.locale import lndarray as _lndarray
-from mpi_array.distribution import BlockPartition as _BlockPartition
+import mpi_array.locale as _locale
+from mpi_array.distribution import create_distribution
 from mpi_array.update import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
@@ -62,7 +62,7 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         """
         self._dst = dst
         self._src = src
-        _UpdatesForRedistribute.__init__(self, dst.decomp, src.decomp)
+        _UpdatesForRedistribute.__init__(self, dst.comms_and_distrib, src.comms_and_distrib)
 
     def create_pair_extent_update(
         self,
@@ -131,11 +131,11 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         MPI barrier.
         """
         self._dst_decomp.rank_logger.debug(
-            "BEG: self._src.decomp.intra_locale_comm.barrier()..."
+            "BEG: self._src.comms_and_distrib.intra_locale_comm.barrier()..."
         )
-        self._src.decomp.intra_locale_comm.barrier()
+        self._src.comms_and_distrib.intra_locale_comm.barrier()
         self._dst_decomp.rank_logger.debug(
-            "END: self._src.decomp.intra_locale_comm.barrier()."
+            "END: self._src.comms_and_distrib.intra_locale_comm.barrier()."
         )
 
 
@@ -147,46 +147,23 @@ class gndarray(object):
 
     def __new__(
         cls,
-        shape=None,
-        dtype=_np.dtype("float64"),
-        order=None,
-        decomp=None
+        comms_and_distrib,
+        rma_window_buffer,
+        lndarray
     ):
         """
-        Construct, at least one of :samp:{shape} or :samp:`decomp` should
+        Construct, at least one of :samp:{shape} or :samp:`comms_and_distrib` should
         be specified (i.e. at least one should not be :samp:`None`).
 
-        :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: **Global** shape of the array. If :samp:`None`
-           global array shape is taken as :samp:`{decomp}.shape`.
-        :type dtype: :obj:`numpy.dtype`
-        :param dtype: Data type for elements of the array.
-        :type strides: :samp:`None` or sequence of :obj:`int`
-        :param strides: Strides of data in memory.
-        :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
-        :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :type decomp: :obj:`mpi_array.distribution.Decomposition`
-        :param decomp: Array distribution info and used to allocate (possibly)
+        :type comms_and_distrib: :obj:`mpi_array.distribution.Decomposition`
+        :param comms_and_distrib: Array distribution info and used to allocate (possibly)
            shared memory.
         """
-        if (shape is not None) and (decomp is None):
-            decomp = _BlockPartition(shape)
-        elif (shape is not None) and (decomp is not None) and (_np.any(decomp.shape != shape)):
-            raise ValueError(
-                "Got inconsistent shape argument=%s and decomp.shape=%s, should be the same."
-                %
-                (shape, decomp.shape)
-            )
-        elif (shape is None) and (decomp is None):
-            raise ValueError(
-                (
-                    "Got None for both shape argument and decomp argument,"
-                    +
-                    " at least one should be provided."
-                )
-            )
         self = object.__new__(cls)
-        self._lndarray = _lndarray(shape=shape, dtype=dtype, order=order, decomp=decomp)
+        self._comms_and_distrib = comms_and_distrib
+        self._rma_window_buffer = rma_window_buffer
+        self._lndarray = lndarray
+
         return self
 
     def __getitem__(self, i):
@@ -213,16 +190,21 @@ class gndarray(object):
 
         return ret
 
-    def all(self, **unused_kwargs):
-        return \
-            self.decomp.rank_comm.allreduce(
-                bool(self.lndarray.rank_view_n.all()),
-                op=_mpi.BAND
-            )
+    @property
+    def locale_comms(self):
+        return self._comms_and_distrib.locale_comms
 
     @property
-    def decomp(self):
-        return self._lndarray.decomp
+    def distribution(self):
+        return self._comms_and_distrib.distribution
+
+    @property
+    def comms_and_distrib(self):
+        return self._comms_and_distrib
+
+    @property
+    def rma_window_buffer(self):
+        return self._rma_window_buffer
 
     @property
     def lndarray(self):
@@ -230,7 +212,7 @@ class gndarray(object):
 
     @property
     def shape(self):
-        return self._lndarray.decomp.shape
+        return self._comms_and_distrib.distribution.globale_extent.shape_n
 
     @property
     def dtype(self):
@@ -252,36 +234,35 @@ class gndarray(object):
     def rank_logger(self):
         """
         """
-        return self._lndarray.decomp.rank_logger
+        return self._comms_and_distrib.locale_comms.rank_logger
 
     @property
     def root_logger(self):
         """
         """
-        return self._lndarray.decomp.root_logger
+        return self._comms_and_distrib.locale_comms.root_logger
 
     def update(self):
         """
         """
         # If running on single locale then there are no halos to update.
-        if self.decomp.num_locales > 1:
-            # Only do comms between the ranks of self.decomp.cart_comm
-            self.decomp.rank_logger.debug("BEG: self.decomp.intra_locale_comm.barrier()...")
-            self.decomp.intra_locale_comm.barrier()
-            self.decomp.rank_logger.debug("END: self.decomp.intra_locale_comm.barrier().")
-            if self.decomp.have_valid_cart_comm:
-                self.decomp.rank_logger.debug("BEG: self.decomp.cart_mem_comm.barrier()...")
-                self.decomp.cart_comm.barrier()
-                self.decomp.rank_logger.debug("END: self.decomp.cart_mem_comm.barrier().")
+        if self.comms_and_distrib.locale_comms.num_locales > 1:
+            rank_logger = self.comms_and_distrib.locale_comms.rank_logger
+            # Only do comms between the ranks
+            # of self.comms_and_distrib.locale_comms.inter_locale_comm
+            if self.comms_and_distrib.locale_comms.have_valid_cart_comm:
 
-                cart_rank_updates = \
-                    self.decomp.get_updates_for_cart_rank(self.decomp.cart_comm.rank)
-                per_axis_cart_rank_updates = cart_rank_updates.updates_per_axis
+                inter_locale_rank_updates = \
+                    self.comms_and_distrib.distribution.get_updates_for_cart_rank(
+                        self.comms_and_distrib.locale_comm.inter_locale_comm.rank
+                    )
+                per_axis_cart_rank_updates = inter_locale_rank_updates.updates_per_axis
 
                 # per_axis_cart_rank_updates is None on all cart_comm ranks only
                 # if there are no halos on any axis.
+                comm_windows = self.rma_window_buffer
                 if per_axis_cart_rank_updates is not None:
-                    for a in range(self.decomp.ndim):
+                    for a in range(self.comms_and_distrib.ndim):
                         lo_hi_updates_pair = per_axis_cart_rank_updates[a]
 
                         # When axis a doesn't have a halo, then lo_hi_updates_pair
@@ -289,38 +270,43 @@ class gndarray(object):
                         # in this case
                         if lo_hi_updates_pair is not None:
                             axis_cart_rank_updates = \
-                                lo_hi_updates_pair[self.decomp.LO] + \
-                                lo_hi_updates_pair[self.decomp.HI]
-                            self.decomp.rank_logger.debug(
+                                lo_hi_updates_pair[self.comms_and_distrib.LO] + \
+                                lo_hi_updates_pair[self.comms_and_distrib.HI]
+                            rank_logger.debug(
                                 "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
                             )
-                            self.decomp.cart_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                            comm_windows.inter_locale_win.Fence(
+                                _mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
                             for single_update in axis_cart_rank_updates:
                                 single_update.initialise_data_types(self.dtype, self.order)
-                                self.decomp.rank_logger.debug(
+                                rank_logger.debug(
                                     "BEG: Getting update:\n%s\n%s",
                                     single_update._header_str,
                                     single_update
                                 )
-                                self.decomp.cart_win.Get(
+                                comm_windows.inter_locale_win.Get(
                                     [self.lndarray.slndarray, 1, single_update.dst_data_type],
                                     single_update.src_extent.cart_rank,
                                     [0, 1, single_update.src_data_type]
                                 )
-                                self.decomp.rank_logger.debug(
+                                rank_logger.debug(
                                     "END: Getting update:\n%s\n%s",
                                     single_update._header_str,
                                     single_update
                                 )
-                            self.decomp.cart_win.Fence(_mpi.MODE_NOSUCCEED)
-                            self.decomp.rank_logger.debug(
+                            comm_windows.inter_locale_win.Fence(_mpi.MODE_NOSUCCEED)
+                            rank_logger.debug(
                                 "END: Fence(_mpi.MODE_NOSUCCEED)."
                             )
 
             # All ranks on locale wait for halo update to complete
-            self.decomp.rank_logger.debug("BEG: self.decomp.intra_locale_comm.barrier()...")
-            self.decomp.intra_locale_comm.barrier()
-            self.decomp.rank_logger.debug("END: self.decomp.intra_locale_comm.barrier().")
+            rank_logger.debug(
+                "BEG: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()..."
+            )
+            self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()
+            rank_logger.debug(
+                "END: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()."
+            )
 
     def calculate_copyfrom_updates(self, src):
         return \
@@ -344,16 +330,66 @@ class gndarray(object):
             )
 
         redistribute_updater = self.calculate_copyfrom_updates(src)
-        self.decomp.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        self.comms_and_distrib.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
-        self.decomp.rank_logger.debug("END: redistribute_updater.barrier().")
+        self.comms_and_distrib.rank_logger.debug("END: redistribute_updater.barrier().")
         redistribute_updater.do_locale_update()
-        self.decomp.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        self.comms_and_distrib.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
-        self.decomp.rank_logger.debug("END: redistribute_updater.barrier().")
+        self.comms_and_distrib.rank_logger.debug("END: redistribute_updater.barrier().")
+
+    def all(self, **unused_kwargs):
+        return \
+            self.locale_comms.rank_comm.allreduce(
+                bool(self.lndarray.rank_view_n.all()),
+                op=_mpi.BAND
+            )
+
+    def fill(self, value):
+        """
+        Fill the array (excluding ghost elements) with a scalar value.
+
+        :type value: scalar
+        :param value: All non-ghost elements will be assigned this value.
+        """
+        self.lndarray.fill(value)
+
+        self.locale_comms.rank_logger.debug("BEG: self.locale_comms.intra_locale_comm...")
+        self.locale_comms.intra_locale_comm.barrier()
+        self.locale_comms.rank_logger.debug("END: self.locale_comms.intra_locale_comm.")
+
+    def fill_h(self, value):
+        """
+        Fill all array elements (including ghost elements) with a scalar value.
+
+        :type value: scalar
+        :param value: All elements will be assigned this value.
+        """
+        self.lndarray.fill_h(value)
+
+        self.locale_comms.rank_logger.debug("BEG: self.locale_comms.intra_locale_comm...")
+        self.locale_comms.intra_locale_comm.barrier()
+        self.locale_comms.rank_logger.debug("END: self.locale_comms.intra_locale_comm.")
+
+    def copy(self):
+        ary_out = empty_like(self)
+        ary_out.lndarray.rank_view_partition_h[...] = self.lndarray.rank_view_partition_h[...]
+
+        ary_out.locale_comms.rank_logger.debug("BEG: ary_out.locale_comms.intra_locale_comm...")
+        ary_out.locale_comms.intra_locale_comm.barrier()
+        ary_out.locale_comms.rank_logger.debug("END: ary_out.locale_comms.intra_locale_comm.")
+
+        return ary_out
 
 
-def empty(shape=None, dtype="float64", decomp=None, order='C'):
+def empty(
+    shape=None,
+    dtype="float64",
+    comms_and_distrib=None,
+    order='C',
+    intra_partition_dims=None,
+    **kwargs
+):
     """
     Creates array of uninitialised elements.
 
@@ -362,12 +398,27 @@ def empty(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`gndarray`
     :return: Newly created array with uninitialised elements.
     """
-    ary = gndarray(shape=shape, dtype=dtype, decomp=decomp, order=order)
+    if comms_and_distrib is None:
+        comms_and_distrib = create_distribution(shape, **kwargs)
+    lndarray, rma_window_buffer = \
+        _locale.empty(
+            comms_and_distrib=comms_and_distrib,
+            dtype=dtype,
+            order=order,
+            return_rma_window_buffer=True,
+            intra_partition_dims=intra_partition_dims
+        )
+    ary = \
+        gndarray(
+            comms_and_distrib=comms_and_distrib,
+            rma_window_buffer=rma_window_buffer,
+            lndarray=lndarray
+        )
 
     return ary
 
@@ -386,14 +437,20 @@ def empty_like(ary, dtype=None):
     if dtype is None:
         dtype = ary.dtype
     if (isinstance(ary, gndarray)):
-        ret_ary = empty(dtype=ary.dtype, decomp=ary.decomp)
+        ret_ary = \
+            empty(
+                dtype=ary.dtype,
+                comms_and_distrib=ary.comms_and_distrib,
+                order=ary.order,
+                intra_partition_dims=ary.lndarray.intra_partition_dims
+            )
     else:
         ret_ary = _np.empty_like(ary, dtype=dtype)
 
     return ret_ary
 
 
-def zeros(shape=None, dtype="float64", decomp=None, order='C'):
+def zeros(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
     """
     Creates array of zero-initialised elements.
 
@@ -402,17 +459,13 @@ def zeros(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`gndarray`
     :return: Newly created array with zero-initialised elements.
     """
-    ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view_n[...] = _np.zeros(1, dtype)
-
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
-    ary.decomp.intra_locale_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
+    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
+    ary.fill_h(ary.dtype.type(0))
 
     return ary
 
@@ -429,16 +482,12 @@ def zeros_like(ary, *args, **kwargs):
     :return: Array of zero-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
-    ary.rank_view_n[...] = _np.zeros(1, ary.dtype)
-
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
-    ary.decomp.intra_locale_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
+    ary.fill_h(ary.dtype.type(0))
 
     return ary
 
 
-def ones(shape=None, dtype="float64", decomp=None, order='C'):
+def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
     """
     Creates array of one-initialised elements.
 
@@ -447,17 +496,13 @@ def ones(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`gndarray`
     :return: Newly created array with one-initialised elements.
     """
-    ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view_n[...] = _np.ones(1, dtype)
-
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
-    ary.decomp.intra_locale_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
+    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
+    ary.fill_h(ary.dtype.type(1))
 
     return ary
 
@@ -474,11 +519,7 @@ def ones_like(ary, *args, **kwargs):
     :return: Array of one-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
-    ary.rank_view_n[...] = _np.ones(1, ary.dtype)
-
-    ary.decomp.rank_logger.debug("BEG: ary.decomp.intra_locale_comm...")
-    ary.decomp.intra_locale_comm.barrier()
-    ary.decomp.rank_logger.debug("END: ary.decomp.intra_locale_comm.")
+    ary.fill_h(ary.dtype.type(1))
 
     return ary
 
@@ -492,14 +533,7 @@ def copy(ary, **kwargs):
     :rtype: :obj:`gndarray`
     :return: A copy of :samp:`ary`.
     """
-    ary_out = empty_like(ary)
-    ary_out.rank_view_n[...] = ary.rank_view_n[...]
-
-    ary_out.decomp.rank_logger.debug("BEG: ary_out.decomp.intra_locale_comm...")
-    ary_out.decomp.intra_locale_comm.barrier()
-    ary_out.decomp.rank_logger.debug("END: ary_out.decomp.intra_locale_comm.")
-
-    return ary_out
+    return ary.copy()
 
 
 def copyto(dst, src, **kwargs):

@@ -14,6 +14,7 @@ Classes
    LocaleComms - Intra-locale and inter-locale communicators.
    CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
    GlobaleExtent - Indexing and halo info for globale array.
+   HaloSubExtent - Indexing sub-extent of globale extent.
    LocaleExtent - Indexing and halo info for locale array region.
    CartLocaleExtent - Indexing and halo info for a tile in a cartesian distribution.
    Distribution - Apportionment of extents amongst locales.
@@ -21,6 +22,8 @@ Classes
    SingleLocaleDistribution - Entire array occurs on a single locale.
    BlockPartition - Block partition distribution of array extents amongst locales.
    CommsAndDistribution - Pair consisting of :obj:`LocaleComms` and :obj:`Distribution`.
+   ThisLocaleInfo - Info on inter_locale_comm rank and corresponding rank_comm rank.
+   RmaWindowBuffer - Container for array buffer and associated RMA windows.
 
 Factory Functions
 =================
@@ -42,7 +45,7 @@ import mpi4py.MPI as _mpi
 
 import array_split as _array_split
 import array_split.split  # noqa: F401
-from array_split.split import convert_halo_to_array_form, shape_factors as _shape_factors
+from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 
 import mpi_array.logging as _logging
 from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
@@ -66,6 +69,8 @@ def mpi_version():
     :return: MPI major version number.
     """
     return _mpi.VERSION
+
+ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "rank"])
 
 
 class LocaleComms(object):
@@ -151,6 +156,23 @@ class LocaleComms(object):
             )
 
     @property
+    def inter_locale_rank_to_rank_map(self):
+        """
+        """
+        return \
+            _mpi.Group.Translate_ranks(
+                self.inter_locale_comm.group,
+                range(0, self.inter_locale_comm.group),
+                self.rank_comm.group
+            )
+
+    @property
+    def this_locale_rank_info(self):
+        """
+        """
+        return ThisLocaleInfo(self.inter_locale_comm.rank, self.rank_comm.rank)
+
+    @property
     def num_locales(self):
         """
         An integer indicating the number of *locales* over which an array is distributed.
@@ -199,6 +221,20 @@ class LocaleComms(object):
         A :attr:`rank_comm` :obj:`logging.Logger`.
         """
         return self._root_logger
+
+RmaWindowBuffer = \
+    _collections.namedtuple(
+        "RmaWindowBuffer",
+        [
+            "buffer",
+            "shape",
+            "dtype",
+            "itemsize",
+            "rank_win",
+            "intra_locale_win",
+            "inter_locale_win"
+        ]
+    )
 
 
 class CartLocaleComms(object):
@@ -312,16 +348,68 @@ class CartLocaleComms(object):
                 (cart_comm, )
             )
 
-    def get_cart_coord_to_cart_rank_map(self):
+    def alloc_locale_buffer(self, shape, dtype):
         """
-        Returns :obj:`dict` of :obj:`tuple`
+        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
+        provides storage for the elements of the local (memory-node) multi-dimensional array.
+
+        :rtype: :obj:`RmaWindowBuffer`
+        :returns: A :obj:`collections.namedtuple` containing allocated buffer
+           and associated RMA MPI windows.
+        """
+        self.rank_logger.debug("BEG: alloc_locale_buffer")
+        num_rank_bytes = 0
+        dtype = _np.dtype(dtype)
+        rank_shape = shape
+        if self.intra_locale_comm.rank == 0:
+            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+        if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
+            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+            intra_locale_win = \
+                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
+                                         comm=self.intra_locale_comm)
+            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+            buffer, itemsize = intra_locale_win.Shared_query(0)
+            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
+            rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Create for self.rank_comm")
+        else:
+            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            rank_win = \
+                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            intra_locale_win = rank_win
+            buffer = rank_win.memory
+            itemsize = dtype.itemsize
+
+        inter_locale_win = None
+        if self.num_locales > 1:
+            inter_locale_win = _mpi.WIN_NULL
+            if self.have_valid_cart_comm:
+                self.rank_logger.debug("BEG: Win.Create for self.cart_comm")
+                inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
+                self.rank_logger.debug("END: Win.Create for self.cart_comm")
+
+        buffer = _np.array(buffer, dtype='B', copy=False)
+
+        self.rank_logger.debug("END: alloc_local_buffer")
+        return \
+            RmaWindowBuffer(
+                buffer=buffer,
+                shape=rank_shape,
+                dtype=dtype,
+                itemsize=itemsize,
+                rank_win=rank_win,
+                intra_locale_win=intra_locale_win,
+                inter_locale_win=inter_locale_win
+            )
+
+    @property
+    def cart_coord_to_cart_rank_map(self):
+        """
+        A :obj:`dict` of :obj:`tuple`
         cartesian coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`) keys
         which map to the associated :attr:`cart_comm` rank.
-
-        :rtype: :obj:`dict`
-        :return: Dictionary of :samp:`(cart_coord, cart_rank)` pairs.
-           Returns :samp:`None` if :samp:`self.cart_comm is None` and
-           returns empty :obj:`dict` if :samp:`self.cart_comm == mpi4py.MPI.COMM_NULL`.
         """
         d = dict()
         if self.have_valid_cart_comm:
@@ -330,6 +418,30 @@ class CartLocaleComms(object):
         elif self.cart_comm is None:
             d = None
         return d
+
+    @property
+    def inter_locale_rank_to_rank_map(self):
+        """
+        """
+        m = None
+        if self.have_valid_cart_comm:
+            m = \
+                _mpi.Group.Translate_ranks(
+                    self.cart_comm.group,
+                    range(0, self.cart_comm.group.size),
+                    self.rank_comm.group
+                )
+        return m
+
+    @property
+    def this_locale_rank_info(self):
+        """
+        """
+        if self.have_valid_cart_comm:
+            i = ThisLocaleInfo(self.cart_comm.rank, self.rank_comm.rank)
+        else:
+            i = ThisLocaleInfo(0, 0)
+        return i
 
     @property
     def dims(self):
@@ -429,7 +541,65 @@ class GlobaleExtent(HaloIndexingExtent):
     pass
 
 
-class LocaleExtent(HaloIndexingExtent):
+class HaloSubExtent(HaloIndexingExtent):
+
+    """
+    Indexing extent for single region of a larger globale extent.
+    """
+
+    def __init__(
+        self,
+        globale_extent,
+        slice=None,
+        halo=0,
+        start=None,
+        stop=None
+    ):
+        """
+        Construct. Takes care of trimming the halo of this extent so
+        that this extent does not stray outside the halo region of
+        the :samp:`{globale_extent}`
+
+        :type globale_extent: :obj:`GlobaleExtent`
+        :param globale_extent: The indexing extent of the entire array.
+        :type slice: sequence of :obj:`slice`
+        :param slice: Per-axis start and stop indices (**not including ghost elements**).
+        :type halo: :samp:`(len({split}), 2)` shaped array of :obj:`int`
+        :param halo: Desired halo, a :samp:`(len(self.start), 2)` shaped array of :obj:`int`
+           indicating the per-axis number of outer ghost elements. :samp:`halo[:,0]` is the
+           number of ghost elements on the low-index *side* and :samp:`halo[:,1]` is the number
+           of ghost elements on the high-index *side*. **Note**: that the halo will be truncated
+           so that this halo extent does not extend beyond the halo :samp:`{globale_extent}`.
+        :type start: sequence of :obj:`slice`
+        :param start: Per-axis start indices (**not including ghost elements**).
+        :type stop: sequence of :obj:`slice`
+        :param stop: Per-axis stop indices (**not including ghost elements**).
+        """
+        HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
+        halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
+        # Calculate the locale halo, truncate if it strays outside
+        # the globale_extent halo region.
+        halo = \
+            _np.maximum(
+                _np.array((0,), dtype=halo.dtype),
+                _np.array(
+                    (
+                        _np.minimum(
+                            self.start_n - globale_extent.start_h,
+                            halo[:, self.LO]
+                        ),
+                        _np.minimum(
+                            globale_extent.stop_h - self.stop_n,
+                            halo[:, self.HI]
+                        ),
+                    ),
+                    dtype=halo.dtype
+                ).T
+            )
+        self._halo = halo
+
+
+class LocaleExtent(HaloSubExtent):
 
     """
     Indexing extent for single region of array residing on a locale.
@@ -470,28 +640,27 @@ class LocaleExtent(HaloIndexingExtent):
         """
         self._rank = rank
         self._inter_locale_rank = inter_locale_rank
-        HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
-        halo = convert_halo_to_array_form(halo, ndim=self.ndim)
-        # Calculate the locale halo, truncate if it strays outside
-        # the globale_extent halo region.
-        halo = \
-            _np.maximum(
-                _np.array((0,), dtype=halo.dtype),
-                _np.array(
-                    (
-                        _np.minimum(
-                            self.start_n - globale_extent.start_h,
-                            halo[:, self.LO]
-                        ),
-                        _np.minimum(
-                            globale_extent.stop_h - self.stop_n,
-                            halo[:, self.HI]
-                        ),
-                    ),
-                    dtype=halo.dtype
-                ).T
+        HaloSubExtent.__init__(
+            self,
+            globale_extent=globale_extent,
+            slice=slice,
+            start=start,
+            stop=stop,
+            halo=halo
+        )
+
+    def __eq__(self, other):
+        """
+        Equality
+        """
+        return \
+            (
+                HaloSubExtent.__eq__(self, other)
+                and
+                (self.rank == other.rank)
+                and
+                (self.inter_locale_rank == other.inter_locale_rank)
             )
-        self._halo = halo
 
     @property
     def rank(self):
@@ -555,6 +724,30 @@ class LocaleExtent(HaloIndexingExtent):
                 stop=stop
             )
 
+    def __repr__(self):
+        """
+        Stringize.
+        """
+        return \
+            (
+                (
+                    "LocaleExtent(start=%s, stop=%s, halo=%s, rank=%s, inter_locale_rank=%s)"
+                )
+                %
+                (
+                    repr(self.start_n.tolist()),
+                    repr(self.stop_n.tolist()),
+                    repr(self.halo.tolist()),
+                    repr(self.rank),
+                    repr(self.inter_locale_rank),
+                )
+            )
+
+    def __str__(self):
+        """
+        """
+        return self.__repr__()
+
 
 class CartLocaleExtent(LocaleExtent):
 
@@ -565,7 +758,7 @@ class CartLocaleExtent(LocaleExtent):
     def __init__(
         self,
         rank,
-        cart_rank,
+        inter_locale_rank,
         cart_coord,
         cart_shape,
         globale_extent,
@@ -579,10 +772,10 @@ class CartLocaleExtent(LocaleExtent):
 
         :type rank: :obj:`int`
         :param rank: Rank of MPI process in :samp:`rank_comm` communicator which
-           corresponds to the :samp:`{cart_rank}` rank in the :samp:`cart_comm`
+           corresponds to the :samp:`{inter_locale_rank}` rank in the :samp:`cart_comm`
            cartesian communicator.
-        :type cart_rank: :obj:`int`
-        :param cart_rank: Rank of MPI process in :samp:`cart_comm` cartesian communicator
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: Rank of MPI process in :samp:`cart_comm` cartesian communicator
            which corresponds to the :samp:`{rank_comm}` rank in the :samp:`rank_comm` communicator.
         :type cart_coord: sequence of :obj:`int`
         :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
@@ -608,7 +801,7 @@ class CartLocaleExtent(LocaleExtent):
         LocaleExtent.__init__(
             self,
             rank=rank,
-            inter_locale_rank=cart_rank,
+            inter_locale_rank=inter_locale_rank,
             globale_extent=globale_extent,
             slice=slice,
             halo=halo,
@@ -617,6 +810,19 @@ class CartLocaleExtent(LocaleExtent):
         )
         self._cart_coord = _np.array(cart_coord, dtype="int64")
         self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
+
+    def __eq__(self, other):
+        """
+        Equality.
+        """
+        return \
+            (
+                LocaleExtent.__eq__(self, other)
+                and
+                _np.all(self.cart_coord == other.cart_coord)
+                and
+                _np.all(self.cart_shape == other.cart_shape)
+            )
 
     @property
     def cart_rank(self):
@@ -642,6 +848,34 @@ class CartLocaleExtent(LocaleExtent):
         """
         return self._cart_shape
 
+    def __repr__(self):
+        """
+        Stringize.
+        """
+        return \
+            (
+                (
+                    "CartLocaleExtent(start=%s, stop=%s, halo=%s, rank=%s, inter_locale_rank=%s, "
+                    +
+                    "cart_coord=%s, cart_shape=%s)"
+                )
+                %
+                (
+                    repr(self.start_n.tolist()),
+                    repr(self.stop_n.tolist()),
+                    repr(self.halo.tolist()),
+                    repr(self.rank),
+                    repr(self.inter_locale_rank),
+                    repr(tuple(self.cart_coord)),
+                    repr(tuple(self.cart_shape)),
+                )
+            )
+
+    def __str__(self):
+        """
+        """
+        return self.__repr__()
+
 
 class Distribution(object):
 
@@ -649,21 +883,45 @@ class Distribution(object):
     Describes the apportionment of array extents amongst locales.
     """
 
-    def __init__(self, globale_extent, locale_extents, halo=0):
+    def __init__(
+        self,
+        globale_extent,
+        locale_extents,
+        halo=0,
+        globale_extent_type=LocaleExtent,
+        locale_extent_type=GlobaleExtent,
+        inter_locale_rank_to_rank=None
+    ):
         """
         Initialise.
         """
-        self._halo = convert_halo_to_array_form(_copy.deepcopy(halo))
+        self._locale_extent_type = locale_extent_type
+        self._globale_extent_type = globale_extent_type
+        self._inter_locale_rank_to_rank = inter_locale_rank_to_rank
+
         self._globale_extent = self.create_globale_extent(globale_extent, halo=0)
+        self._halo = \
+            _convert_halo_to_array_form(halo=_copy.deepcopy(halo), ndim=self._globale_extent.ndim)
         self._locale_extents = _copy.copy(locale_extents)
         for i in range(len(locale_extents)):
             self._locale_extents[i] = \
                 self.create_locale_extent(i, locale_extents[i], self._globale_extent, halo)
 
+    def get_rank(self, inter_locale_rank):
+        """
+        """
+        rank = _mpi.UNDEFINED
+        if self._inter_locale_rank_to_rank is not None:
+            rank = self._inter_locale_rank_to_rank[inter_locale_rank]
+        return rank
+
     def create_globale_extent(self, globale_extent, halo=0):
         """
         Factory function for creating :obj:`GlobaleExtent` object.
         """
+
+        # Don't support globale halo/border yet.
+        halo = 0
         if isinstance(globale_extent, GlobaleExtent):
             globale_extent = _copy.deepcopy(globale_extent)
             globale_extent.halo = halo
@@ -673,41 +931,88 @@ class Distribution(object):
             _np.all([isinstance(e, slice) for e in iter(globale_extent)])
         ):
             globale_extent = GlobaleExtent(slice=globale_extent, halo=halo)
+        elif (
+            (hasattr(globale_extent, "__iter__") or hasattr(globale_extent, "__getitem__"))
+            and
+            _np.all(
+                [
+                    (hasattr(e, "__int__") or hasattr(e, "__long__"))
+                    for e in iter(globale_extent)
+                ]
+            )
+        ):
+            stop = _np.array(globale_extent)
+            globale_extent = GlobaleExtent(start=_np.zeros_like(stop), stop=stop, halo=halo)
         elif hasattr(globale_extent, "start") and hasattr(globale_extent, "stop"):
             globale_extent = \
                 GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop, halo=halo)
+        else:
+            raise ValueError(
+                "Could not construct %s instance from globale_extent=%s."
+                %
+                (self._globale_extent.__class__.__name__, globale_extent,)
+            )
 
         return globale_extent
 
-    def create_locale_extent(self, inter_locale_rank, locale_extent, globale_extent, halo=0):
+    def create_locale_extent(
+            self,
+            inter_locale_rank,
+            locale_extent,
+            globale_extent,
+            halo=0,
+            **kwargs
+    ):
         """
         Factory function for creating :obj:`LocaleExtent` object.
         """
+        rank = self.get_rank(inter_locale_rank)
         if hasattr(locale_extent, "start") and hasattr(locale_extent, "stop"):
             locale_extent = \
-                LocaleExtent(
-                    rank=_mpi.UNDEFINED,
+                self._locale_extent_type(
+                    rank=rank,
                     inter_locale_rank=inter_locale_rank,
                     globale_extent=globale_extent,
                     start=locale_extent.start,
                     stop=locale_extent.stop,
-                    halo=halo
+                    halo=halo,
+                    **kwargs
                 )
         elif (
-            hasattr(locale_extent, "__iter__")
+            (hasattr(locale_extent, "__iter__") or hasattr(locale_extent, "__getitem__"))
             and
-            _np.all([isinstance(e, slice) for e in iter(locale_extent)])
+            _np.all([isinstance(e, slice) for e in locale_extent])
         ):
             locale_extent = \
-                LocaleExtent(
-                    rank=_mpi.UNDEFINED,
+                self._locale_extent_type(
+                    rank=rank,
                     inter_locale_rank=inter_locale_rank,
                     globale_extent=globale_extent,
                     slice=locale_extent,
-                    halo=halo
+                    halo=halo,
+                    **kwargs
                 )
+        else:
+            raise ValueError(
+                "Could not construct %s instance from locale_extent=%s."
+                %
+                (self._locale_extent_type.__class__.__name__, locale_extent,)
+            )
 
         return locale_extent
+
+    def get_extent_for_rank(self, inter_locale_rank):
+        """
+        Returns extent associated with the specified rank
+        of the :attr:`inter_locale_comm` communicator.
+        """
+        return self._locale_extents[inter_locale_rank]
+
+    @property
+    def halo(self):
+        """
+        """
+        return self._halo
 
     @property
     def globale_extent(self):
@@ -775,7 +1080,7 @@ class SingleLocaleDistribution(Distribution):
         )
 
 
-class BlockPartition(object):
+class BlockPartition(Distribution):
 
     """
     Block partition of an array (shape) over locales.
@@ -789,103 +1094,87 @@ class BlockPartition(object):
 
     def __init__(
         self,
-        shape,
+        globale_extent,
+        dims,
+        cart_coord_to_cart_rank,
         halo=0,
-        locale_comms=None,
-        order="C"
+        order="C",
+        inter_locale_rank_to_rank=None
     ):
         """
         Create a partitioning of :samp:`{shape}` over locales.
 
-        :type shape: sequence of :obj:`int`
-        :param shape: The shape of the array which is to be partitioned into smaller *sub-shapes*.
+        :type globale_extent: :obj:`GlobaleExtent`
+        :param globale_extent: The globale extent to be partitioned.
+        :type dims: sequence of :obj:`int`
+        :param dims: The number of partitions along each
+            dimension, :samp:`len({dims}) == len({globale_extent}.shape_n)`
+            and :samp:`num_locales = numpy.product({dims})`.
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
-           (low and high indices can be different).
-        :type locale_comms: :obj:`CartLocaleComms`
-        :param locale_comms: Object which defines how array
-           blocks are allocated (distributed) over locales and
-           the cartesian topology communicator used to exchange (halo)
-           data. If :samp:`None` uses :samp:`CartLocaleComms(dims=numpy.zeros_like({shape}))`.
+           (low-index number of ghost elements may differ to the
+           number of high-index ghost elements).
+        :type cart_coord_to_cart_rank: :obj:`dict`
+        :param cart_coord_to_cart_rank: Mapping between cartesian
+           communicator coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`)
+           and cartesian communicator rank.
         """
-        self._halo = halo
-        self._globale_extent = None
-        self._locale_comms = locale_comms
-        self._shape_decomp = None
+        globale_extent = self.create_globale_extent(globale_extent, halo)
+        self._num_locales = _np.product(dims)
+        self._dims = dims
         self._rank_logger = None
         self._root_logger = None
-        self._cart_win = None
         self._order = order
 
-        self.recalculate(shape, halo)
-
-    def calculate_rank_view_slices(self):
-        """
-        Splits local array into :samp:`self.intra_locale_comm.size` number
-        of tiles. Assigns :attr:`rank_view_slice_n` and :attr:`rank_view_slice_h`
-        to :obj:`tuple`-of-:obj:`slice` corresponding to the tile for this MPI rank.
-        """
-        if self._lndarray_extent.size_n > 0:
+        if self._num_locales > 1:
             shape_splitter = \
                 _array_split.ShapeSplitter(
-                    array_shape=self._lndarray_extent.shape_n,
-                    axis=_shape_factors(self.intra_locale_comm.size, self.ndim)[::-1],
-                    halo=0,
-                    array_start=self._lndarray_extent.start_n
+                    array_shape=globale_extent.shape_n,
+                    array_start=globale_extent.start_n,
+                    axis=self._dims,
+                    halo=0
                 )
+            splt = shape_splitter.calculate_split()
 
-            split = shape_splitter.calculate_split()
-            rank_extent_n = IndexingExtent(split.flatten()[self.intra_locale_comm.rank])
-            rank_extent_h = \
-                IndexingExtent(
-                    start=_np.maximum(
-                        rank_extent_n.start - self._halo[:, self.LO],
-                        self._lndarray_extent.start_h
-                    ),
-                    stop=_np.minimum(
-                        rank_extent_n.stop + self._halo[:, self.HI],
-                        self._lndarray_extent.stop_h
-                    )
-                )
-
-            # Convert rank_extent_n and rank_extent_h from global-indices
-            # to local-indices
-            halo_lo = self._lndarray_extent.halo[:, self.LO]
-            rank_extent_n = \
-                IndexingExtent(
-                    start=rank_extent_n.start - self._lndarray_extent.start_n + halo_lo,
-                    stop=rank_extent_n.stop - self._lndarray_extent.start_n + halo_lo,
-                )
-            rank_extent_h = \
-                IndexingExtent(
-                    start=rank_extent_h.start - self._lndarray_extent.start_n + halo_lo,
-                    stop=rank_extent_h.stop - self._lndarray_extent.start_n + halo_lo,
-                )
-            rank_h_relative_extent_n = \
-                IndexingExtent(
-                    start=rank_extent_n.start - rank_extent_h.start,
-                    stop=rank_extent_n.start - rank_extent_h.start + rank_extent_n.shape,
-                )
-
-            self._rank_view_slice_n = \
-                tuple(
-                    [slice(rank_extent_n.start[i], rank_extent_n.stop[i]) for i in range(self.ndim)]
-                )
-            self._rank_view_slice_h = \
-                tuple(
-                    [slice(rank_extent_h.start[i], rank_extent_h.stop[i]) for i in range(self.ndim)]
-                )
-            self._rank_view_relative_slice_n = \
-                tuple(
-                    [
-                        slice(rank_h_relative_extent_n.start[i], rank_h_relative_extent_n.stop[i])
-                        for i in range(self.ndim)
-                    ]
-                )
+            locale_extents = _np.empty(splt.size, dtype="object")
+            for i in range(locale_extents.size):
+                cart_coord = tuple(_np.unravel_index(i, splt.shape))
+                locale_extents[cart_coord_to_cart_rank[cart_coord]] = splt[cart_coord]
         else:
-            self._rank_view_slice_n = tuple([slice(0, 0) for i in range(self.ndim)])
-            self._rank_view_slice_h = tuple([slice(0, 0) for i in range(self.ndim)])
-            self._rank_view_relative_slice_n = tuple([slice(0, 0) for i in range(self.ndim)])
+            locale_extents = [globale_extent, ]
+            if cart_coord_to_cart_rank is None:
+                cart_coord_to_cart_rank = {tuple(_np.zeros_like(globale_extent.shape_n)): 0}
+
+        self._cart_coord_to_cart_rank = cart_coord_to_cart_rank
+        self._cart_rank_to_cart_coord_map = \
+            {cart_coord_to_cart_rank[c]: c for c in cart_coord_to_cart_rank.keys()}
+        Distribution.__init__(
+            self,
+            globale_extent=globale_extent,
+            locale_extents=locale_extents,
+            inter_locale_rank_to_rank=inter_locale_rank_to_rank,
+            halo=halo,
+            locale_extent_type=CartLocaleExtent
+        )
+
+    def create_locale_extent(
+            self,
+            inter_locale_rank,
+            locale_extent,
+            globale_extent,
+            halo=0,
+            **kwargs
+    ):
+        return \
+            Distribution.create_locale_extent(
+                self,
+                inter_locale_rank,
+                locale_extent,
+                globale_extent,
+                halo,
+                cart_coord=self._cart_rank_to_cart_coord_map[inter_locale_rank],
+                cart_shape=self._dims
+            )
 
     def recalculate(self, new_shape, new_halo):
         """
@@ -917,7 +1206,7 @@ class BlockPartition(object):
                 halo=0
             )
 
-        self._halo = convert_halo_to_array_form(halo=self._halo, ndim=len(self.shape))
+        self._halo = _convert_halo_to_array_form(halo=self._halo, ndim=len(self.shape))
 
         self._shape_decomp = shape_splitter.calculate_split()
 
@@ -974,131 +1263,15 @@ class BlockPartition(object):
 
         self.calculate_rank_view_slices()
 
-    def alloc_local_buffer(self, dtype):
-        """
-        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
-        provides storage for the elements of the local (memory-node) multi-dimensional array.
-
-        :rtype: :obj:`tuple`
-        :returns: A :obj:`tuple` of :samp:`(buffer, itemsize, shape)`, where :samp:`buffer`
-           is the allocated memory for the array, :samp:`itemsize` is :samp:`dtype.itemsize`
-           and :samp:`shape` is the shape of the :samp:`numpy.ndarray`.
-        """
-        self.rank_logger.debug("BEG: alloc_local_buffer")
-        num_rank_bytes = 0
-        dtype = _np.dtype(dtype)
-        if self.intra_locale_comm.rank == 0:
-            if (self.num_locales > 1) and (not self.have_valid_cart_comm):
-                raise ValueError(
-                    "Root rank (=0) on intra_locale_comm does not have valid cart_comm.")
-            if self.num_locales > 1:
-                rank_shape = self._cart_rank_to_extents_dict[self.cart_comm.rank].shape_h
-            else:
-                rank_shape = self.shape
-            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
-        if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
-            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
-            self._shared_mem_win = \
-                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
-                                         comm=self.intra_locale_comm)
-            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
-            buffer, itemsize = self._shared_mem_win.Shared_query(0)
-            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
-            self._rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
-            self.rank_logger.debug("END: Win.Create for self.rank_comm")
-        else:
-            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            self._rank_win = \
-                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
-            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            self._shared_mem_win = self._rank_win
-            buffer = self._rank_win.memory
-            itemsize = dtype.itemsize
-
-        self._cart_win = None
-        lndarray_shape = self.shape
-        if self.num_locales > 1:
-            self._cart_win = _mpi.WIN_NULL
-            if self.have_valid_cart_comm:
-                self.rank_logger.debug("BEG: Win.Create for self.cart_comm")
-                self._cart_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
-                self.rank_logger.debug("END: Win.Create for self.cart_comm")
-            lndarray_shape = self._lndarray_extent.shape_h
-
-        buffer = _np.array(buffer, dtype='B', copy=False)
-
-        self.rank_logger.debug("END: alloc_local_buffer")
-        return buffer, itemsize, lndarray_shape
-
     def get_updates_for_cart_rank(self, cart_rank):
         return self._halo_updates_dict[cart_rank]
 
     def __str__(self):
         """
+        Stringify.
         """
-        s = []
-        if self.have_valid_cart_comm:
-            for cart_rank in range(0, self.cart_comm.size):
-                s += \
-                    [
-                        "{cart_rank = %s, cart_coord = %s, extents=%s}"
-                        %
-                        (
-                            cart_rank,
-                            self.cart_comm.Get_coords(cart_rank),
-                            self._cart_rank_to_extents_dict[cart_rank],
-                        )
-                    ]
+        s = [str(le) for le in self.locale_extents]
         return ", ".join(s)
-
-    @property
-    def ndim(self):
-        """
-        Dimension of array.
-        """
-        return self._globale_extent.ndim
-
-    @property
-    def halo(self):
-        """
-        Number of *ghost* elements per axis to pad array shape.
-        """
-        return self._halo
-
-    @halo.setter
-    def halo(self, halo):
-        if halo is None:
-            halo = 0
-
-        self.recalculate(self.shape, halo)
-
-    @property
-    def shape(self):
-        """
-        The globale shape of the array to be distributed over locales.
-        """
-        return self._globale_extent.shape
-
-    @shape.setter
-    def shape(self, new_shape):
-        self.recalculate(new_shape, self._halo)
-
-    @property
-    def locale_extents(self):
-        """
-        A :obj:`list` of :obj:`CartLocaleExtent` instances.
-        """
-        return [
-            self._cart_rank_to_extents_dict[cart_rank]
-            for cart_rank in self._cart_rank_to_extents_dict.keys()
-        ]
-
-    def get_extent_for_rank(self, inter_locale_rank):
-        """
-        Returns extent associated with the specified rank
-        of the :attr:`inter_locale_comm` communicator.
-        """
-        return self._cart_rank_to_extents_dict[inter_locale_rank]
 
     @property
     def shape_decomp(self):
@@ -1106,13 +1279,6 @@ class BlockPartition(object):
         The partition of :samp:`self.shape` over memory nodes.
         """
         return self._shape_decomp
-
-    @property
-    def num_locales(self):
-        """
-        See :attr:`CartLocaleComms.num_locales`.
-        """
-        return self._locale_comms.num_locales
 
     @property
     def intra_locale_comm(self):
@@ -1264,7 +1430,7 @@ LT_PROCESS = "process"
 _valid_locale_types = [LT_NODE, LT_PROCESS]
 
 CommsAndDistribution = \
-    _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution"])
+    _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution", "this_locale"])
 
 
 def create_block_distribution(
@@ -1285,6 +1451,14 @@ def create_block_distribution(
     """
     if dims is None:
         dims = _np.zeros_like(shape, dtype="int64")
+    if locale_type.lower() == LT_PROCESS:
+        if (intra_locale_comm is not None) and (intra_locale_comm.size > 1):
+            raise ValueError(
+                "Got locale_type=%s, but intra_locale_comm.size=%s"
+                %
+                (locale_type, intra_locale_comm.size)
+            )
+        intra_locale_comm = _mpi.COMM_SELF
     cart_locale_comms = \
         CartLocaleComms(
             dims=dims,
@@ -1293,21 +1467,27 @@ def create_block_distribution(
             inter_locale_comm=inter_locale_comm,
             cart_comm=cart_comm
         )
-#    cart_coord_to_cart_rank = cart_locale_comms.get_cart_coord_to_cart_rank_map(shape)
-#
-#    block_distrib = \
-#        BlockPartition(
-#            shape=shape,
-#            dims=cart_locale_comms.dims,
-#            cart_coord_to_cart_rank=cart_coord_to_cart_rank
-#        )
+    cart_coord_to_cart_rank = cart_locale_comms.cart_coord_to_cart_rank_map
+    cart_rank_to_rank = cart_locale_comms.inter_locale_rank_to_rank_map
+    this_locale = cart_locale_comms.this_locale_rank_info
+
+    # Broadcast on intra_locale_comm to get rank mapping to all
+    # rank_comm ranks
+    cart_coord_to_cart_rank, cart_rank_to_rank, this_locale = \
+        cart_locale_comms.intra_locale_comm.bcast(
+            (cart_coord_to_cart_rank, cart_rank_to_rank, this_locale),
+            0
+        )
+
     block_distrib = \
         BlockPartition(
-            shape=shape,
-            halo=halo,
-            locale_comms=cart_locale_comms
+            globale_extent=shape,
+            dims=cart_locale_comms.dims,
+            cart_coord_to_cart_rank=cart_coord_to_cart_rank,
+            inter_locale_rank_to_rank=cart_rank_to_rank,
+            halo=halo
         )
-    return CommsAndDistribution(cart_locale_comms, block_distrib)
+    return CommsAndDistribution(cart_locale_comms, block_distrib, this_locale)
 
 
 def check_distrib_type(distrib_type):
@@ -1350,8 +1530,8 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
     check_distrib_type(distrib_type)
     check_locale_type(locale_type)
     if distrib_type.lower() == DT_BLOCK:
-        create_block_distribution(shape, locale_type, **kwargs)
-    if distrib_type.lower() == DT_SLAB:
+        comms_and_distrib = create_block_distribution(shape, locale_type, **kwargs)
+    elif distrib_type.lower() == DT_SLAB:
         if "axis" in kwargs.keys():
             axis = kwargs["axis"]
             del kwargs["axis"]

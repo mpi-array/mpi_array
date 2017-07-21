@@ -51,7 +51,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
         self.se = \
             CartLocaleExtent(
                 rank=0,
-                cart_rank=0,
+                inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -61,7 +61,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
         self.de = \
             CartLocaleExtent(
                 rank=1,
-                cart_rank=1,
+                inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -140,7 +140,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
         self.se = \
             CartLocaleExtent(
                 rank=0,
-                cart_rank=0,
+                inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -150,7 +150,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
         self.de = \
             CartLocaleExtent(
                 rank=1,
-                cart_rank=1,
+                inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -224,7 +224,7 @@ class HalosUpdateTest(_unittest.TestCase):
         self.se = \
             CartLocaleExtent(
                 rank=0,
-                cart_rank=0,
+                inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),
@@ -234,7 +234,7 @@ class HalosUpdateTest(_unittest.TestCase):
         self.de = \
             CartLocaleExtent(
                 rank=1,
-                cart_rank=1,
+                inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
                 globale_extent=GlobaleExtent(stop=(100,)),

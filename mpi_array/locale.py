@@ -25,7 +25,7 @@ Classes
    :template: autosummary/class.rst
 
    lndarray - Thin container for :obj:`slndarray` which provides convenience views.
-
+   PartitionViewSlices - Container for per-rank slices for created locale extent array views.
 
 Factory Functions
 =================
@@ -55,7 +55,13 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 import pkg_resources as _pkg_resources
 import numpy as _np
-from mpi_array.distribution import BlockPartition as _BlockPartition
+from mpi_array.distribution import create_distribution, LocaleExtent as _LocaleExtent
+from mpi_array.distribution import HaloSubExtent as _HaloSubExtent
+from mpi_array.distribution import IndexingExtent as _IndexingExtent
+import array_split as _array_split
+from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
+import collections as _collections
+
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
@@ -105,9 +111,7 @@ class slndarray(_np.ndarray):
         buffer=None,
         offset=0,
         strides=None,
-        order=None,
-        gshape=None,
-        decomp=None
+        order=None
     ):
         """
         Construct, at least one of :samp:{shape} or :samp:`decomp` should
@@ -133,34 +137,8 @@ class slndarray(_np.ndarray):
         :param decomp: Array distribution info and used to allocate (possibly)
            shared memory via :meth:`mpi_array.distribution.Decomposition.allocate_local_buffer`.
         """
-        if (gshape is not None) and (decomp is not None) and (_np.any(decomp.shape != gshape)):
-            raise ValueError(
-                "Got inconsistent gshape argument=%s and decomp.shape=%s, should be the same."
-                %
-                (gshape, decomp.shape)
-            )
-        elif (gshape is None) and (decomp is None):
-            raise ValueError(
-                (
-                    "Got None for both gshape argument and decomp argument,"
-                    +
-                    " at least one should be provided."
-                )
-            )
 
-        if (shape is not None) and (_np.any(decomp.lndarray_extent.shape != shape)):
-            raise ValueError(
-                (
-                    "Got inconsistent shape argument=%s and decomp.lndarray_extent.shape=%s, " +
-                    "should be the same."
-                )
-                %
-                (shape, decomp.lndarray_extent.shape)
-            )
-
-        if buffer is None:
-            buffer, itemsize, shape = decomp.alloc_local_buffer(dtype)
-        else:
+        if buffer is not None:
             if not isinstance(buffer, memoryview):
                 raise ValueError(
                     "Got buffer type=%s which is not an instance of %s"
@@ -170,6 +148,8 @@ class slndarray(_np.ndarray):
                         memoryview
                     )
                 )
+        else:
+            raise ValueError("Got buffer=None, require buffer allocated from LocaleComms.")
 
         self = \
             _np.ndarray.__new__(
@@ -206,6 +186,19 @@ class slndarray(_np.ndarray):
         return self._md
 
 
+PartitionViewSlices = \
+    _collections.namedtuple(
+        "PartitionViewSlices",
+        [
+            "rank_view_slice_n",
+            "rank_view_slice_h",
+            "rank_view_relative_slice_n",
+            "rank_view_partition_slice_h",
+            "lndarray_view_slice_n"
+        ]
+    )
+
+
 class lndarray(object):
 
     """
@@ -222,20 +215,25 @@ class lndarray(object):
         offset=0,
         strides=None,
         order=None,
-        decomp=None
+        intra_locale_rank=None,
+        intra_locale_size=0,
+        intra_partition_dims=None,
+        locale_extent=None,
+        halo=None,
+        comms_and_distrib=None
     ):
         """
-        Construct, at least one of :samp:{shape} or :samp:`decomp` should
+        Initialise, at least one of :samp:{shape} or :samp:`locale_extent` should
         be specified (i.e. at least one should not be :samp:`None`).
 
         :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: **Global** shape of the array. If :samp:`None`
-           global array shape is taken as :samp:`{decomp}.shape`.
+        :param shape: Shape of the array apportioned to this locale. If :samp:`None`
+           shape is taken as :samp:`{locale_extent}.shape_h`.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
-        :type buffer: :samp:`None` or :obj:`memoryview`
+        :type buffer: :obj:`memoryview`
         :param buffer: The sequence of bytes providing array element storage.
-           If :samp:`None`, a buffer is allocated using :samp:`{decomp}.alloc_local_buffer`.
+           Must be specified.
         :type offset: :samp:`None` or :obj:`int`
         :param offset: Offset of array data in buffer, i.e where array begins in buffer
            (in buffer bytes).
@@ -243,27 +241,127 @@ class lndarray(object):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :type decomp: :obj:`mpi_array.distribution.Decomposition`
-        :param decomp: Array distribution info and used to allocate (possibly)
-           shared memory via :meth:`mpi_array.distribution.Decomposition.allocate_local_buffer`.
+        :type locale_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param locale_extent: The array extent to be allocated on this locale.
         """
 
         self = object.__new__(cls)
-        if (shape is not None) and (decomp is None):
-            decomp = _BlockPartition(shape)
+        if locale_extent is None or (not isinstance(locale_extent, _LocaleExtent)):
+            raise ValueError(
+                "Got locale_extent=%s, expecting instance of type %s"
+                %
+                (locale_extent, _LocaleExtent)
+            )
+        if (shape is not None) and (not _np.all(locale_extent.shape_h == shape)):
+            raise ValueError(
+                "Got conflicting locale shape: shape=%s, locale_extent.shape_n=%s"
+                %
+                (shape, locale_extent.shape_h)
+            )
+
         self._slndarray = \
             slndarray(
-                shape=None,
+                shape=locale_extent.shape_h,
                 dtype=dtype,
                 buffer=buffer,
                 offset=offset,
                 strides=strides,
-                order=order,
-                gshape=shape,
-                decomp=decomp
+                order=order
             )
-        self._decomp = decomp
+        self._intra_locale_rank = intra_locale_rank
+        self._intra_locale_size = intra_locale_size
+        self._intra_partition_dims = intra_partition_dims
+        self._locale_extent = locale_extent
+        self._halo = _convert_halo_to_array_form(halo, self._locale_extent.ndim)
+        self._intra_partition_dims = _np.zeros_like(locale_extent.shape_h)
+        self._intra_partition_dims, self._intra_partition = \
+            self.calculate_intra_partition(
+                intra_locale_size=self._intra_locale_size,
+                intra_locale_dims=self._intra_partition_dims,
+                intra_locale_rank=self._intra_locale_rank,
+                extent=self._locale_extent,
+                halo=self._halo
+            )
+        self.comms_and_distrib = comms_and_distrib
+
         return self
+
+    def calculate_intra_partition(
+            self,
+            intra_locale_size,
+            intra_locale_dims,
+            intra_locale_rank,
+            extent,
+            halo
+    ):
+        """
+        Splits :samp:`{extent}` into :samp:`self.intra_locale_size` number
+        of tiles.
+        """
+        intra_locale_dims = \
+            _array_split.split.calculate_num_slices_per_axis(
+                intra_locale_dims,
+                intra_locale_size
+            )
+        ndim = extent.ndim
+        if extent.size_n > 0:
+
+            shape_splitter = \
+                _array_split.ShapeSplitter(
+                    array_shape=extent.shape_n,
+                    axis=intra_locale_dims,
+                    halo=0,
+                    array_start=extent.start_n
+                )
+            split = shape_splitter.calculate_split()
+            rank_extent = \
+                _HaloSubExtent(
+                    globale_extent=extent,
+                    slice=split.flatten()[intra_locale_rank],
+                    halo=halo
+                )
+            # Convert rank_extent_n and rank_extent_h from global-indices
+            # to local-indices
+            rank_extent = extent.globale_to_locale_extent_h(rank_extent)
+
+            rank_h_relative_extent_n = \
+                _IndexingExtent(
+                    start=rank_extent.start_n - rank_extent.start_h,
+                    stop=rank_extent.start_n - rank_extent.start_h + rank_extent.shape_n,
+                )
+
+            rank_view_slice_n = rank_extent.to_slice_n()
+            rank_view_slice_h = rank_extent.to_slice_h()
+            rank_view_relative_slice_n = rank_h_relative_extent_n.to_slice()
+            rank_view_partition_h = rank_view_slice_n
+            if _np.any(extent.halo > 0):
+                shape_splitter = \
+                    _array_split.ShapeSplitter(
+                        array_shape=extent.shape_h,
+                        axis=intra_locale_dims,
+                        halo=0,
+                    )
+                split = shape_splitter.calculate_split()
+                rank_view_partition_h = split.flatten()[intra_locale_rank]
+            lndarray_view_slice_n = extent.globale_to_locale_extent_h(extent).to_slice_n()
+        else:
+            rank_view_slice_n = tuple([slice(0, 0) for i in range(ndim)])
+            rank_view_slice_h = rank_view_slice_n
+            rank_view_relative_slice_n = rank_view_slice_n
+            rank_view_partition_h = rank_view_slice_n
+            lndarray_view_slice_n = rank_view_slice_n
+
+        return \
+            (
+                intra_locale_dims,
+                PartitionViewSlices(
+                    rank_view_slice_n,
+                    rank_view_slice_h,
+                    rank_view_relative_slice_n,
+                    rank_view_partition_h,
+                    lndarray_view_slice_n
+                )
+            )
 
     def __getitem__(self, *args, **kwargs):
         """
@@ -294,19 +392,42 @@ class lndarray(object):
         return self._slndarray
 
     @property
+    def intra_partition(self):
+        """
+        A :obj:`PartitionViewSlices` containing slices for this rank (of :samp:`rank_comm`).
+        """
+        return self._intra_partition
+
+    @property
+    def intra_partition_dims(self):
+        """
+        A sequence of integers indicating the number of partitions
+        along each axis which determines the per-rank views of the locale extent array.
+        """
+        return self._intra_partition_dims
+
+    @property
+    def locale_extent(self):
+        """
+        A :obj:`LocaleExtent` describing the portion of the array assigned to this locale.
+        """
+        return self._locale_extent
+
+    @property
+    def halo(self):
+        """
+        The number of ghost cells for intra locale partitioning of the extent.
+        This is an upper bound on the per-rank partitions, with the halo possibly
+        trimmed by the halo extent (due to being on globale boundary).
+        """
+        return self._halo
+
+    @property
     def md(self):
         """
         Meta-data object of type :obj:`NdarrayMetaData`.
         """
         return self._slndarray.md
-
-    @property
-    def decomp(self):
-        """
-        Decomposition object (e.g. :obj:`mpi_array.distribution.Distribution`)
-        describing distribution of the array across memory nodes.
-        """
-        return self._decomp
 
     @property
     def dtype(self):
@@ -325,38 +446,46 @@ class lndarray(object):
     @property
     def rank_view_n(self):
         """
-        A tile view of the array for MPI rank :samp:`self.decomp.rank_comm.rank`.
+        A tile view of the array for this rank of :samp:`rank_comm`.
         """
-        return self._slndarray[self.decomp.rank_view_slice_n]
+        return self._slndarray[self._intra_partition.rank_view_slice_n]
 
     @property
     def rank_view_h(self):
         """
-        A tile view (including halo elements) of the array for MPI
-        rank :samp:`self.decomp.rank_comm.rank`.
+        A tile view (including halo elements) of the array for this rank of :samp:`rank_comm`.
         """
-        return self._slndarray[self.decomp.rank_view_slice_h]
+        return self._slndarray[self._intra_partition.rank_view_slice_h]
 
     @property
     def rank_view_slice_n(self):
         """
         Sequence of :obj:`slice` objects used to generate :attr:`rank_view_n`.
         """
-        return self.decomp.rank_view_slice_n
+        return self._intra_partition.rank_view_slice_n
 
     @property
     def rank_view_slice_h(self):
         """
         Sequence of :obj:`slice` objects used to generate :attr:`rank_view_h`.
         """
-        return self.decomp.rank_view_slice_h
+        return self._intra_partition.rank_view_slice_h
+
+    @property
+    def rank_view_partition_h(self):
+        """
+        Rank tile view from the paritioning of entire :samp:`self._slndarray`
+        (i.e. partition of halo array). Same as :samp:`self.rank_view_n` when
+        halo is zero.
+        """
+        return self._slndarray[self._intra_partition.rank_view_partition_slice_h]
 
     @property
     def view_n(self):
         """
         View of entire array without halo.
         """
-        return self._slndarray[self.decomp.lndarray_view_slice_n]
+        return self._slndarray[self._intra_partition.lndarray_view_slice_n]
 
     @property
     def view_h(self):
@@ -365,14 +494,34 @@ class lndarray(object):
         """
         return self._slndarray.view()
 
-    def __reduce__(self):
+    def fill(self, value):
         """
-        Pickle.
+        Fill the array with a scalar value (excludes ghost elements).
+
+        :type value: scalar
+        :param value: All non-ghost elements are assigned this value.
         """
-        raise NotImplementedError("Cannot pickle objects of type %s" % type(self))
+        self._slndarray.rank_view_n.fill(value)
+
+    def fill_h(self, value):
+        """
+        Fill the array with a scalar value (including ghost elements).
+
+        :type value: scalar
+        :param value: All elements (including ghost elements) are assigned this value.
+        """
+        self._slndarray[self._intra_partition.rank_view_partition_slice_h].fill(value)
 
 
-def empty(shape=None, dtype="float64", decomp=None, order='C'):
+def empty(
+    shape=None,
+    dtype="float64",
+    comms_and_distrib=None,
+    order='C',
+    return_rma_window_buffer=False,
+    intra_partition_dims=None,
+    **kwargs
+):
     """
     Creates array of uninitialised elements.
 
@@ -381,14 +530,44 @@ def empty(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`lndarray`
     :return: Newly created array with uninitialised elements.
     """
-    ary = lndarray(shape=shape, dtype=dtype, decomp=decomp, order=order)
+    if comms_and_distrib is None:
+        comms_and_distrib = create_distribution(shape=shape, **kwargs)
 
-    return ary
+    intra_locale_rank = comms_and_distrib.locale_comms.intra_locale_comm.rank
+    intra_locale_size = comms_and_distrib.locale_comms.intra_locale_comm.size
+    locale_extent = \
+        comms_and_distrib.distribution.locale_extents[
+            comms_and_distrib.this_locale.inter_locale_rank
+        ]
+
+    rma_window_buffer = \
+        comms_and_distrib.locale_comms.alloc_locale_buffer(
+            shape=locale_extent.shape_h,
+            dtype=dtype
+        )
+
+    ret = \
+        lndarray(
+            shape=rma_window_buffer.shape,
+            buffer=rma_window_buffer.buffer.data,
+            dtype=dtype,
+            order=order,
+            intra_locale_rank=intra_locale_rank,
+            intra_locale_size=intra_locale_size,
+            intra_partition_dims=intra_partition_dims,
+            locale_extent=locale_extent,
+            halo=comms_and_distrib.distribution.halo,
+            comms_and_distrib=comms_and_distrib
+        )
+
+    if return_rma_window_buffer:
+        ret = ret, rma_window_buffer
+    return ret
 
 
 def empty_like(ary, dtype=None):
@@ -405,14 +584,20 @@ def empty_like(ary, dtype=None):
     if dtype is None:
         dtype = ary.dtype
     if (isinstance(ary, lndarray)):
-        ret_ary = empty(dtype=ary.dtype, decomp=ary.decomp)
+        ret_ary = \
+            empty(
+                dtype=ary.dtype,
+                comms_and_distrib=ary.comms_and_distrib,
+                order=ary.md.order,
+                intra_partition_dims=ary.intra_partition_dims
+            )
     else:
         ret_ary = _np.empty_like(ary, dtype=dtype)
 
     return ret_ary
 
 
-def zeros(shape=None, dtype="float64", decomp=None, order='C'):
+def zeros(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
     """
     Creates array of zero-initialised elements.
 
@@ -421,13 +606,13 @@ def zeros(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`lndarray`
     :return: Newly created array with zero-initialised elements.
     """
-    ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view_n[...] = _np.zeros(1, dtype)
+    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
+    ary.fill_h(ary.dtype.type(0))
 
     return ary
 
@@ -444,12 +629,12 @@ def zeros_like(ary, *args, **kwargs):
     :return: Array of zero-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
-    ary.rank_view_n[...] = _np.zeros(1, ary.dtype)
+    ary.fill_h(ary.dtype.type(0))
 
     return ary
 
 
-def ones(shape=None, dtype="float64", decomp=None, order='C'):
+def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
     """
     Creates array of one-initialised elements.
 
@@ -458,13 +643,13 @@ def ones(shape=None, dtype="float64", decomp=None, order='C'):
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type decomp: :obj:`numpy.dtype`
-    :param decomp: Data type of array elements.
+    :type comms_and_distrib: :obj:`numpy.dtype`
+    :param comms_and_distrib: Data type of array elements.
     :rtype: :obj:`lndarray`
     :return: Newly created array with one-initialised elements.
     """
-    ary = empty(shape, dtype=dtype, decomp=decomp)
-    ary.rank_view_n[...] = _np.ones(1, dtype)
+    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
+    ary.fill_h(ary.dtype.type(1))
 
     return ary
 
@@ -481,7 +666,7 @@ def ones_like(ary, *args, **kwargs):
     :return: Array of one-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
-    ary.rank_view_n[...] = _np.ones(1, ary.dtype)
+    ary.fill_h(ary.dtype.type(1))
 
     return ary
 
