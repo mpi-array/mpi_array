@@ -24,7 +24,6 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright
 
 import mpi_array.unittest as _unittest
-import unittest as _builtin_unittest
 import mpi_array.logging as _logging  # noqa: E402,F401
 import mpi_array as _mpi_array
 from mpi_array.distribution import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB

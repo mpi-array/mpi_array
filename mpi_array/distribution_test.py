@@ -36,8 +36,6 @@ from mpi_array.distribution import BlockPartition, CartLocaleComms, LocaleComms
 from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 import array_split as _array_split
 
-import unittest as _builtin_unittest
-
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
