@@ -90,8 +90,7 @@ class GndarrayTest(_unittest.TestCase):
         gary[...] = 19
         gary[:] = 101
 
-    @_builtin_unittest.skip
-    def test_update(self):
+    def do_not_test_update(self):
         """
         Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D distribution.
         """
@@ -404,15 +403,13 @@ class GndarrayTest(_unittest.TestCase):
             self.assertTrue(_np.all(_np.array(intersection_extent.shape) > 0))
             self.assertTrue(_np.all(gary_dst.lndarray[locale_slice] == rank_val))
 
-    @_builtin_unittest.skip
-    def test_copyto_no_halo(self):
+    def do_not_test_copyto_no_halo(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
         self.do_test_copyto(halo=0)
 
-    @_builtin_unittest.skip
-    def test_copyto_halo(self):
+    def do_not_test_copyto_halo(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
