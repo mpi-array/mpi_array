@@ -98,10 +98,8 @@ class NdarrayMetaData(object):
 class slndarray(_np.ndarray):
 
     """
-    Sub-class of :obj:`numpy.ndarray` which uses :obj:`mpi4py.MPI.Win` instances
-    to allocate buffer memory.
-    Allocates a shared memory buffer using :func:`mpi4py.MPI.Win.Allocate_shared`.
-    (if available, otherwise uses :func:`mpi4py.MPI.Win.Allocate`).
+    Sub-class of :obj:`numpy.ndarray` which requires :samp:`{buffer}` to
+    be specified for instantiation.
     """
 
     def __new__(
@@ -121,9 +119,9 @@ class slndarray(_np.ndarray):
         :param shape: **Local** shape of the array, this parameter is ignored.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
-        :type buffer: :samp:`None` or :obj:`memoryview`
+        :type buffer: :obj:`buffer`
         :param buffer: The sequence of bytes providing array element storage.
-           If :samp:`None`, a buffer is allocated using :samp:`{decomp}.alloc_local_buffer`.
+           Raises :obj:`ValueError` if :samp:`{buffer} is None`.
         :type offset: :samp:`None` or :obj:`int`
         :param offset: Offset of array data in buffer, i.e where array begins in buffer
            (in buffer bytes).
@@ -131,24 +129,9 @@ class slndarray(_np.ndarray):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :param gshape: **Global** shape of the array. If :samp:`None`
-           global array shape is taken as :samp:`{decomp}.shape`.
-        :type decomp: :obj:`mpi_array.distribution.Decomposition`
-        :param decomp: Array distribution info and used to allocate (possibly)
-           shared memory via :meth:`mpi_array.distribution.Decomposition.allocate_local_buffer`.
         """
 
-        if buffer is not None:
-            if not isinstance(buffer, memoryview):
-                raise ValueError(
-                    "Got buffer type=%s which is not an instance of %s"
-                    %
-                    (
-                        type(buffer),
-                        memoryview
-                    )
-                )
-        else:
+        if buffer is None:
             raise ValueError("Got buffer=None, require buffer allocated from LocaleComms.")
 
         self = \
