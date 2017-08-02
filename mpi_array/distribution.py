@@ -1089,6 +1089,7 @@ class BlockPartition(Distribution):
         self._rank_logger = None
         self._root_logger = None
         self._order = order
+        self._halo_updates_dict = None
 
         if self._num_locales > 1:
             shape_splitter = \
@@ -1137,98 +1138,21 @@ class BlockPartition(Distribution):
                 globale_extent,
                 halo,
                 cart_coord=self._cart_rank_to_cart_coord_map[inter_locale_rank],
-                cart_shape=self._dims
+                cart_shape=self._dims,
+                **kwargs
             )
 
-    def recalculate(self, new_shape, new_halo):
+    def calc_halo_updates(self):
         """
-        Recomputes distribution for :samp:`{new_shape}` and :samp:`{new_halo}`.
-
-        :type new_shape: sequence of :obj:`int`
-        :param new_shape: New partition calculated for this shape.
-        :type new_halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len{new_shape, 2))` array.
-        :param new_halo: New partition calculated for this shape.
         """
-        if self._locale_comms is None:
-            self._locale_comms = CartLocaleComms(ndims=len(new_shape))
-        elif (self._globale_extent is not None) and (self._globale_extent.ndim != len(new_shape)):
-            new_shape = _np.array(new_shape)
-            self._locale_comms = \
-                CartLocaleComms(
-                    rank_comm=self._locale_comms.rank_comm,
-                    intra_locale_comm=self._locale_comms.intra_locale_comm,
-                    inter_locale_comm=self._locale_comms.inter_locale_comm,
-                    ndims=len(new_shape)
-                )
-        self._halo = new_halo
-        self._globale_extent = GlobaleExtent(stop=new_shape)
-
-        shape_splitter = \
-            _array_split.ShapeSplitter(
-                array_shape=self._globale_extent.shape_n,
-                axis=self._locale_comms.dims,
-                halo=0
+        halo_updates_dict = dict()
+        for inter_locale_rank in range(len(self.locale_extents)):
+            halo_updates_dict[inter_locale_rank] = \
+                MpiHalosUpdate(
+                    inter_locale_rank,
+                    self.locale_extents
             )
-
-        self._halo = _convert_halo_to_array_form(halo=self._halo, ndim=len(self.shape))
-
-        self._shape_decomp = shape_splitter.calculate_split()
-
-        self._cart_rank_to_extents_dict = None
-        self._halo_updates_dict = None
-        self._lndarray_extent = None
-        if self.have_valid_cart_comm:
-            cart_dims = _np.array(self.cart_comm.dims)
-            self._cart_rank_to_extents_dict = dict()
-            self._halo_updates_dict = dict()
-            for cart_rank in range(0, self.cart_comm.size):
-                cart_coords = _np.array(self.cart_comm.Get_coords(cart_rank))
-                self._cart_rank_to_extents_dict[cart_rank] = \
-                    CartLocaleExtent(
-                        rank=self.rank_comm.rank,
-                        cart_rank=cart_rank,
-                        cart_coord=cart_coords,
-                        cart_shape=cart_dims,
-                        globale_extent=self._globale_extent,
-                        slice=self._shape_decomp[tuple(cart_coords)],
-                        halo=self._halo
-                    )  # noqa: E123
-            for cart_rank in range(0, self.cart_comm.size):
-                self._halo_updates_dict[cart_rank] = \
-                    MpiHalosUpdate(
-                        cart_rank,
-                        self._cart_rank_to_extents_dict
-                )
-            self._lndarray_extent = self._cart_rank_to_extents_dict[self.cart_comm.rank]
-        elif self.num_locales <= 1:
-            slice_tuple = tuple([slice(0, self.shape[i]) for i in range(self.ndim)])
-            self._lndarray_extent = \
-                    CartLocaleExtent(
-                        rank=0,
-                        cart_rank=0,
-                        cart_coord=[0, ] * self._globale_extent.ndim,
-                        cart_shape=[1, ] * self._globale_extent.ndim,
-                        globale_extent=self._globale_extent,
-                        slice=slice_tuple,
-                        halo=self._halo
-                    )  # noqa: E123
-            self._cart_rank_to_extents_dict =\
-                {self._lndarray_extent.cart_rank: self._lndarray_extent}
-
-        self._lndarray_extent, self._cart_rank_to_extents_dict = \
-            self.intra_locale_comm.bcast(
-                (self._lndarray_extent, self._cart_rank_to_extents_dict), 0)
-
-        self._lndarray_view_slice_n = \
-            IndexingExtent(
-                start=self._lndarray_extent.halo[:, self.LO],
-                stop=self._lndarray_extent.halo[:, self.LO] + self._lndarray_extent.shape_n
-            ).to_slice()
-
-        self.calculate_rank_view_slices()
-
-    def get_updates_for_cart_rank(self, cart_rank):
-        return self._halo_updates_dict[cart_rank]
+        return halo_updates_dict
 
     def __str__(self):
         """
@@ -1238,115 +1162,12 @@ class BlockPartition(Distribution):
         return ", ".join(s)
 
     @property
-    def shape_decomp(self):
+    def halo_updates(self):
         """
-        The partition of :samp:`self.shape` over memory nodes.
         """
-        return self._shape_decomp
-
-    @property
-    def intra_locale_comm(self):
-        """
-        See :attr:`CartLocaleComms.intra_locale_comm`.
-        """
-        return self._locale_comms.intra_locale_comm
-
-    @property
-    def cart_comm(self):
-        """
-        See :attr:`CartLocaleComms.cart_comm`.
-        """
-        return self._locale_comms.cart_comm
-
-    @property
-    def inter_locale_comm(self):
-        """
-        See :attr:`cart_comm`.
-        """
-        return self.cart_comm
-
-    @property
-    def cart_win(self):
-        """
-        Window for RMA updates.
-        """
-        return self._cart_win
-
-    @property
-    def inter_locale_win(self):
-        """
-        See :attr:`cart_win`.
-        """
-        return self.cart_win
-
-    @property
-    def have_valid_cart_comm(self):
-        """
-        See :attr:`CartLocaleComms.have_valid_cart_comm`.
-        """
-        return self._locale_comms.have_valid_cart_comm
-
-    @property
-    def have_valid_inter_locale_comm(self):
-        """
-        See :attr:`have_valid_cart_comm`.
-        """
-        return self.have_valid_cart_comm
-
-    @property
-    def rank_comm(self):
-        """
-        See :attr:`CartLocaleComms.rank_comm`.
-        """
-        return self._locale_comms.rank_comm
-
-    @property
-    def rank_view_slice_n(self):
-        """
-        A :obj:`tuple` of :obj:`slice` indicating the tile (no halo)
-        associated with this MPI process (i.e. rank :samp:`self.rank_comm.rank`).
-        """
-        return self._rank_view_slice_n
-
-    @property
-    def rank_view_slice_h(self):
-        """
-        A :obj:`tuple` of :obj:`slice` indicating the tile (including halo)
-        associated with this MPI process (i.e. rank :samp:`self.rank_comm.rank`).
-        """
-        return self._rank_view_slice_h
-
-    @property
-    def rank_view_relative_slice_n(self):
-        """
-        A :obj:`tuple` of :obj:`slice` which can be used to *slice* (remove)
-        the halo from a halo rank view. For example::
-
-           import mpi_array.locale
-           lary = mpi_array.locale.zeros((10, 10, 100), dtype="float32")
-           _np.all(
-               lary.rank_view_h[lary.decomp.rank_view_relative_slice_n]
-               ==
-               lary.rank_view_n
-           )
-
-        """
-        return self._rank_view_relative_slice_n
-
-    @property
-    def lndarray_extent(self):
-        """
-        The extent of the locale array.
-        """
-        return self._lndarray_extent
-
-    @property
-    def lndarray_view_slice_n(self):
-        """
-        Indexing slice which can be used to generate a view of :obj:`mpi_array.locale.lndarray`
-        which has the halo removed.
-        """
-        return self._lndarray_view_slice_n
+        if (self._halo_updates_dict is None) and (self.num_locales > 1):
+            self._halo_updates_dict = self.calc_halo_updates()
+        return self._halo_updates_dict
 
     @property
     def rank_logger(self):
@@ -1374,23 +1195,22 @@ class BlockPartition(Distribution):
                 )
         return self._root_logger
 
-
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    # Set docstring for properties.
-    BlockPartition.num_locales.__doc__ = \
-        CartLocaleComms.num_locales.__doc__
-    BlockPartition.intra_locale_comm.__doc__ = CartLocaleComms.intra_locale_comm.__doc__
-    BlockPartition.cart_comm.__doc__ = CartLocaleComms.cart_comm.__doc__
-    BlockPartition.have_valid_cart_comm.__doc__ = \
-        CartLocaleComms.have_valid_cart_comm.__doc__
-    BlockPartition.rank_comm.__doc__ = CartLocaleComms.rank_comm.__doc__
-
+#: Hyper-block partition distribution type
 DT_BLOCK = "block"
+
+#: Hyper-slab partition distribution type
 DT_SLAB = "slab"
+
+#: List of value :samp:`distrib_type` values.
 _valid_distrib_types = [DT_BLOCK, DT_SLAB]
 
+#: Node (NUMA) locale type
 LT_NODE = "node"
+
+#: Single process locale type
 LT_PROCESS = "process"
+
+#: List of value :samp:`locale_type` values.
 _valid_locale_types = [LT_NODE, LT_PROCESS]
 
 CommsAndDistribution = \

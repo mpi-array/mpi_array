@@ -34,20 +34,120 @@ Factory Functions
 """
 
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
+
 import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import numpy as _np
-import mpi_array.locale as _locale
-from mpi_array.distribution import create_distribution
-from mpi_array.update import UpdatesForRedistribute as _UpdatesForRedistribute
+
+from .license import license as _license, copyright as _copyright
+from . import locale as _locale
+from .distribution import create_distribution
+from .update import UpdatesForRedistribute as _UpdatesForRedistribute
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
 
+class CommLogger:
+    
+    """
+    """
+    
+    def __init__(self, rank_logger=None, root_logger=None):
+        self._rank_logger = None
+        self._root_logger = None
+    
+    @property
+    def rank_logger(self):
+        return self._rank_logger
+    
+    @rank_logger.setter
+    def rank_logger(self, logger):
+        self._rank_logger = logger
 
+    @property
+    def root_logger(self):
+        return self._root_logger
+    
+    @root_logger.setter
+    def root_logger(self, logger):
+        self._root_logger = logger
+
+
+class PerAxisRmaHaloUpdater(CommLogger):
+
+    """
+    Helper class for performing halo data transfer using RMA via MPI windows.
+    """
+
+    def __init__(self, dtype, order, inter_locale_win, dst_buffer):
+        """
+        """
+        CommLogger.__init__(self)
+        self._dtype = dtype
+        self._order = order
+        self._inter_locale_win = inter_locale_win
+        self._dst_buffer = dst_buffer
+    
+    @property
+    def dtype(self):
+        return self._dtype
+
+    @property
+    def order(self):
+        return self._order
+
+    def update_halos(self, halo_updates):
+        """
+        """
+        if halo_updates is not None:
+            # Get the halo updates for this rank
+            rank_inter_locale_updates = halo_updates[self._inter_locale_win.group.rank]
+            # Get the updates separated into per-axis (hyper-slab) updates
+            rank_updates_per_axis = rank_inter_locale_updates.updates_per_axis
+
+            # rank_updates_per_axis is None, on *all* inter_locale_win.group ranks,
+            # when there are no halos on any axis.
+            if rank_updates_per_axis is not None:
+                for a in range(len(rank_updates_per_axis)):
+                    lo_hi_updates_pair = rank_updates_per_axis[a]
+
+                    # When axis doesn't have a halo then lo_hi_updates_pair
+                    # is None on all cart_comm ranks, and we avoid calling the Fence
+                    # in this case
+                    if lo_hi_updates_pair is not None:
+                        axis_inter_locale_rank_updates = \
+                            lo_hi_updates_pair[rank_inter_locale_updates.LO] + \
+                            lo_hi_updates_pair[rank_inter_locale_updates.HI]
+                        self.rank_logger.debug(
+                            "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
+                        )
+                        self._inter_locale_win.Fence(
+                            _mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                        for single_update in axis_inter_locale_rank_updates:
+                            single_update.initialise_data_types(self.dtype, self.order)
+                            self.rank_logger.debug(
+                                "BEG: Getting update:\n%s\n%s",
+                                single_update._header_str,
+                                single_update
+                            )
+                            self._inter_locale_win.Get(
+                                [self._dst_buffer, 1, single_update.dst_data_type],
+                                single_update.src_extent.cart_rank,
+                                [0, 1, single_update.src_data_type]
+                            )
+                            self.rank_logger.debug(
+                                "END: Getting update:\n%s\n%s",
+                                single_update._header_str,
+                                single_update
+                            )
+                        self._inter_locale_win.Fence(_mpi.MODE_NOSUCCEED)
+                        self.rank_logger.debug(
+                            "END: Fence(_mpi.MODE_NOSUCCEED)."
+                        )
+
+        
 class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
 
     """
@@ -163,6 +263,7 @@ class gndarray(object):
         self._comms_and_distrib = comms_and_distrib
         self._rma_window_buffer = rma_window_buffer
         self._lndarray = lndarray
+        self._halo_updater = None
 
         return self
 
@@ -242,62 +343,42 @@ class gndarray(object):
         """
         return self._comms_and_distrib.locale_comms.root_logger
 
+    @property
+    def halo_updater(self):
+        if self._halo_updater is None:
+            self._halo_updater = \
+                PerAxisRmaHaloUpdater(
+                    dtype=self.dtype,
+                    order=self.order,
+                    inter_locale_win=self.rma_window_buffer.inter_locale_win,
+                    dst_buffer=self.lndarray.slndarray
+                )
+            self._halo_updater.rank_logger = self.rank_logger
+            self._halo_updater.root_logger = self.root_logger
+
+        return self._halo_updater
+
     def update(self):
         """
         """
         # If running on single locale then there are no halos to update.
         if self.comms_and_distrib.locale_comms.num_locales > 1:
             rank_logger = self.comms_and_distrib.locale_comms.rank_logger
-            # Only do comms between the ranks
+            # Only communicate data between the ranks
             # of self.comms_and_distrib.locale_comms.inter_locale_comm
-            if self.comms_and_distrib.locale_comms.have_valid_cart_comm:
-
-                inter_locale_rank_updates = \
-                    self.comms_and_distrib.distribution.get_updates_for_cart_rank(
-                        self.comms_and_distrib.locale_comm.inter_locale_comm.rank
-                    )
-                per_axis_cart_rank_updates = inter_locale_rank_updates.updates_per_axis
-
-                # per_axis_cart_rank_updates is None on all cart_comm ranks only
-                # if there are no halos on any axis.
-                comm_windows = self.rma_window_buffer
-                if per_axis_cart_rank_updates is not None:
-                    for a in range(self.comms_and_distrib.ndim):
-                        lo_hi_updates_pair = per_axis_cart_rank_updates[a]
-
-                        # When axis a doesn't have a halo, then lo_hi_updates_pair
-                        # is None on all cart_comm ranks, and we avoid calling the Fence
-                        # in this case
-                        if lo_hi_updates_pair is not None:
-                            axis_cart_rank_updates = \
-                                lo_hi_updates_pair[self.comms_and_distrib.LO] + \
-                                lo_hi_updates_pair[self.comms_and_distrib.HI]
-                            rank_logger.debug(
-                                "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
-                            )
-                            comm_windows.inter_locale_win.Fence(
-                                _mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
-                            for single_update in axis_cart_rank_updates:
-                                single_update.initialise_data_types(self.dtype, self.order)
-                                rank_logger.debug(
-                                    "BEG: Getting update:\n%s\n%s",
-                                    single_update._header_str,
-                                    single_update
-                                )
-                                comm_windows.inter_locale_win.Get(
-                                    [self.lndarray.slndarray, 1, single_update.dst_data_type],
-                                    single_update.src_extent.cart_rank,
-                                    [0, 1, single_update.src_data_type]
-                                )
-                                rank_logger.debug(
-                                    "END: Getting update:\n%s\n%s",
-                                    single_update._header_str,
-                                    single_update
-                                )
-                            comm_windows.inter_locale_win.Fence(_mpi.MODE_NOSUCCEED)
-                            rank_logger.debug(
-                                "END: Fence(_mpi.MODE_NOSUCCEED)."
-                            )
+            if (
+                self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm
+#                and
+#                hasattr(self.comms_and_distrib.distribution, "halo_updates")
+            ):
+                rank_logger.debug(
+                    "BEG: update_halos..."
+                )
+                halo_updates = self.comms_and_distrib.distribution.halo_updates
+                self.halo_updater.update_halos(halo_updates)
+                rank_logger.debug(
+                    "END: update_halos."
+                )
 
             # All ranks on locale wait for halo update to complete
             rank_logger.debug(

@@ -468,20 +468,20 @@ class HalosUpdate(object):
     #: The "high index" indices.
     HI = HaloIndexingExtent.HI
 
-    def __init__(self, dst_rank, rank_to_extents_dict):
+    def __init__(self, dst_rank, rank_to_extents_map):
         """
         Construct.
 
         :type dst_rank: :obj:`int`
         :param dst_rank: The MPI rank (:samp:`cart_comm`) of the MPI
            process which is to receive the halo updates.
-        :type rank_to_extents_dict: :obj:`dict`
-        :param rank_to_extents_dict: Dictionary of :samp:`(r, extent)`
+        :type rank_to_extents_map: :obj:`dict`
+        :param rank_to_extents_map: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
            is a :obj:`CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
         """
-        self.initialise(dst_rank, rank_to_extents_dict)
+        self.initialise(dst_rank, rank_to_extents_map)
 
     def create_single_extent_update(self, dst_extent, src_extent, halo_extent):
         """
@@ -539,7 +539,7 @@ class HalosUpdate(object):
         """
         return [extent, ]
 
-    def initialise(self, dst_rank, rank_to_extents_dict):
+    def initialise(self, dst_rank, rank_to_extents_map):
         """
         Calculates the ranks and regions required to update the
         halo regions of the :samp:`dst_rank` MPI rank.
@@ -547,19 +547,23 @@ class HalosUpdate(object):
         :type dst_rank: :obj:`int`
         :param dst_rank: The MPI rank (:samp:`cart_comm`) of the MPI
            process which is to receive the halo updates.
-        :type rank_to_extents_dict: :obj:`dict`
-        :param rank_to_extents_dict: Dictionary of :samp:`(r, extent)`
+        :type rank_to_extents_map: :obj:`dict`
+        :param rank_to_extents_map: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
            is a :obj:`CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
         """
         self._dst_rank = dst_rank
-        self._dst_extent = rank_to_extents_dict[dst_rank]
+        self._dst_extent = rank_to_extents_map[dst_rank]
         self._updates = [[[], []]] * self._dst_extent.ndim
+        if hasattr(rank_to_extents_map, "keys"):
+            ranks = rank_to_extents_map.keys()
+        else:
+            ranks = range(0, len(rank_to_extents_map))
         cart_coord_to_extents_dict = \
             {
-                tuple(rank_to_extents_dict[r].cart_coord): rank_to_extents_dict[r]
-                for r in rank_to_extents_dict.keys()
+                tuple(rank_to_extents_map[r].cart_coord): rank_to_extents_map[r]
+                for r in ranks
             }
         for dir in [self.LO, self.HI]:
             for a in range(self._dst_extent.ndim):

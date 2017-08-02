@@ -89,7 +89,7 @@ class GndarrayTest(_unittest.TestCase):
         gary[...] = 19
         gary[:] = 101
 
-    def do_not_test_update(self):
+    def test_update(self):
         """
         Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D distribution.
         """
@@ -124,7 +124,7 @@ class GndarrayTest(_unittest.TestCase):
                 gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int32")
                 self.assertEqual(_np.dtype("int32"), gary.dtype)
 
-                if gary.locale_comms.have_valid_cart_comm:
+                if gary.locale_comms.have_valid_inter_locale_comm:
                     cart_rank_val = gary.locale_comms.cart_comm.rank + 1
                     gary.lndarray.view_h[...] = 0
                     gary.lndarray.view_n[...] = cart_rank_val
@@ -132,7 +132,11 @@ class GndarrayTest(_unittest.TestCase):
                     if gary.locale_comms.cart_comm.size > 1:
                         if gary.locale_comms.cart_comm.rank == 0:
                             self.assertTrue(_np.all(gary.lndarray[-halo:] == 0))
-                        elif gary.decomp.cart_comm.rank == (gary.locale_comms.cart_comm.size - 1):
+                        elif (
+                            gary.locale_comms.inter_locale_comm.rank
+                            ==
+                            (gary.locale_comms.inter_locale_comm.size - 1)
+                        ):
                             self.assertTrue(_np.all(gary.lndarray[0:halo] == 0))
                         else:
                             self.assertTrue(_np.all(gary.lndarray[0:halo] == 0))
@@ -140,7 +144,7 @@ class GndarrayTest(_unittest.TestCase):
 
                 gary.update()
 
-                if gary.locale_comms.have_valid_cart_comm:
+                if gary.locale_comms.have_valid_inter_locale_comm:
 
                     self.assertTrue(_np.all(gary.lndarray.view_n[...] == cart_rank_val))
 
