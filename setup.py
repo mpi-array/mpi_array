@@ -26,7 +26,7 @@ def read_readme():
 
 def create_git_describe():
     try:
-        cmd = ["/usr/bin/env", "git", "describe"]
+        cmd = ["git", "describe"]
         p = \
             subprocess.Popen(
                 cmd,
@@ -44,11 +44,11 @@ def create_git_describe():
 
             raise e
         # Write the git describe to text file
-        open("mpi_array/git_describe.txt", "wt").write(p.communicate()[0].decode())
+        open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(p.communicate()[0].decode())
     except (Exception,) as e:
         # Try and make up a git-describe like string.
         print("Problem with '%s': %s: %s" % (" ".join(cmd), e, e.output))
-        version_str = open("mpi_array/version.txt", "rt").read().strip()
+        version_str = open(os.path.join("mpi_array", "version.txt"), "rt").read().strip()
         if ("TRAVIS_TAG" in os.environ.keys()) and (len(os.environ["TRAVIS_TAG"]) > 0):
             version_str = os.environ["TRAVIS_TAG"]
         else:
@@ -57,23 +57,46 @@ def create_git_describe():
             if ("TRAVIS_COMMIT" in os.environ.keys()) and (len(os.environ["TRAVIS_COMMIT"]) > 0):
                 version_str += "-" + \
                     os.environ["TRAVIS_COMMIT"][0:min([7, len(os.environ["TRAVIS_COMMIT"])])]
-        open("mpi_array/git_describe.txt", "wt").write(version_str)
+        open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(version_str)
 
 create_git_describe()
 
 _long_description = read_readme()
 
-mpi4py_dependency = ["mpi4py>=2.0", ]
-mock_dependency = []
+mpi4py_requires = ["mpi4py>=2.0", ]
+mock_requires = []
 
 if "READTHEDOCS" in os.environ.keys():
     # Skip mpi4py dependency, can't install an MPI implementation
     # in readthedocs.org virtual machine.
-    mpi4py_dependency = []
+    mpi4py_requires = []
     if sys.version_info < (3,3,0):
-        mock_dependency = ["mock"]
+        mock_requires = ["mock"]
 
-other_dependencies = mpi4py_dependency + mock_dependency
+other_requires = mpi4py_requires + mock_requires
+
+sphinx_requires = []
+
+# Only require sphinx for CI and readthedocs.org. 
+if (
+    (os.environ.get('READTHEDOCS', None) is not None)
+    or
+    (os.environ.get('CI', None) is not None)
+    or
+    (os.environ.get('TRAVIS', None) is not None)
+    or
+    (os.environ.get('APPVEYOR', None) is not None)
+):
+    sphinx_requires = ["sphinx>=1.4,<1.6", "sphinx_rtd_theme", ]
+
+if (
+    (int(sys.version_info[0]) < 2)
+    or
+    ((int(sys.version_info[0]) == 2) and (int(sys.version_info[1]) <= 6))
+    or
+    ((int(sys.version_info[0]) == 3) and (int(sys.version_info[1]) <= 3))
+):
+    sphinx_requires = []
 
 setup(
     name="mpi_array",
@@ -83,7 +106,7 @@ setup(
     author="Shane J. Latham",
     author_email="mpi.array@gmail.com",
     description=(
-        "Python package providing distributed numpy-like multi-dimensional arrays."
+        "Python package providing PGAS multi-dimensional array with numpy-like API."
     ),
     long_description=_long_description,
     license="MIT",
@@ -118,15 +141,15 @@ setup(
         'Programming Language :: Python :: 3.4',
         'Programming Language :: Python :: 3.5',
         'Programming Language :: Python :: 3.6',
+        'Natural Language :: English',
     ],
     install_requires= \
         [
             "numpy>=1.6",
-            "array_split>=0.3.0",
-            "sphinx>=1.4,<1.6",
-            "sphinx_rtd_theme"
+            "array_split>=0.4.0",
         ]
-        + other_dependencies,
+        + sphinx_requires
+        + other_requires,
     package_data={
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]
     },
