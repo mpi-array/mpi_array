@@ -35,11 +35,10 @@ Factory Functions
 
 from __future__ import absolute_import
 
-import pkg_resources as _pkg_resources
 import mpi4py.MPI as _mpi
 import numpy as _np
 
-from .license import license as _license, copyright as _copyright
+from .license import license as _license, copyright as _copyright, version as _version
 from . import locale as _locale
 from .distribution import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
@@ -47,21 +46,22 @@ from .update import UpdatesForRedistribute as _UpdatesForRedistribute
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
+
 
 class CommLogger:
-    
+
     """
     """
-    
+
     def __init__(self, rank_logger=None, root_logger=None):
         self._rank_logger = None
         self._root_logger = None
-    
+
     @property
     def rank_logger(self):
         return self._rank_logger
-    
+
     @rank_logger.setter
     def rank_logger(self, logger):
         self._rank_logger = logger
@@ -69,7 +69,7 @@ class CommLogger:
     @property
     def root_logger(self):
         return self._root_logger
-    
+
     @root_logger.setter
     def root_logger(self, logger):
         self._root_logger = logger
@@ -89,7 +89,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
         self._order = order
         self._inter_locale_win = inter_locale_win
         self._dst_buffer = dst_buffer
-    
+
     @property
     def dtype(self):
         return self._dtype
@@ -147,7 +147,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
                             "END: Fence(_mpi.MODE_NOSUCCEED)."
                         )
 
-        
+
 class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
 
     """
@@ -368,8 +368,8 @@ class gndarray(object):
             # of self.comms_and_distrib.locale_comms.inter_locale_comm
             if (
                 self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm
-#                and
-#                hasattr(self.comms_and_distrib.distribution, "halo_updates")
+                #                and
+                #                hasattr(self.comms_and_distrib.distribution, "halo_updates")
             ):
                 rank_logger.debug(
                     "BEG: update_halos..."

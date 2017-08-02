@@ -52,20 +52,21 @@ Utilities
 """
 
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
-import pkg_resources as _pkg_resources
+
 import numpy as _np
-from mpi_array.distribution import create_distribution, LocaleExtent as _LocaleExtent
-from mpi_array.distribution import HaloSubExtent as _HaloSubExtent
-from mpi_array.distribution import IndexingExtent as _IndexingExtent
 import array_split as _array_split
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 import collections as _collections
 
+from .license import license as _license, copyright as _copyright, version as _version
+from .distribution import create_distribution, LocaleExtent as _LocaleExtent
+from .distribution import HaloSubExtent as _HaloSubExtent
+from .distribution import IndexingExtent as _IndexingExtent
+
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 class NdarrayMetaData(object):

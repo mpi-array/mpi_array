@@ -17,17 +17,18 @@ Classes and Functions
 
 """
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
-import pkg_resources as _pkg_resources
+
 import numpy as _np
 import copy as _copy
 import collections as _collections
 from array_split.split import convert_halo_to_array_form
 
+from .license import license as _license, copyright as _copyright, version as _version
+
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 class IndexingExtent(object):

@@ -11,19 +11,19 @@ Execute as::
 
 """
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
-import pkg_resources as _pkg_resources
+
 import unittest as _unittest
+import doctest as _doctest  # noqa: E402,F401
+import os.path
+
+from .license import license as _license, copyright as _copyright, version as _version
 from .unittest import main as _unittest_main
 from . import logging as _logging
-import doctest as _doctest  # noqa: E402,F401
-
-import os.path
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 class DocTestTestSuite(_unittest.TestSuite):

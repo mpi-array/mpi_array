@@ -10,6 +10,17 @@ __license__ = (
     _pkg_resources.resource_string("mpi_array", "license.txt").decode()
 )
 __author__ = "Shane J. Latham"
+__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode().strip()
+
+
+def version():
+    """
+    Returns :mod:`mpi_array` version string.
+
+    :rtype: :obj:`str`
+    :return: Version string.
+    """
+    return __version__
 
 
 def license():
@@ -56,8 +67,9 @@ Functions
 .. autosummary::
    :toctree: generated/
 
-   license - Function which returns :mod:`mpi_array` license string.
-   copyright - Function which returns :mod:`mpi_array` copyright string.
+   version - Returns :mod:`mpi_array` version string.
+   license - Returns :mod:`mpi_array` license string.
+   copyright - Returns :mod:`mpi_array` copyright string.
 
 
 """ % (license(), copyright())

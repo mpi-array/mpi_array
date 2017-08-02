@@ -36,29 +36,26 @@ Factory Functions
 
 """
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
+from .license import license as _license, copyright as _copyright, version as _version
 
-import pkg_resources as _pkg_resources
-
-import sys as _sys
 import mpi4py.MPI as _mpi
+import numpy as _np
+import copy as _copy
+import collections as _collections
 
 import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 
-import mpi_array.logging as _logging
-from mpi_array.indexing import IndexingExtent, HaloIndexingExtent
-from mpi_array.update import MpiHalosUpdate
+from . import logging as _logging
+from .indexing import IndexingExtent, HaloIndexingExtent
+from .update import MpiHalosUpdate
 
-import numpy as _np
-import copy as _copy
-import collections as _collections
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 def mpi_version():
@@ -1194,6 +1191,7 @@ class BlockPartition(Distribution):
                     comm=self.rank_comm
                 )
         return self._root_logger
+
 
 #: Hyper-block partition distribution type
 DT_BLOCK = "block"

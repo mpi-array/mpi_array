@@ -20,23 +20,20 @@ Classes and Functions
 
 """
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
-
-import pkg_resources as _pkg_resources
 
 import mpi4py.MPI as _mpi
-
-from mpi_array.indexing import HaloIndexingExtent
-from mpi_array.indexing import calc_intersection_split as _calc_intersection_split
-
 import collections as _collections
-
 import numpy as _np
+
+from .license import license as _license, copyright as _copyright, version as _version
+from .indexing import HaloIndexingExtent
+from .indexing import calc_intersection_split as _calc_intersection_split
+
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 class ExtentUpdate(object):

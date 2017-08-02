@@ -23,13 +23,12 @@ Attributes
 """
 from __future__ import absolute_import  # noqa: E402,F401
 from . import rtd as _rtd  # noqa: E402,F401
-from .license import license as _license, copyright as _copyright
-import pkg_resources as _pkg_resources
+from .license import license as _license, copyright as _copyright, version as _version
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version
 
 from .globale import gndarray, copy, empty, empty_like  # noqa: E402,F401
 from .globale import ones, ones_like, zeros, zeros_like  # noqa: E402,F401

@@ -22,7 +22,6 @@ Attributes
 
 """
 from __future__ import absolute_import
-import pkg_resources as _pkg_resources
 import os as _os
 
 #: List of module names
@@ -58,11 +57,12 @@ if "READTHEDOCS" in _os.environ.keys():
     initialise_mock_modules(MOCK_MODULES)
 
 from .license import license as _license, copyright as _copyright  # noqa: E402,F401
+from .license import version as _version  # noqa: E402,F401
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode()
+__version__ = _version()
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

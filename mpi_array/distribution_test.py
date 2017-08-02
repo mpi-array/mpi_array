@@ -24,22 +24,24 @@ Classes
 
 """
 from __future__ import absolute_import
-from .license import license as _license, copyright as _copyright
-import mpi_array.unittest as _unittest
-import mpi_array.logging as _logging  # noqa: E402,F401
-import mpi_array as _mpi_array
 
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-from mpi_array.indexing import IndexingExtent
-from mpi_array.distribution import BlockPartition, CartLocaleComms, LocaleComms
-from mpi_array.distribution import CartLocaleExtent, GlobaleExtent
 import array_split as _array_split
+
+from .license import license as _license, copyright as _copyright, version as _version
+from . import unittest as _unittest
+from . import logging as _logging  # noqa: E402,F401
+
+from .indexing import IndexingExtent
+from .distribution import BlockPartition, CartLocaleComms, LocaleComms
+from .distribution import CartLocaleExtent, GlobaleExtent
+
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _mpi_array.__version__
+__version__ = _version()
 
 
 class CartLocaleExtentTest(_unittest.TestCase):
