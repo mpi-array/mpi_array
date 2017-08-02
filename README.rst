@@ -5,6 +5,7 @@
 
 .. Start of sphinx doc include.
 .. start long description.
+.. start badges.
 
 .. image:: https://travis-ci.org/mpi-array/mpi_array.svg?branch=dev
    :target: https://travis-ci.org/mpi-array/mpi_array
@@ -18,6 +19,8 @@
 .. image:: https://img.shields.io/github/license/mashape/apistatus.svg
    :target: https://github.com/mpi-array/mpi_array/blob/dev/LICENSE.txt
    :alt: MIT License
+
+.. end badges.
 
 The `mpi_array <http://mpi-array.readthedocs.io/en/latest>`_ python package provides
 a `numpy.ndarray <https://docs.scipy.org/doc/numpy/reference/arrays.ndarray.html>`_ API to a

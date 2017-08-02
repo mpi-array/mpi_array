@@ -1,4 +1,7 @@
 .. _mpi_array-about:
 
+Introduction
+============
+
 .. include:: ../../../README.rst
-   :start-after: .. Start of sphinx doc include.
+   :start-after: end badges.

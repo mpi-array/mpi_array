@@ -1,10 +1,14 @@
 :tocdepth: 3
 
-######################
-mpi_array documenation
-######################
+#######################
+mpi_array documentation
+#######################
 
 .. sectionauthor:: Shane J. Latham
+
+.. include:: ../../README.rst
+   :start-after: start badges.
+   :end-before: end badges.
 
 :Release: |release|
 :Version: |version|
