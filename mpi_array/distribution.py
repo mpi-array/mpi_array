@@ -156,22 +156,61 @@ class LocaleComms(object):
                 comm=self._rank_comm
             )
 
-    @property
-    def inter_locale_rank_to_rank_map(self):
+    def alloc_locale_buffer(self, shape, dtype):
         """
-        """
-        return \
-            _mpi.Group.Translate_ranks(
-                self.inter_locale_comm.group,
-                range(0, self.inter_locale_comm.group),
-                self.rank_comm.group
-            )
+        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
+        provides storage for the elements of the locale multi-dimensional array.
 
-    @property
-    def this_locale_rank_info(self):
+        :rtype: :obj:`RmaWindowBuffer`
+        :returns: A :obj:`collections.namedtuple` containing allocated buffer
+           and associated RMA MPI windows.
         """
-        """
-        return ThisLocaleInfo(self.inter_locale_comm.rank, self.rank_comm.rank)
+        self.rank_logger.debug("BEG: alloc_locale_buffer")
+        num_rank_bytes = 0
+        dtype = _np.dtype(dtype)
+        rank_shape = shape
+        if self.intra_locale_comm.rank == 0:
+            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+        if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
+            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+            intra_locale_win = \
+                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
+                                         comm=self.intra_locale_comm)
+            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+            buffer, itemsize = intra_locale_win.Shared_query(0)
+            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
+            rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Create for self.rank_comm")
+        else:
+            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            rank_win = \
+                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
+            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            intra_locale_win = rank_win
+            buffer = rank_win.memory
+            itemsize = dtype.itemsize
+
+        inter_locale_win = None
+        if self.num_locales > 1:
+            inter_locale_win = _mpi.WIN_NULL
+            if self.have_valid_inter_locale_comm:
+                self.rank_logger.debug("BEG: Win.Create for self.inter_locale_comm")
+                inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.inter_locale_comm)
+                self.rank_logger.debug("END: Win.Create for self.inter_locale_comm")
+
+        buffer = _np.array(buffer, dtype='B', copy=False)
+
+        self.rank_logger.debug("END: alloc_local_buffer")
+        return \
+            RmaWindowBuffer(
+                buffer=buffer,
+                shape=rank_shape,
+                dtype=dtype,
+                itemsize=itemsize,
+                rank_win=rank_win,
+                intra_locale_win=intra_locale_win,
+                inter_locale_win=inter_locale_win
+            )
 
     @property
     def num_locales(self):
@@ -210,6 +249,53 @@ class LocaleComms(object):
         self._inter_locale_comm = inter_locale_comm
 
     @property
+    def have_valid_inter_locale_comm(self):
+        """
+        Is :samp:`True` if this rank has :samp:`{self}.inter_locale_comm`
+        which is not :samp:`None` and is not :obj:`mpi4py.MPI.COMM_NULL`.
+        """
+        return \
+            (
+                (self.inter_locale_comm is not None)
+                and
+                (self.inter_locale_comm != _mpi.COMM_NULL)
+            )
+
+    @property
+    def inter_locale_rank_to_rank_map(self):
+        """
+        Returns sequence, :samp:`m` say, of :obj:`int`
+        where :samp:`m[inter_r]` is the rank of :samp:`self.rank_comm`
+        corresponding to rank :samp:`inter_r` of :samp:`self.inter_locale_comm`.
+
+        :rtype: :samp:`None` or sequence of :obj:`int`
+        :return: Sequence of length :samp:`self.inter_locale_comm.size` on
+           ranks for which :samp:`self.have_valid_inter_locale_comm is True`, :samp:`None`
+           otherwise.
+        """
+        m = None
+        if self.have_valid_inter_locale_comm:
+            m = \
+                _mpi.Group.Translate_ranks(
+                    self.inter_locale_comm.group,
+                    range(0, self.inter_locale_comm.group.size),
+                    self.rank_comm.group
+                )
+        return m
+
+    @property
+    def this_locale_rank_info(self):
+        """
+        """
+        if self.have_valid_inter_locale_comm:
+            i = ThisLocaleInfo(self.inter_locale_comm.rank, self.rank_comm.rank)
+        elif self.inter_locale_comm is None:
+            i = ThisLocaleInfo(0, 0)
+        else:
+            i = _mpi.UNDEFINED
+        return i
+
+    @property
     def rank_logger(self):
         """
         A :attr:`rank_comm` :obj:`logging.Logger`.
@@ -239,7 +325,7 @@ RmaWindowBuffer = \
     )
 
 
-class CartLocaleComms(object):
+class CartLocaleComms(LocaleComms):
 
     """
     Defines cartesian communication topology for locales.
@@ -282,7 +368,13 @@ class CartLocaleComms(object):
         :param cart_comm: Cartesian topology inter-locale communicator used to exchange
             data between different locales.
         """
-        object.__init__(self)
+        LocaleComms.__init__(
+            self,
+            comm=rank_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
+
         # No implementation for periodic boundaries yet
         periods = None
         if (ndims is None) and (dims is None):
@@ -298,15 +390,6 @@ class CartLocaleComms(object):
             dims = _np.zeros((ndims,), dtype="int")
         if periods is None:
             periods = _np.zeros((ndims,), dtype="bool")
-        if rank_comm is None:
-            rank_comm = _mpi.COMM_WORLD
-
-        self._locale_comms = \
-            LocaleComms(
-                comm=rank_comm,
-                intra_locale_comm=intra_locale_comm,
-                inter_locale_comm=inter_locale_comm
-            )
 
         self._cart_comm = cart_comm
         rank_logger = \
@@ -319,7 +402,10 @@ class CartLocaleComms(object):
             )
 
         # Create a cartesian grid communicator
-        inter_locale_comm = self._locale_comms._inter_locale_comm
+        # NB: use of self._inter_locale_comm (not self.inter_locale_comm)
+        # important here because self.inter_locale_comm us over-ridden to
+        # return self._cart_comm.
+        inter_locale_comm = self._inter_locale_comm
         if self.num_locales > 1:
             if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
                 rank_logger.debug("BEG: inter_locale_comm.Create to create cart_comm.")
@@ -345,65 +431,9 @@ class CartLocaleComms(object):
             self._cart_comm = cart_comm
         elif (cart_comm is not None) and (cart_comm != _mpi.COMM_NULL):
             raise ValueError(
-                "Got object cart_comm=%s when self.num_locales <= 1, should be None"
+                "Got object cart_comm=%s when self.num_locales <= 1, cart_comm should be None"
                 %
                 (cart_comm, )
-            )
-
-    def alloc_locale_buffer(self, shape, dtype):
-        """
-        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
-        provides storage for the elements of the local (memory-node) multi-dimensional array.
-
-        :rtype: :obj:`RmaWindowBuffer`
-        :returns: A :obj:`collections.namedtuple` containing allocated buffer
-           and associated RMA MPI windows.
-        """
-        self.rank_logger.debug("BEG: alloc_locale_buffer")
-        num_rank_bytes = 0
-        dtype = _np.dtype(dtype)
-        rank_shape = shape
-        if self.intra_locale_comm.rank == 0:
-            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
-        if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
-            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
-            intra_locale_win = \
-                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
-                                         comm=self.intra_locale_comm)
-            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
-            buffer, itemsize = intra_locale_win.Shared_query(0)
-            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
-            rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
-            self.rank_logger.debug("END: Win.Create for self.rank_comm")
-        else:
-            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            rank_win = \
-                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
-            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            intra_locale_win = rank_win
-            buffer = rank_win.memory
-            itemsize = dtype.itemsize
-
-        inter_locale_win = None
-        if self.num_locales > 1:
-            inter_locale_win = _mpi.WIN_NULL
-            if self.have_valid_cart_comm:
-                self.rank_logger.debug("BEG: Win.Create for self.cart_comm")
-                inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.cart_comm)
-                self.rank_logger.debug("END: Win.Create for self.cart_comm")
-
-        buffer = _np.array(buffer, dtype='B', copy=False)
-
-        self.rank_logger.debug("END: alloc_local_buffer")
-        return \
-            RmaWindowBuffer(
-                buffer=buffer,
-                shape=rank_shape,
-                dtype=dtype,
-                itemsize=itemsize,
-                rank_win=rank_win,
-                intra_locale_win=intra_locale_win,
-                inter_locale_win=inter_locale_win
             )
 
     @property
@@ -420,30 +450,6 @@ class CartLocaleComms(object):
         elif self.cart_comm is None:
             d = None
         return d
-
-    @property
-    def inter_locale_rank_to_rank_map(self):
-        """
-        """
-        m = None
-        if self.have_valid_cart_comm:
-            m = \
-                _mpi.Group.Translate_ranks(
-                    self.cart_comm.group,
-                    range(0, self.cart_comm.group.size),
-                    self.rank_comm.group
-                )
-        return m
-
-    @property
-    def this_locale_rank_info(self):
-        """
-        """
-        if self.have_valid_cart_comm:
-            i = ThisLocaleInfo(self.cart_comm.rank, self.rank_comm.rank)
-        else:
-            i = ThisLocaleInfo(0, 0)
-        return i
 
     @property
     def dims(self):
@@ -474,16 +480,6 @@ class CartLocaleComms(object):
             )
 
     @property
-    def rank_comm(self):
-        """
-        A :obj:`mpi4py.MPI.Comm` communicator defining all processes in all
-        locales over which an  array is to be distributed
-        (i.e. all processes which have direct memory access
-        to some region, possibly empty, of array elements).
-        """
-        return self._locale_comms.rank_comm
-
-    @property
     def cart_comm(self):
         """
         A :obj:`mpi4py.MPI.CartComm` communicator defining a cartesian topology of
@@ -493,45 +489,11 @@ class CartLocaleComms(object):
         return self._cart_comm
 
     @property
-    def num_locales(self):
-        """
-        See :attr:`LocaleComms.num_locales`.
-        """
-        return self._locale_comms.num_locales
-
-    @property
-    def intra_locale_comm(self):
-        """
-        See :attr:`LocaleComms.intra_locale_comm`.
-        """
-        return self._locale_comms.intra_locale_comm
-
-    @property
     def inter_locale_comm(self):
         """
-        See :attr:`LocaleComms.inter_locale_comm`.
+        Overrides :attr:`LocaleComms.inter_locale_comm` to return :attr:`cart_comm`.
         """
-        return self._locale_comms._inter_locale_comm
-
-    @property
-    def rank_logger(self):
-        """
-        A :attr:`rank_comm` :obj:`logging.Logger`.
-        """
-        return self._locale_comms._rank_logger
-
-    @property
-    def root_logger(self):
-        """
-        A :attr:`rank_comm` :obj:`logging.Logger`.
-        """
-        return self._locale_comms._root_logger
-
-
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    # Set docstring for properties.
-    CartLocaleComms.num_locales.__doc__ = LocaleComms.num_locales.__doc__
-    CartLocaleComms.intra_locale_comm.__doc__ = LocaleComms.intra_locale_comm.__doc__
+        return self.cart_comm
 
 
 class GlobaleExtent(HaloIndexingExtent):
