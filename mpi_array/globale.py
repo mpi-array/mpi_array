@@ -13,6 +13,7 @@ Classes
    :toctree: generated/
 
    gndarray - A :obj:`numpy.ndarray` like distributed array.
+   PerAxisRmaHaloUpdater - Helper class for performing ghost element updates.
    GndarrayRedistributeUpdater - Helper class for redistributing elements between distributions.
 
 Factory Functions
@@ -42,6 +43,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import locale as _locale
 from .distribution import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
+from .update import MpiHalosUpdate as _MpiHalosUpdate
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -81,14 +83,22 @@ class PerAxisRmaHaloUpdater(CommLogger):
     Helper class for performing halo data transfer using RMA via MPI windows.
     """
 
-    def __init__(self, dtype, order, inter_locale_win, dst_buffer):
+    def __init__(self, locale_extents, dtype, order, inter_locale_win, dst_buffer):
         """
         """
         CommLogger.__init__(self)
+        self._locale_extents = locale_extents
         self._dtype = dtype
         self._order = order
         self._inter_locale_win = inter_locale_win
         self._dst_buffer = dst_buffer
+        self._halo_updates = None
+
+    @property
+    def locale_extents(self):
+        """
+        """
+        return self._locale_extents
 
     @property
     def dtype(self):
@@ -98,7 +108,31 @@ class PerAxisRmaHaloUpdater(CommLogger):
     def order(self):
         return self._order
 
-    def update_halos(self, halo_updates):
+    def calc_halo_updates(self):
+        """
+        """
+        halo_updates_dict = dict()
+        for inter_locale_rank in range(len(self.locale_extents)):
+            halo_updates_dict[inter_locale_rank] = \
+                _MpiHalosUpdate(
+                    inter_locale_rank,
+                    self.locale_extents
+                )
+        return halo_updates_dict
+
+    @property
+    def halo_updates(self):
+        if self._halo_updates is None:
+            self._halo_updates = self.calc_halo_updates()
+
+        return self._halo_updates
+
+    def update_halos(self):
+        """
+        """
+        self.do_update_halos(self.halo_updates)
+
+    def do_update_halos(self, halo_updates):
         """
         """
         if halo_updates is not None:
@@ -343,11 +377,24 @@ class gndarray(object):
         """
         return self._comms_and_distrib.locale_comms.root_logger
 
+    def intra_locale_barrier(self):
+        """
+        """
+        self.rank_logger.debug(
+            "BEG: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()..."
+        )
+        self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()
+        self.rank_logger.debug(
+            "END: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()."
+        )
+
+
     @property
     def halo_updater(self):
         if self._halo_updater is None:
             self._halo_updater = \
                 PerAxisRmaHaloUpdater(
+                    locale_extents=self.distribution.locale_extents,
                     dtype=self.dtype,
                     order=self.order,
                     inter_locale_win=self.rma_window_buffer.inter_locale_win,
@@ -368,26 +415,15 @@ class gndarray(object):
             # of self.comms_and_distrib.locale_comms.inter_locale_comm
             if (
                 self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm
-                #                and
-                #                hasattr(self.comms_and_distrib.distribution, "halo_updates")
             ):
                 rank_logger.debug(
                     "BEG: update_halos..."
                 )
-                halo_updates = self.comms_and_distrib.distribution.halo_updates
-                self.halo_updater.update_halos(halo_updates)
+                self.halo_updater.update_halos()
                 rank_logger.debug(
                     "END: update_halos."
                 )
-
-            # All ranks on locale wait for halo update to complete
-            rank_logger.debug(
-                "BEG: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()..."
-            )
-            self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()
-            rank_logger.debug(
-                "END: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()."
-            )
+            self.intra_locale_barrier()
 
     def calculate_copyfrom_updates(self, src):
         return \
@@ -434,10 +470,7 @@ class gndarray(object):
         :param value: All non-ghost elements will be assigned this value.
         """
         self.lndarray.fill(value)
-
-        self.locale_comms.rank_logger.debug("BEG: self.locale_comms.intra_locale_comm...")
-        self.locale_comms.intra_locale_comm.barrier()
-        self.locale_comms.rank_logger.debug("END: self.locale_comms.intra_locale_comm.")
+        self.intra_locale_barrier()
 
     def fill_h(self, value):
         """
@@ -447,18 +480,12 @@ class gndarray(object):
         :param value: All elements will be assigned this value.
         """
         self.lndarray.fill_h(value)
-
-        self.locale_comms.rank_logger.debug("BEG: self.locale_comms.intra_locale_comm...")
-        self.locale_comms.intra_locale_comm.barrier()
-        self.locale_comms.rank_logger.debug("END: self.locale_comms.intra_locale_comm.")
+        self.intra_locale_barrier()
 
     def copy(self):
         ary_out = empty_like(self)
         ary_out.lndarray.rank_view_partition_h[...] = self.lndarray.rank_view_partition_h[...]
-
-        ary_out.locale_comms.rank_logger.debug("BEG: ary_out.locale_comms.intra_locale_comm...")
-        ary_out.locale_comms.intra_locale_comm.barrier()
-        ary_out.locale_comms.rank_logger.debug("END: ary_out.locale_comms.intra_locale_comm.")
+        self.intra_locale_barrier()
 
         return ary_out
 

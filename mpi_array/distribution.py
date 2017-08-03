@@ -1139,32 +1139,12 @@ class BlockPartition(Distribution):
                 **kwargs
             )
 
-    def calc_halo_updates(self):
-        """
-        """
-        halo_updates_dict = dict()
-        for inter_locale_rank in range(len(self.locale_extents)):
-            halo_updates_dict[inter_locale_rank] = \
-                MpiHalosUpdate(
-                    inter_locale_rank,
-                    self.locale_extents
-            )
-        return halo_updates_dict
-
     def __str__(self):
         """
         Stringify.
         """
         s = [str(le) for le in self.locale_extents]
         return ", ".join(s)
-
-    @property
-    def halo_updates(self):
-        """
-        """
-        if (self._halo_updates_dict is None) and (self.num_locales > 1):
-            self._halo_updates_dict = self.calc_halo_updates()
-        return self._halo_updates_dict
 
     @property
     def rank_logger(self):
