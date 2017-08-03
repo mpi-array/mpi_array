@@ -49,7 +49,6 @@ from array_split.split import convert_halo_to_array_form as _convert_halo_to_arr
 
 from . import logging as _logging
 from .indexing import IndexingExtent, HaloIndexingExtent
-from .update import MpiHalosUpdate
 
 
 __author__ = "Shane J. Latham"

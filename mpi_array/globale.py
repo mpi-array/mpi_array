@@ -44,6 +44,7 @@ from . import locale as _locale
 from .distribution import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
 from .update import MpiHalosUpdate as _MpiHalosUpdate
+from .indexing import HaloIndexingExtent as _HaloIndexingExtent
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -82,6 +83,11 @@ class PerAxisRmaHaloUpdater(CommLogger):
     """
     Helper class for performing halo data transfer using RMA via MPI windows.
     """
+    #: Halo "low index" indices.
+    LO = _HaloIndexingExtent.LO
+
+    #: Halo "high index" indices.
+    HI = _HaloIndexingExtent.HI
 
     def __init__(self, locale_extents, dtype, order, inter_locale_win, dst_buffer):
         """
@@ -93,6 +99,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
         self._inter_locale_win = inter_locale_win
         self._dst_buffer = dst_buffer
         self._halo_updates = None
+        self._have_axis_updates = None
 
     @property
     def locale_extents(self):
@@ -112,18 +119,47 @@ class PerAxisRmaHaloUpdater(CommLogger):
         """
         """
         halo_updates_dict = dict()
+        ndim = self.locale_extents[0].ndim
+        have_axis_updates = _np.zeros((ndim, ), dtype="bool")
         for inter_locale_rank in range(len(self.locale_extents)):
-            halo_updates_dict[inter_locale_rank] = \
+            rank_inter_locale_updates = \
                 _MpiHalosUpdate(
                     inter_locale_rank,
                     self.locale_extents
                 )
-        return halo_updates_dict
+            halo_updates_dict[inter_locale_rank] = rank_inter_locale_updates
+            have_axis_updates = \
+                _np.logical_or(
+                    have_axis_updates,
+                    _np.array(
+                        [
+                            (rank_inter_locale_updates.updates_per_axis[a] is not None)
+                            and
+                            (
+                                (len(rank_inter_locale_updates.updates_per_axis[a][self.LO]) > 0)
+                                or
+                                (len(rank_inter_locale_updates.updates_per_axis[a][self.HI]) > 0)
+                            )
+                            for a in range(ndim)
+                        ],
+                        dtype="bool"
+                    )
+                )
+
+        if _np.any(have_axis_updates):
+            for a in range(ndim):
+                if not have_axis_updates[a]:
+                    for inter_locale_rank in range(len(self.locale_extents)):
+                        halo_updates_dict[inter_locale_rank].updates_per_axis[a] = None
+        else:
+            halo_updates_dict = None
+
+        return halo_updates_dict, have_axis_updates
 
     @property
     def halo_updates(self):
         if self._halo_updates is None:
-            self._halo_updates = self.calc_halo_updates()
+            self._halo_updates, self._have_axis_updates = self.calc_halo_updates()
 
         return self._halo_updates
 
@@ -387,7 +423,6 @@ class gndarray(object):
         self.rank_logger.debug(
             "END: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()."
         )
-
 
     @property
     def halo_updater(self):
