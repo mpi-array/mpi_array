@@ -14,7 +14,7 @@ Classes
 
    gndarray - A :obj:`numpy.ndarray` like distributed array.
    PerAxisRmaHaloUpdater - Helper class for performing ghost element updates.
-   GndarrayRedistributeUpdater - Helper class for redistributing elements between distributions.
+   RmaRedistributeUpdater - Helper class for redistributing elements between distributions.
 
 Factory Functions
 =================
@@ -218,7 +218,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
                         )
 
 
-class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
+class RmaRedistributeUpdater(_UpdatesForRedistribute):
 
     """
     Helper class for redistributing array to new distribution.
@@ -532,7 +532,7 @@ class gndarray(object):
 
     def calculate_copyfrom_updates(self, src):
         return \
-            GndarrayRedistributeUpdater(
+            RmaRedistributeUpdater(
                 self,
                 src
             )
