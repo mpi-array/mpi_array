@@ -232,7 +232,13 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         """
         self._dst = dst
         self._src = src
-        _UpdatesForRedistribute.__init__(self, dst.comms_and_distrib, src.comms_and_distrib)
+        _UpdatesForRedistribute.__init__(
+            self,
+            dst.comms_and_distrib,
+            src.comms_and_distrib,
+            dst.rma_window_buffer,
+            src.rma_window_buffer
+        )
 
     def create_pair_extent_update(
         self,
@@ -266,13 +272,13 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         update the local array.
         """
         if (self._inter_win is not None) and (self._inter_win != _mpi.WIN_NULL):
-            updates = self._dst_updates[self._dst_decomp.lndarray_extent.inter_locale_rank]
-            self._dst_decomp.rank_logger.debug(
+            updates = self._dst_updates[self._dst_cad.this_locale.inter_locale_rank]
+            self.rank_logger.debug(
                 "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
             )
             self._inter_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
             for single_update in updates:
-                self._dst_decomp.rank_logger.debug(
+                self.rank_logger.debug(
                     "BEG: Getting update:\n%s\n%s",
                     single_update._header_str,
                     single_update
@@ -282,17 +288,17 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
                     single_update.src_extent.inter_locale_rank,
                     [0, 1, single_update.src_data_type]
                 )
-                self._dst_decomp.rank_logger.debug(
+                self.rank_logger.debug(
                     "END: Getting update:\n%s\n%s",
                     single_update._header_str,
                     single_update
                 )
             self._inter_win.Fence(_mpi.MODE_NOSUCCEED)
-            self._dst_decomp.rank_logger.debug(
+            self.rank_logger.debug(
                 "END: Fence(_mpi.MODE_NOSUCCEED)."
             )
-        if self._dst_decomp.num_locales > 1:
-            self._dst_decomp.intra_locale_comm.barrier()
+        if self._dst.locale_comms.num_locales > 1:
+            self._dst.locale_comms.intra_locale_comm.barrier()
         else:
             _np.copyto(self._dst.lndarray.slndarray, self._src.lndarray.slndarray)
 
@@ -300,11 +306,11 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         """
         MPI barrier.
         """
-        self._dst_decomp.rank_logger.debug(
+        self._dst.locale_comms.rank_logger.debug(
             "BEG: self._src.comms_and_distrib.intra_locale_comm.barrier()..."
         )
-        self._src.comms_and_distrib.intra_locale_comm.barrier()
-        self._dst_decomp.rank_logger.debug(
+        self._dst.locale_comms.intra_locale_comm.barrier()
+        self._dst.locale_comms.rank_logger.debug(
             "END: self._src.comms_and_distrib.intra_locale_comm.barrier()."
         )
 
@@ -482,13 +488,13 @@ class gndarray(object):
             )
 
         redistribute_updater = self.calculate_copyfrom_updates(src)
-        self.comms_and_distrib.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
-        self.comms_and_distrib.rank_logger.debug("END: redistribute_updater.barrier().")
+        self.rank_logger.debug("END: redistribute_updater.barrier().")
         redistribute_updater.do_locale_update()
-        self.comms_and_distrib.rank_logger.debug("BEG: redistribute_updater.barrier()...")
+        self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
-        self.comms_and_distrib.rank_logger.debug("END: redistribute_updater.barrier().")
+        self.rank_logger.debug("END: redistribute_updater.barrier().")
 
     def all(self, **unused_kwargs):
         return \

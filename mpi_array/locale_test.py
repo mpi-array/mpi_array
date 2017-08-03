@@ -341,8 +341,8 @@ class LndarrayTest(_unittest.TestCase):
 
         cands = \
             [
-                create_distribution(shape=gshape, locale_type=LT_NODE),
-                create_distribution(shape=gshape, locale_type=LT_PROCESS)
+                create_distribution(shape=gshape, locale_type=LT_NODE, halo=halo),
+                create_distribution(shape=gshape, locale_type=LT_PROCESS, halo=halo)
             ]
         for cand in cands:
             lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")

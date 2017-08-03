@@ -905,53 +905,6 @@ class BlockPartitionTest(_unittest.TestCase):
         """
         self.do_test_construct_2d_with_halo(halo=[[1, 2], [3, 4]])
 
-    def do_not_test_recalculate_2d(self):
-        """
-        Test :meth:`mpi_array.distribution.BlockPartition.recalculate` construction.
-        """
-        locale_comms = \
-            [
-                None,
-                CartLocaleComms(
-                    ndims=2,
-                    rank_comm=_mpi.COMM_WORLD,
-                    intra_locale_comm=_mpi.COMM_SELF
-                )
-            ]
-        for lc in locale_comms:
-            orig_shape = (8 * _mpi.COMM_WORLD.size, 12 * _mpi.COMM_WORLD.size)
-            distrib = \
-                BlockPartition(
-                    orig_shape,
-                    locale_comms=lc,
-                    halo=((2, 2), (4, 4))
-                )
-
-            self.assertSequenceEqual([[2, 2], [4, 4]], distrib.halo.tolist())
-
-            distrib.halo = [[1, 2], [3, 4]]
-            self.assertSequenceEqual([[1, 2], [3, 4]], distrib.halo.tolist())
-
-            self.assertSequenceEqual(list(orig_shape), distrib.shape.tolist())
-            new_shape = (10 * _mpi.COMM_WORLD.size, 7 * _mpi.COMM_WORLD.size)
-            distrib.shape = new_shape
-            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
-
-            new_shape = (23 * _mpi.COMM_WORLD.size,)
-            distrib.recalculate(new_shape, new_halo=5)
-            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
-            self.assertSequenceEqual([[5, 5], ], distrib.halo.tolist())
-
-            new_shape = \
-                (23 * _mpi.COMM_WORLD.size, 14 * _mpi.COMM_WORLD.size, 8 * _mpi.COMM_WORLD.size)
-            distrib.recalculate(new_shape, new_halo=5)
-            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
-            self.assertSequenceEqual([[5, 5], [5, 5], [5, 5]], distrib.halo.tolist())
-
-            distrib.halo = None
-            self.assertSequenceEqual([[0, 0], [0, 0], [0, 0]], distrib.halo.tolist())
-            self.assertSequenceEqual(list(new_shape), distrib.shape.tolist())
-
 
 _unittest.main(__name__)
 

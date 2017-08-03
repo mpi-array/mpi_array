@@ -628,11 +628,13 @@ class UpdatesForRedistribute(object):
     elements from one decomposition to another.
     """
 
-    def __init__(self, dst_decomp, src_decomp):
+    def __init__(self, dst_cad, src_cad, dst_win_buff, src_win_buff):
         """
         """
-        self._dst_decomp = dst_decomp
-        self._src_decomp = src_decomp
+        self._dst_cad = dst_cad
+        self._dst_win_buff = dst_win_buff
+        self._src_cad = src_cad
+        self._src_win_buff = src_win_buff
         self._inter_comm = None
         self._inter_win = None
 
@@ -643,38 +645,38 @@ class UpdatesForRedistribute(object):
 
     def calc_can_use_existing_inter_locale_comm(self):
         can_use_existing_inter_locale_comm = \
-            (self._dst_decomp.inter_locale_comm is not None)
-        if self._dst_decomp.have_valid_inter_locale_comm:
-            if self._src_decomp.have_valid_inter_locale_comm:
+            (self._dst_cad.locale_comms.inter_locale_comm is not None)
+        if self._dst_cad.locale_comms.have_valid_inter_locale_comm:
+            if self._src_cad.locale_comms.have_valid_inter_locale_comm:
                 can_use_existing_inter_locale_comm = \
                     (
                         (
                             _mpi.Group.Union(
-                                self._dst_decomp.inter_locale_comm.group,
-                                self._src_decomp.inter_locale_comm.group
+                                self._dst_cad.locale_comms.inter_locale_comm.group,
+                                self._src_cad.locale_comms.inter_locale_comm.group
                             ).size
                             ==
-                            self._dst_decomp.inter_locale_comm.group.size
+                            self._dst_cad.locale_comms.inter_locale_comm.group.size
                         )
                         and
                         (
                             _mpi.Group.Intersection(
-                                self._dst_decomp.inter_locale_comm.group,
-                                self._src_decomp.inter_locale_comm.group
+                                self._dst_cad.locale_comms.inter_locale_comm.group,
+                                self._src_cad.locale_comms.inter_locale_comm.group
                             ).size
                             ==
-                            self._dst_decomp.inter_locale_comm.group.size
+                            self._dst_cad.locale_comms.inter_locale_comm.group.size
                         )
                     )
             else:
                 can_use_existing_inter_locale_comm = False
-        self.rank_logger.debug("BEG: self._dst_decomp.intra_locale_comm.allreduce...")
+        self.rank_logger.debug("BEG: self._dst_cad.locale_comms.intra_locale_comm.allreduce...")
         can_use_existing_inter_locale_comm = \
-            self._dst_decomp.intra_locale_comm.allreduce(
+            self._dst_cad.locale_comms.intra_locale_comm.allreduce(
                 can_use_existing_inter_locale_comm,
                 _mpi.BAND
             )
-        self.rank_logger.debug("END: self._dst_decomp.intra_locale_comm.allreduce.")
+        self.rank_logger.debug("END: self._dst_cad.locale_comms.intra_locale_comm.allreduce.")
         self.rank_logger.debug(
             "can_use_existing_inter_locale_comm = %s",
             can_use_existing_inter_locale_comm
@@ -689,8 +691,8 @@ class UpdatesForRedistribute(object):
     ):
         peu = \
             MpiPairExtentUpdate(
-                self._dst_decomp.get_extent_for_rank(dst_extent.inter_locale_rank),
-                self._src_decomp.get_extent_for_rank(src_extent.inter_locale_rank),
+                self._dst_cad.distribution.locale_extents[dst_extent.inter_locale_rank],
+                self._src_cad.distribution.locale_extents[src_extent.inter_locale_rank],
                 intersection_extent,
                 intersection_extent
             )
@@ -728,15 +730,15 @@ class UpdatesForRedistribute(object):
 
             dst_rank_to_src_rank = \
                 _mpi.Group.Translate_ranks(
-                    self._dst_decomp.inter_locale_comm.group,
-                    range(0, self._dst_decomp.inter_locale_comm.size),
-                    self._src_decomp.inter_locale_comm.group
+                    self._dst_cad.locale_comms.inter_locale_comm.group,
+                    range(0, self._dst_cad.locale_comms.inter_locale_comm.size),
+                    self._src_cad.locale_comms.inter_locale_comm.group
                 )
 
-            for dst_rank in range(self._dst_decomp.inter_locale_comm.size):
+            for dst_rank in range(self._dst_cad.locale_comms.inter_locale_comm.size):
                 src_rank = dst_rank_to_src_rank[dst_rank]
-                dst_extent = self._dst_decomp.get_extent_for_rank(dst_rank)
-                src_extent = self._src_decomp.get_extent_for_rank(src_rank)
+                dst_extent = self._dst_cad.distribution.locale_extents[dst_rank]
+                src_extent = self._src_cad.distribution.locale_extents[src_rank]
                 dst_leftovers, dst_updates = self.calc_intersection_split(dst_extent, src_extent)
                 self._dst_extent_queue.extend(dst_leftovers)
                 self._dst_updates[dst_rank] += dst_updates
@@ -746,14 +748,14 @@ class UpdatesForRedistribute(object):
 
             dst_rank_to_src_rank = \
                 _mpi.Group.Translate_ranks(
-                    self._dst_decomp.inter_locale_comm.group,
-                    range(0, self._dst_decomp.inter_locale_comm.size),
-                    self._src_decomp.inter_locale_comm.group
+                    self._dst_cad.locale_comms.inter_locale_comm.group,
+                    range(0, self._dst_cad.locale_comms.inter_locale_comm.size),
+                    self._src_cad.locale_comms.inter_locale_comm.group
                 )
 
-            for dst_rank in range(self._dst_decomp.inter_locale_comm.size):
+            for dst_rank in range(self._dst_cad.locale_comms.inter_locale_comm.size):
                 src_rank = dst_rank_to_src_rank[dst_rank]
-                src_extent = self._src_decomp.get_extent_for_rank(src_rank)
+                src_extent = self._src_cad.distribution.locale_extents[src_rank]
                 all_dst_leftovers = []
                 while len(self._dst_extent_queue) > 0:
                     dst_extent = self._dst_extent_queue.pop()
@@ -764,7 +766,7 @@ class UpdatesForRedistribute(object):
                     all_dst_leftovers += dst_leftovers
                 self._dst_extent_queue.extend(all_dst_leftovers)
             if len(self._dst_extent_queue) > 0:
-                self._dst_decomp.rank_logger.warning(
+                self._dst_cad.rank_logger.warning(
                     "Non-empty leftover queue=%s",
                     self._dst_extent_queue
                 )
@@ -777,23 +779,22 @@ class UpdatesForRedistribute(object):
         self._dst_extent_queue = _collections.deque()
         self._dst_updates = _collections.defaultdict(list)
         if can_use_existing_inter_locale_comm:
-            self._inter_comm = self._src_decomp.inter_locale_comm
-            self._inter_win = self._src_decomp.inter_locale_win
+            self._inter_comm = self._src_cad.locale_comms.inter_locale_comm
+            self._inter_win = self._src_win_buff.inter_locale_win
             self.calc_direct_mem_copy_updates()
             self.calc_rma_updates()
-            self._dst_decomp.rank_logger.debug(
+            self.rank_logger.debug(
                 "self._dst_updates=%s",
                 self._dst_updates
             )
-
-        elif self._dst_decomp.num_locales > 1:
+        elif self._dst_cad.locale_comms.num_locales > 1:
             raise NotImplementedError(
                 "Cannot redistribute amongst disparate inter_locale_comm's."
             )
 
     @property
     def rank_logger(self):
-        return self._dst_decomp.rank_logger
+        return self._dst_cad.locale_comms.rank_logger
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

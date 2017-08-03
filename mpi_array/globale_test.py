@@ -51,7 +51,7 @@ class GndarrayTest(_unittest.TestCase):
         halos = [0, 3]
         for halo in halos:
             gshape = (50, 17, 23)
-            cand = create_distribution(gshape, locale_type=LT_PROCESS)
+            cand = create_distribution(gshape, locale_type=LT_PROCESS, halo=halo)
             locale_comms = cand.locale_comms
             gary = mpi_array.globale.zeros(gshape, comms_and_distrib=cand, dtype="int8")
             locale_comms.rank_logger.info("all zero gary.rank_view_h = %s" % (gary.rank_view_h,))
@@ -372,7 +372,7 @@ class GndarrayTest(_unittest.TestCase):
             )
 
         gary_src = mpi_array.globale.zeros(comms_and_distrib=cand_src, dtype=src_dtype)
-        rank_val = gary_src.decomp.lndarray_extent.cart_rank + 1
+        rank_val = gary_src.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_src.rank_view_n[...] = rank_val
         gary_src.update()
 
@@ -406,13 +406,13 @@ class GndarrayTest(_unittest.TestCase):
             self.assertTrue(_np.all(_np.array(intersection_extent.shape) > 0))
             self.assertTrue(_np.all(gary_dst.lndarray[locale_slice] == rank_val))
 
-    def do_not_test_copyto_no_halo(self):
+    def test_copyto_no_halo(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
         self.do_test_copyto(halo=0)
 
-    def do_not_test_copyto_halo(self):
+    def test_copyto_halo(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
