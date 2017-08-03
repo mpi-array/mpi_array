@@ -115,7 +115,7 @@ class SlndarrayTest(_unittest.TestCase):
         rank_logger.info("type(l_sum)=%s", type(l_sum))
         rank_logger.info("type(l_sum.base)=%s", type(l_sum.base))
 
-        g_sum = comms_and_distrib.locale_comms.rank_comm.allreduce(l_sum, op=_mpi.SUM)
+        g_sum = comms_and_distrib.locale_comms.peer_comm.allreduce(l_sum, op=_mpi.SUM)
 
         self.assertEqual(_np.product(gshape), g_sum)
 
@@ -148,7 +148,7 @@ class LndarrayTest(_unittest.TestCase):
                 comms_and_distrib=comms_and_distrib,
                 dtype="int64"
             )
-        rank_val = comms_and_distrib.locale_comms.rank_comm.rank + 1
+        rank_val = comms_and_distrib.locale_comms.peer_comm.rank + 1
         lary[lary.rank_view_slice_n] = rank_val
 
         self.assertSequenceEqual(
@@ -229,12 +229,12 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 0))
 
         lary1 = mpi_array.locale.zeros_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 0))
 
     def test_zeros_non_shared_1d(self):
@@ -248,12 +248,12 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 0))
 
         lary1 = mpi_array.locale.zeros_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 0))
 
     def test_ones_shared_1d(self):
@@ -267,12 +267,12 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 1))
 
         lary1 = mpi_array.locale.ones_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 1))
 
     def test_ones_non_shared_1d(self):
@@ -286,12 +286,12 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 1))
 
         lary1 = mpi_array.locale.ones_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 1))
 
     def test_copy_shared_1d(self):
@@ -305,11 +305,11 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        lary.rank_view_n[...] = cand.locale_comms.rank_comm.rank
+        lary.rank_view_n[...] = cand.locale_comms.peer_comm.rank
 
         lary1 = mpi_array.locale.copy(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == lary))
 
     def test_copy_non_shared_1d(self):
@@ -323,11 +323,11 @@ class LndarrayTest(_unittest.TestCase):
 
         lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
-        lary.rank_view_n[...] = cand.locale_comms.rank_comm.rank
+        lary.rank_view_n[...] = cand.locale_comms.peer_comm.rank
 
         lary1 = mpi_array.locale.copy(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
-        cand.locale_comms.rank_comm.barrier()
+        cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == lary))
 
     def do_test_views_2d(self, halo=0):
@@ -347,7 +347,7 @@ class LndarrayTest(_unittest.TestCase):
         for cand in cands:
             lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
             self.assertEqual(_np.dtype("int64"), lary.dtype)
-            rank_logger = _logging.get_rank_logger(self.id(), comm=cand.locale_comms.rank_comm)
+            rank_logger = _logging.get_rank_logger(self.id(), comm=cand.locale_comms.peer_comm)
             rank_logger.info(
                 (
                     "\n========================================================\n" +
@@ -370,17 +370,17 @@ class LndarrayTest(_unittest.TestCase):
                 lary.view_h[...] = -1
             cand.locale_comms.intra_locale_comm.barrier()
 
-            lary.rank_view_n[...] = cand.locale_comms.rank_comm.rank
+            lary.rank_view_n[...] = cand.locale_comms.peer_comm.rank
             cand.locale_comms.intra_locale_comm.barrier()
             if _np.any(lary.halo > 0) and (cand.locale_comms.intra_locale_comm.size > 1):
-                self.assertTrue(_np.any(lary.rank_view_h != cand.locale_comms.rank_comm.rank))
+                self.assertTrue(_np.any(lary.rank_view_h != cand.locale_comms.peer_comm.rank))
             self.assertSequenceEqual(
                 lary.rank_view_h[lary.intra_partition.rank_view_relative_slice_n].tolist(),
                 lary.rank_view_n.tolist()
             )
             self.assertTrue(_np.all(lary.view_n >= 0))
 
-            cand.locale_comms.rank_comm.barrier()
+            cand.locale_comms.peer_comm.barrier()
 
     def test_views_2d_no_halo(self):
         """

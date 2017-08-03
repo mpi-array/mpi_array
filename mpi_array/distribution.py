@@ -22,7 +22,7 @@ Classes
    SingleLocaleDistribution - Entire array occurs on a single locale.
    BlockPartition - Block partition distribution of array extents amongst locales.
    CommsAndDistribution - Pair consisting of :obj:`LocaleComms` and :obj:`Distribution`.
-   ThisLocaleInfo - Info on inter_locale_comm rank and corresponding rank_comm rank.
+   ThisLocaleInfo - Info on inter_locale_comm peer_rank and corresponding peer_comm peer_rank.
    RmaWindowBuffer - Container for array buffer and associated RMA windows.
 
 Factory Functions
@@ -67,7 +67,7 @@ def mpi_version():
     return _mpi.VERSION
 
 
-ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "rank"])
+ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
 
 
 class LocaleComms(object):
@@ -76,18 +76,18 @@ class LocaleComms(object):
     Info on possible shared memory allocation for a specified MPI communicator.
     """
 
-    def __init__(self, comm=None, intra_locale_comm=None, inter_locale_comm=None):
+    def __init__(self, peer_comm=None, intra_locale_comm=None, inter_locale_comm=None):
         """
         Construct.
 
-        :type comm: :obj:`mpi4py.MPI.Comm`
-        :param comm: Communicator which is split according to
+        :type peer_comm: :obj:`mpi4py.MPI.Comm`
+        :param peer_comm: Communicator which is split according to
            shared memory allocation (uses :meth:`mpi4py.MPI.Comm.Split_type`).
         :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
         :param intra_locale_comm: Intra-locale communicator.
            Should be a subset of processes returned
-           by :samp:`{comm}.Split_type(mpi4py.MPI.COMM_TYPE_SHARED)`.
-           If :samp:`None`, :samp:`{comm}` is *split* into groups
+           by :samp:`{peer_comm}.Split_type(mpi4py.MPI.COMM_TYPE_SHARED)`.
+           If :samp:`None`, :samp:`{peer_comm}` is *split* into groups
            which can use a MPI window to allocate shared memory
            (i.e. locale is a (NUMA) node).
            Can also specify as :samp:`mpi4py.MPI.COMM_SELF`, in which case the
@@ -96,31 +96,31 @@ class LocaleComms(object):
         :param inter_locale_comm: Inter-locale communicator used to exchange
             data between different locales.
         """
-        if comm is None:
-            comm = _mpi.COMM_WORLD
-        self._rank_comm = comm
-        rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm)
+        if peer_comm is None:
+            peer_comm = _mpi.COMM_WORLD
+        self._peer_comm = peer_comm
+        rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, peer_comm)
         if intra_locale_comm is None:
             if mpi_version() >= 3:
                 rank_logger.debug(
-                    "BEG: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
+                    "BEG: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
                 )
-                intra_locale_comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
+                intra_locale_comm = peer_comm.Split_type(_mpi.COMM_TYPE_SHARED, key=peer_comm.rank)
                 rank_logger.debug(
-                    "END: Splitting comm with comm.Split_type(COMM_TYPE_SHARED, ...)"
+                    "END: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
                 )
             else:
                 intra_locale_comm = _mpi.COMM_SELF
 
         self._intra_locale_comm = intra_locale_comm
 
-        # Count the number of self._intra_locale_comm rank-0 processes
-        # to work out how many communicators comm was split into.
+        # Count the number of self._intra_locale_comm peer_rank-0 processes
+        # to work out how many communicators peer_comm was split into.
         is_rank_zero = int(self._intra_locale_comm.rank == 0)
 
-        rank_logger.debug("BEG: comm.allreduce to calculate number of locales...")
-        self._num_locales = comm.allreduce(is_rank_zero, _mpi.SUM)
-        rank_logger.debug("END: comm.allreduce to calculate number of locales.")
+        rank_logger.debug("BEG: peer_comm.allreduce to calculate number of locales...")
+        self._num_locales = peer_comm.allreduce(is_rank_zero, _mpi.SUM)
+        rank_logger.debug("END: peer_comm.allreduce to calculate number of locales.")
 
         self._inter_locale_comm = None
 
@@ -129,9 +129,9 @@ class LocaleComms(object):
                 color = _mpi.UNDEFINED
                 if self.intra_locale_comm.rank == 0:
                     color = 0
-                rank_logger.debug("BEG: self.rank_comm.Split to create self.inter_locale_comm.")
-                inter_locale_comm = self._rank_comm.Split(color, self._rank_comm.rank)
-                rank_logger.debug("END: self.rank_comm.Split to create self.inter_locale_comm.")
+                rank_logger.debug("BEG: self.peer_comm.Split to create self.inter_locale_comm.")
+                inter_locale_comm = self._peer_comm.Split(color, self._peer_comm.rank)
+                rank_logger.debug("END: self.peer_comm.Split to create self.inter_locale_comm.")
             self._inter_locale_comm = inter_locale_comm
         elif (inter_locale_comm is not None) and (inter_locale_comm != _mpi.COMM_NULL):
             raise ValueError(
@@ -143,13 +143,13 @@ class LocaleComms(object):
         self._rank_logger = \
             _logging.get_rank_logger(
                 __name__ + "." + self.__class__.__name__,
-                comm=self._rank_comm
+                comm=self._peer_comm
             )
 
         self._root_logger = \
             _logging.get_root_logger(
                 __name__ + "." + self.__class__.__name__,
-                comm=self._rank_comm
+                comm=self._peer_comm
             )
 
     def alloc_locale_buffer(self, shape, dtype):
@@ -174,16 +174,16 @@ class LocaleComms(object):
                                          comm=self.intra_locale_comm)
             self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             buffer, itemsize = intra_locale_win.Shared_query(0)
-            self.rank_logger.debug("BEG: Win.Create for self.rank_comm")
-            rank_win = _mpi.Win.Create(buffer, itemsize, comm=self.rank_comm)
-            self.rank_logger.debug("END: Win.Create for self.rank_comm")
+            self.rank_logger.debug("BEG: Win.Create for self.peer_comm")
+            peer_win = _mpi.Win.Create(buffer, itemsize, comm=self.peer_comm)
+            self.rank_logger.debug("END: Win.Create for self.peer_comm")
         else:
             self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            rank_win = \
-                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.rank_comm)
+            peer_win = \
+                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
             self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
-            intra_locale_win = rank_win
-            buffer = rank_win.memory
+            intra_locale_win = peer_win
+            buffer = peer_win.memory
             itemsize = dtype.itemsize
 
         inter_locale_win = None
@@ -203,7 +203,7 @@ class LocaleComms(object):
                 shape=rank_shape,
                 dtype=dtype,
                 itemsize=itemsize,
-                rank_win=rank_win,
+                peer_win=peer_win,
                 intra_locale_win=intra_locale_win,
                 inter_locale_win=inter_locale_win
             )
@@ -216,12 +216,12 @@ class LocaleComms(object):
         return self._num_locales
 
     @property
-    def rank_comm(self):
+    def peer_comm(self):
         """
         MPI communicator which is super-set of :attr:`intra_locale_comm`
         and :attr:`inter_locale_comm`.
         """
-        return self._rank_comm
+        return self._peer_comm
 
     @property
     def intra_locale_comm(self):
@@ -247,7 +247,7 @@ class LocaleComms(object):
     @property
     def have_valid_inter_locale_comm(self):
         """
-        Is :samp:`True` if this rank has :samp:`{self}.inter_locale_comm`
+        Is :samp:`True` if this peer_rank has :samp:`{self}.inter_locale_comm`
         which is not :samp:`None` and is not :obj:`mpi4py.MPI.COMM_NULL`.
         """
         return \
@@ -258,11 +258,11 @@ class LocaleComms(object):
             )
 
     @property
-    def inter_locale_rank_to_rank_map(self):
+    def inter_locale_rank_to_peer_rank_map(self):
         """
         Returns sequence, :samp:`m` say, of :obj:`int`
-        where :samp:`m[inter_r]` is the rank of :samp:`self.rank_comm`
-        corresponding to rank :samp:`inter_r` of :samp:`self.inter_locale_comm`.
+        where :samp:`m[inter_r]` is the peer_rank of :samp:`self.peer_comm`
+        corresponding to peer_rank :samp:`inter_r` of :samp:`self.inter_locale_comm`.
 
         :rtype: :samp:`None` or sequence of :obj:`int`
         :return: Sequence of length :samp:`self.inter_locale_comm.size` on
@@ -275,7 +275,7 @@ class LocaleComms(object):
                 _mpi.Group.Translate_ranks(
                     self.inter_locale_comm.group,
                     range(0, self.inter_locale_comm.group.size),
-                    self.rank_comm.group
+                    self.peer_comm.group
                 )
         return m
 
@@ -284,7 +284,7 @@ class LocaleComms(object):
         """
         """
         if self.have_valid_inter_locale_comm:
-            i = ThisLocaleInfo(self.inter_locale_comm.rank, self.rank_comm.rank)
+            i = ThisLocaleInfo(self.inter_locale_comm.rank, self.peer_comm.rank)
         elif self.inter_locale_comm is None:
             i = ThisLocaleInfo(0, 0)
         else:
@@ -294,14 +294,14 @@ class LocaleComms(object):
     @property
     def rank_logger(self):
         """
-        A :attr:`rank_comm` :obj:`logging.Logger`.
+        A :attr:`peer_comm` :obj:`logging.Logger`.
         """
         return self._rank_logger
 
     @property
     def root_logger(self):
         """
-        A :attr:`rank_comm` :obj:`logging.Logger`.
+        A :attr:`peer_comm` :obj:`logging.Logger`.
         """
         return self._root_logger
 
@@ -314,7 +314,7 @@ RmaWindowBuffer = \
             "shape",
             "dtype",
             "itemsize",
-            "rank_win",
+            "peer_win",
             "intra_locale_win",
             "inter_locale_win"
         ]
@@ -331,7 +331,7 @@ class CartLocaleComms(LocaleComms):
         self,
         ndims=None,
         dims=None,
-        rank_comm=None,
+        peer_comm=None,
         intra_locale_comm=None,
         inter_locale_comm=None,
         cart_comm=None
@@ -347,10 +347,10 @@ class CartLocaleComms(LocaleComms):
         :type dims: sequence of :obj:`int`
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
-           that :samp:`numpy.product({dims}) == {rank_comm}.size`.
+           that :samp:`numpy.product({dims}) == {peer_comm}.size`.
            If :samp:`None`, :samp:`{dims} = (0,)*{ndims}`.
-        :type rank_comm: :obj:`mpi4py.MPI.Comm`
-        :param rank_comm: The MPI processes which will have access
+        :type peer_comm: :obj:`mpi4py.MPI.Comm`
+        :param peer_comm: The MPI processes which will have access
            (via a :obj:`mpi4py.MPI.Win` object) to the distributed array.
            If :samp:`None` uses :obj:`mpi4py.MPI.COMM_WORLD`.
         :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
@@ -366,7 +366,7 @@ class CartLocaleComms(LocaleComms):
         """
         LocaleComms.__init__(
             self,
-            comm=rank_comm,
+            peer_comm=peer_comm,
             intra_locale_comm=intra_locale_comm,
             inter_locale_comm=inter_locale_comm
         )
@@ -389,7 +389,7 @@ class CartLocaleComms(LocaleComms):
 
         self._cart_comm = cart_comm
         rank_logger = \
-            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.rank_comm)
+            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.peer_comm)
 
         self._dims = \
             _array_split.split.calculate_num_slices_per_axis(
@@ -437,7 +437,7 @@ class CartLocaleComms(LocaleComms):
         """
         A :obj:`dict` of :obj:`tuple`
         cartesian coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`) keys
-        which map to the associated :attr:`cart_comm` rank.
+        which map to the associated :attr:`cart_comm` peer_rank.
         """
         d = dict()
         if self.have_valid_cart_comm:
@@ -465,7 +465,7 @@ class CartLocaleComms(LocaleComms):
     @property
     def have_valid_cart_comm(self):
         """
-        Is :samp:`True` if this rank has :samp:`{self}.cart_comm`
+        Is :samp:`True` if this peer_rank has :samp:`{self}.cart_comm`
         which is not :samp:`None` and is not :obj:`mpi4py.MPI.COMM_NULL`.
         """
         return \
@@ -567,7 +567,7 @@ class LocaleExtent(HaloSubExtent):
 
     def __init__(
         self,
-        rank,
+        peer_rank,
         inter_locale_rank,
         globale_extent,
         slice=None,
@@ -578,9 +578,9 @@ class LocaleExtent(HaloSubExtent):
         """
         Construct.
 
-        :type rank: :obj:`int`
-        :param rank: Rank of MPI process in :samp:`rank_comm` communicator which
-           corresponds to :samp:`{inter_locale_rank}` rank of :samp:`{inter_locale_comm}`.
+        :type peer_rank: :obj:`int`
+        :param peer_rank: Rank of MPI process in :samp:`peer_comm` communicator which
+           corresponds to :samp:`{inter_locale_rank}` peer_rank of :samp:`{inter_locale_comm}`.
         :type inter_locale_rank: :obj:`int`
         :param inter_locale_rank: Rank of MPI process in :samp:`inter_locale_comm` communicator.
         :type globale_extent: :obj:`GlobaleExtent`
@@ -598,7 +598,7 @@ class LocaleExtent(HaloSubExtent):
         :type stop: sequence of :obj:`slice`
         :param stop: Per-axis stop indices (**not including ghost elements**).
         """
-        self._rank = rank
+        self._peer_rank = peer_rank
         self._inter_locale_rank = inter_locale_rank
         HaloSubExtent.__init__(
             self,
@@ -617,24 +617,24 @@ class LocaleExtent(HaloSubExtent):
             (
                 HaloSubExtent.__eq__(self, other)
                 and
-                (self.rank == other.rank)
+                (self.peer_rank == other.peer_rank)
                 and
                 (self.inter_locale_rank == other.inter_locale_rank)
             )
 
     @property
-    def rank(self):
+    def peer_rank(self):
         """
-        MPI rank of the process in the :samp:`rank_comm` communicator
+        MPI peer_rank of the process in the :samp:`peer_comm` communicator
         which corresponds to the :attr:`inter_locale_rank` in
         the :samp:`inter_locale_comm` communicator.
         """
-        return self._rank
+        return self._peer_rank
 
     @property
     def inter_locale_rank(self):
         """
-        MPI rank of the process in the :samp:`inter_locale_comm`.
+        MPI peer_rank of the process in the :samp:`inter_locale_comm`.
         """
         return self._inter_locale_rank
 
@@ -691,14 +691,14 @@ class LocaleExtent(HaloSubExtent):
         return \
             (
                 (
-                    "LocaleExtent(start=%s, stop=%s, halo=%s, rank=%s, inter_locale_rank=%s)"
+                    "LocaleExtent(start=%s, stop=%s, halo=%s, peer_rank=%s, inter_locale_rank=%s)"
                 )
                 %
                 (
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
-                    repr(self.rank),
+                    repr(self.peer_rank),
                     repr(self.inter_locale_rank),
                 )
             )
@@ -717,7 +717,7 @@ class CartLocaleExtent(LocaleExtent):
 
     def __init__(
         self,
-        rank,
+        peer_rank,
         inter_locale_rank,
         cart_coord,
         cart_shape,
@@ -730,13 +730,13 @@ class CartLocaleExtent(LocaleExtent):
         """
         Construct.
 
-        :type rank: :obj:`int`
-        :param rank: Rank of MPI process in :samp:`rank_comm` communicator which
-           corresponds to the :samp:`{inter_locale_rank}` rank in the :samp:`cart_comm`
+        :type peer_rank: :obj:`int`
+        :param peer_rank: Rank of MPI process in :samp:`peer_comm` communicator which
+           corresponds to the :samp:`{inter_locale_rank}` peer_rank in the :samp:`cart_comm`
            cartesian communicator.
         :type inter_locale_rank: :obj:`int`
         :param inter_locale_rank: Rank of MPI process in :samp:`cart_comm` cartesian communicator
-           which corresponds to the :samp:`{rank_comm}` rank in the :samp:`rank_comm` communicator.
+           which corresponds to the :samp:`{peer_comm}` peer_rank in the :samp:`peer_comm` communicator.
         :type cart_coord: sequence of :obj:`int`
         :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
            this :obj:`LocaleExtent` in the cartesian domain distribution.
@@ -760,7 +760,7 @@ class CartLocaleExtent(LocaleExtent):
         """
         LocaleExtent.__init__(
             self,
-            rank=rank,
+            peer_rank=peer_rank,
             inter_locale_rank=inter_locale_rank,
             globale_extent=globale_extent,
             slice=slice,
@@ -788,7 +788,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_rank(self):
         """
         Rank of MPI process in :samp:`cart_comm` cartesian communicator
-        which corresponds to the :attr:`{rank}` rank in the :samp:`rank_comm` communicator.
+        which corresponds to the :attr:`{peer_rank}` peer_rank in the :samp:`peer_comm` communicator.
         """
         return self.inter_locale_rank
 
@@ -815,7 +815,7 @@ class CartLocaleExtent(LocaleExtent):
         return \
             (
                 (
-                    "CartLocaleExtent(start=%s, stop=%s, halo=%s, rank=%s, inter_locale_rank=%s, "
+                    "CartLocaleExtent(start=%s, stop=%s, halo=%s, peer_rank=%s, inter_locale_rank=%s, "
                     +
                     "cart_coord=%s, cart_shape=%s)"
                 )
@@ -824,7 +824,7 @@ class CartLocaleExtent(LocaleExtent):
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
-                    repr(self.rank),
+                    repr(self.peer_rank),
                     repr(self.inter_locale_rank),
                     repr(tuple(self.cart_coord)),
                     repr(tuple(self.cart_shape)),
@@ -850,14 +850,14 @@ class Distribution(object):
         halo=0,
         globale_extent_type=LocaleExtent,
         locale_extent_type=GlobaleExtent,
-        inter_locale_rank_to_rank=None
+        inter_locale_rank_to_peer_rank=None
     ):
         """
         Initialise.
         """
         self._locale_extent_type = locale_extent_type
         self._globale_extent_type = globale_extent_type
-        self._inter_locale_rank_to_rank = inter_locale_rank_to_rank
+        self._inter_locale_rank_to_peer_rank = inter_locale_rank_to_peer_rank
 
         self._globale_extent = self.create_globale_extent(globale_extent, halo=0)
         self._halo = \
@@ -867,12 +867,12 @@ class Distribution(object):
             self._locale_extents[i] = \
                 self.create_locale_extent(i, locale_extents[i], self._globale_extent, halo)
 
-    def get_rank(self, inter_locale_rank):
+    def get_peer_rank(self, inter_locale_rank):
         """
         """
         rank = _mpi.UNDEFINED
-        if self._inter_locale_rank_to_rank is not None:
-            rank = self._inter_locale_rank_to_rank[inter_locale_rank]
+        if self._inter_locale_rank_to_peer_rank is not None:
+            rank = self._inter_locale_rank_to_peer_rank[inter_locale_rank]
         return rank
 
     def create_globale_extent(self, globale_extent, halo=0):
@@ -926,11 +926,11 @@ class Distribution(object):
         """
         Factory function for creating :obj:`LocaleExtent` object.
         """
-        rank = self.get_rank(inter_locale_rank)
+        peer_rank = self.get_peer_rank(inter_locale_rank)
         if hasattr(locale_extent, "start") and hasattr(locale_extent, "stop"):
             locale_extent = \
                 self._locale_extent_type(
-                    rank=rank,
+                    peer_rank=peer_rank,
                     inter_locale_rank=inter_locale_rank,
                     globale_extent=globale_extent,
                     start=locale_extent.start,
@@ -945,7 +945,7 @@ class Distribution(object):
         ):
             locale_extent = \
                 self._locale_extent_type(
-                    rank=rank,
+                    peer_rank=peer_rank,
                     inter_locale_rank=inter_locale_rank,
                     globale_extent=globale_extent,
                     slice=locale_extent,
@@ -963,7 +963,7 @@ class Distribution(object):
 
     def get_extent_for_rank(self, inter_locale_rank):
         """
-        Returns extent associated with the specified rank
+        Returns extent associated with the specified peer_rank
         of the :attr:`inter_locale_comm` communicator.
         """
         return self._locale_extents[inter_locale_rank]
@@ -985,7 +985,7 @@ class Distribution(object):
     def locale_extents(self):
         """
         Sequence of :samp:`LocaleExtent` objects where :samp:`locale_extents[r]`
-        is the extent assigned to locale with :samp:`inter_locale_comm` rank :samp:`r`.
+        is the extent assigned to locale with :samp:`inter_locale_comm` peer_rank :samp:`r`.
         """
         return self._locale_extents
 
@@ -1059,7 +1059,7 @@ class BlockPartition(Distribution):
         cart_coord_to_cart_rank,
         halo=0,
         order="C",
-        inter_locale_rank_to_rank=None
+        inter_locale_rank_to_peer_rank=None
     ):
         """
         Create a partitioning of :samp:`{shape}` over locales.
@@ -1077,7 +1077,7 @@ class BlockPartition(Distribution):
         :type cart_coord_to_cart_rank: :obj:`dict`
         :param cart_coord_to_cart_rank: Mapping between cartesian
            communicator coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`)
-           and cartesian communicator rank.
+           and cartesian communicator peer_rank.
         """
         globale_extent = self.create_globale_extent(globale_extent, halo)
         self._num_locales = _np.product(dims)
@@ -1113,7 +1113,7 @@ class BlockPartition(Distribution):
             self,
             globale_extent=globale_extent,
             locale_extents=locale_extents,
-            inter_locale_rank_to_rank=inter_locale_rank_to_rank,
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
             halo=halo,
             locale_extent_type=CartLocaleExtent
         )
@@ -1148,26 +1148,26 @@ class BlockPartition(Distribution):
     @property
     def rank_logger(self):
         """
-        A :obj:`logging.Logger` for :attr:`rank_comm` communicator ranks.
+        A :obj:`logging.Logger` for :attr:`peer_comm` communicator ranks.
         """
         if self._rank_logger is None:
             self._rank_logger = \
                 _logging.get_rank_logger(
                     __name__ + "." + self.__class__.__name__,
-                    comm=self.rank_comm
+                    comm=self.peer_comm
                 )
         return self._rank_logger
 
     @property
     def root_logger(self):
         """
-        A :obj:`logging.Logger` for rank 0 of the :attr:`rank_comm` communicator.
+        A :obj:`logging.Logger` for peer_rank 0 of the :attr:`peer_comm` communicator.
         """
         if self._root_logger is None:
             self._root_logger = \
                 _logging.get_root_logger(
                     __name__ + "." + self.__class__.__name__,
-                    comm=self.rank_comm
+                    comm=self.peer_comm
                 )
         return self._root_logger
 
@@ -1199,7 +1199,7 @@ def create_block_distribution(
     locale_type=None,
     dims=None,
     halo=0,
-    rank_comm=None,
+    peer_comm=None,
     intra_locale_comm=None,
     inter_locale_comm=None,
     cart_comm=None
@@ -1223,20 +1223,20 @@ def create_block_distribution(
     cart_locale_comms = \
         CartLocaleComms(
             dims=dims,
-            rank_comm=rank_comm,
+            peer_comm=peer_comm,
             intra_locale_comm=intra_locale_comm,
             inter_locale_comm=inter_locale_comm,
             cart_comm=cart_comm
         )
     cart_coord_to_cart_rank = cart_locale_comms.cart_coord_to_cart_rank_map
-    cart_rank_to_rank = cart_locale_comms.inter_locale_rank_to_rank_map
+    cart_rank_to_peer_rank = cart_locale_comms.inter_locale_rank_to_peer_rank_map
     this_locale = cart_locale_comms.this_locale_rank_info
 
-    # Broadcast on intra_locale_comm to get rank mapping to all
-    # rank_comm ranks
-    cart_coord_to_cart_rank, cart_rank_to_rank, this_locale = \
+    # Broadcast on intra_locale_comm to get peer_rank mapping to all
+    # peer_comm ranks
+    cart_coord_to_cart_rank, cart_rank_to_peer_rank, this_locale = \
         cart_locale_comms.intra_locale_comm.bcast(
-            (cart_coord_to_cart_rank, cart_rank_to_rank, this_locale),
+            (cart_coord_to_cart_rank, cart_rank_to_peer_rank, this_locale),
             0
         )
 
@@ -1245,7 +1245,7 @@ def create_block_distribution(
             globale_extent=shape,
             dims=cart_locale_comms.dims,
             cart_coord_to_cart_rank=cart_coord_to_cart_rank,
-            inter_locale_rank_to_rank=cart_rank_to_rank,
+            inter_locale_rank_to_peer_rank=cart_rank_to_peer_rank,
             halo=halo
         )
     return CommsAndDistribution(cart_locale_comms, block_distrib, this_locale)

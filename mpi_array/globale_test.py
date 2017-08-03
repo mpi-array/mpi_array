@@ -55,7 +55,7 @@ class GndarrayTest(_unittest.TestCase):
             locale_comms = cand.locale_comms
             gary = mpi_array.globale.zeros(gshape, comms_and_distrib=cand, dtype="int8")
             locale_comms.rank_logger.info("all zero gary.rank_view_h = %s" % (gary.rank_view_h,))
-            rank_val = locale_comms.rank_comm.rank + 1
+            rank_val = locale_comms.peer_comm.rank + 1
             gary.rank_view_n[...] = rank_val
             cand.locale_comms.rank_logger.info(
                 "rank_val gary.rank_view_h = %s" %
@@ -243,12 +243,12 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary == 0).all())
 
         gary1 = mpi_array.globale.zeros_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == 0).all())
 
     def test_zeros_non_shared_1d(self):
@@ -262,12 +262,12 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary == 0).all())
 
         gary1 = mpi_array.globale.zeros_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == 0).all())
 
     def test_ones_shared_1d(self):
@@ -281,12 +281,12 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary == 1).all())
 
         gary1 = mpi_array.globale.ones_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == 1).all())
 
     def test_ones_non_shared_1d(self):
@@ -300,12 +300,12 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary == 1).all())
 
         gary1 = mpi_array.globale.ones_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == 1).all())
 
     def test_copy_shared_1d(self):
@@ -319,11 +319,11 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.rank_view_n[...] = gary.locale_comms.rank_comm.rank
+        gary.rank_view_n[...] = gary.locale_comms.peer_comm.rank
 
         gary1 = mpi_array.globale.copy(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == gary).all())
 
     def test_copy_non_shared_1d(self):
@@ -337,11 +337,11 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.rank_view_n[...] = gary.locale_comms.rank_comm.rank
+        gary.rank_view_n[...] = gary.locale_comms.peer_comm.rank
 
         gary1 = mpi_array.globale.copy(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.rank_comm.barrier()
+        gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == gary).all())
 
     def test_all(self):
@@ -388,7 +388,7 @@ class GndarrayTest(_unittest.TestCase):
         gary_dst.update()
         self.assertTrue(_np.all(gary_dst.lndarray.slndarray[...] == 0))
 
-        if gary_src.locale_comms.rank_comm.size <= 1:
+        if gary_src.locale_comms.peer_comm.size <= 1:
             self.assertSequenceEqual(gary_src.lndarray.shape, gary_dst.lndarray.shape)
         else:
             self.assertTrue(_np.any(_np.array(gary_src.lndarray.shape) != gary_dst.lndarray.shape))

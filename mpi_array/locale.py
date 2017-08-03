@@ -378,7 +378,7 @@ class lndarray(object):
     @property
     def intra_partition(self):
         """
-        A :obj:`PartitionViewSlices` containing slices for this rank (of :samp:`rank_comm`).
+        A :obj:`PartitionViewSlices` containing slices for this rank (of :samp:`peer_comm`).
         """
         return self._intra_partition
 
@@ -430,14 +430,14 @@ class lndarray(object):
     @property
     def rank_view_n(self):
         """
-        A tile view of the array for this rank of :samp:`rank_comm`.
+        A tile view of the array for this rank of :samp:`peer_comm`.
         """
         return self._slndarray[self._intra_partition.rank_view_slice_n]
 
     @property
     def rank_view_h(self):
         """
-        A tile view (including halo elements) of the array for this rank of :samp:`rank_comm`.
+        A tile view (including halo elements) of the array for this rank of :samp:`peer_comm`.
         """
         return self._slndarray[self._intra_partition.rank_view_slice_h]
 

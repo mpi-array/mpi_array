@@ -237,7 +237,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             dst.comms_and_distrib.distribution,
             src.comms_and_distrib.distribution
         )
-        self._inter_win = self._src.rma_window_buffer.rank_win
+        self._inter_win = self._src.rma_window_buffer.peer_win
         self._dst.rank_logger.debug(
             "self._dst_updates=%s",
             self._dst_updates
@@ -248,16 +248,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             (
                 (self._dst.locale_comms.inter_locale_comm is not None)
                 and
-                (self._src.locale_comms.rank_comm is not None)
+                (self._src.locale_comms.peer_comm is not None)
             )
         if self._dst.locale_comms.have_valid_inter_locale_comm:
-            if self._src.locale_comms.rank_comm != _mpi.COMM_NULL:
+            if self._src.locale_comms.peer_comm != _mpi.COMM_NULL:
                 can_use_existing_src_peer_comm = \
                     (
                         (
                             _mpi.Group.Intersection(
                                 self._dst.locale_comms.inter_locale_comm.group,
-                                self._src.locale_comms.rank_comm.group
+                                self._src.locale_comms.peer_comm.group
                             ).size
                             ==
                             self._dst.locale_comms.inter_locale_comm.group.size
@@ -335,7 +335,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                         )
                         self._inter_win.Get(
                             [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
-                            single_update.src_extent.rank,
+                            single_update.src_extent.peer_rank,
                             [0, 1, single_update.src_data_type]
                         )
                         self._dst.rank_logger.debug(
@@ -562,7 +562,7 @@ class gndarray(object):
 
     def all(self, **unused_kwargs):
         return \
-            self.locale_comms.rank_comm.allreduce(
+            self.locale_comms.peer_comm.allreduce(
                 bool(self.lndarray.rank_view_n.all()),
                 op=_mpi.BAND
             )

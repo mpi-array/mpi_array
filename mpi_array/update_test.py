@@ -50,7 +50,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
     def setUp(self):
         self.se = \
             CartLocaleExtent(
-                rank=0,
+                peer_rank=0,
                 inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
@@ -60,7 +60,7 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
             )
         self.de = \
             CartLocaleExtent(
-                rank=1,
+                peer_rank=1,
                 inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
@@ -139,7 +139,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
     def setUp(self):
         self.se = \
             CartLocaleExtent(
-                rank=0,
+                peer_rank=0,
                 inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
@@ -149,7 +149,7 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
             )
         self.de = \
             CartLocaleExtent(
-                rank=1,
+                peer_rank=1,
                 inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),
@@ -223,7 +223,7 @@ class HalosUpdateTest(_unittest.TestCase):
     def setUp(self):
         self.se = \
             CartLocaleExtent(
-                rank=0,
+                peer_rank=0,
                 inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(2,),
@@ -233,7 +233,7 @@ class HalosUpdateTest(_unittest.TestCase):
             )
         self.de = \
             CartLocaleExtent(
-                rank=1,
+                peer_rank=1,
                 inter_locale_rank=1,
                 cart_coord=(1,),
                 cart_shape=(2,),

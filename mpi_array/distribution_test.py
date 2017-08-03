@@ -56,7 +56,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         """
         de = \
             CartLocaleExtent(
-                rank=0,
+                peer_rank=0,
                 inter_locale_rank=0,
                 cart_coord=(0,),
                 cart_shape=(1,),
@@ -65,7 +65,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
                 halo=((10, 10),)
             )
 
-        self.assertEqual(0, de.rank)
+        self.assertEqual(0, de.peer_rank)
         self.assertEqual(0, de.cart_rank)
         self.assertTrue(_np.all(de.cart_coord == (0,)))
         self.assertTrue(_np.all(de.cart_shape == (1,)))
@@ -73,7 +73,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
 
         de = \
             CartLocaleExtent(
-                rank=56,
+                peer_rank=56,
                 inter_locale_rank=7,
                 cart_coord=(7,),
                 cart_shape=(8,),
@@ -81,7 +81,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
                 slice=(slice(560, 640),),
                 halo=((10, 10),)
             )
-        self.assertEqual(56, de.rank)
+        self.assertEqual(56, de.peer_rank)
         self.assertEqual(7, de.cart_rank)
 
     def test_extent_calcs_1d_thick_tiles(self):
@@ -95,7 +95,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         de = \
             [
                 CartLocaleExtent(
-                    rank=r,
+                    peer_rank=r,
                     inter_locale_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
@@ -168,7 +168,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         de = \
             [
                 CartLocaleExtent(
-                    rank=r,
+                    peer_rank=r,
                     inter_locale_rank=r,
                     cart_coord=(r,),
                     cart_shape=(splt.shape[0],),
@@ -275,7 +275,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         de = \
             [
                 CartLocaleExtent(
-                    rank=r,
+                    peer_rank=r,
                     inter_locale_rank=r,
                     cart_coord=_np.unravel_index(r, splt.shape),
                     cart_shape=splt.shape,
@@ -558,19 +558,19 @@ class LocaleCommsTest(_unittest.TestCase):
         """
         Test :meth:`mpi_array.distribution.LocaleComms.__init__`
         """
-        i = LocaleComms(comm=_mpi.COMM_WORLD)
+        i = LocaleComms(peer_comm=_mpi.COMM_WORLD)
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
-        self.assertTrue(i.rank_comm is not None)
-        self.assertTrue(i.rank_comm.size >= 1)
+        self.assertTrue(i.peer_comm is not None)
+        self.assertTrue(i.peer_comm.size >= 1)
 
         i = LocaleComms()
 
         self.assertTrue(i.intra_locale_comm is not None)
         self.assertTrue(i.intra_locale_comm.size >= 1)
-        self.assertTrue(i.rank_comm is not None)
-        self.assertTrue(i.rank_comm.size >= 1)
+        self.assertTrue(i.peer_comm is not None)
+        self.assertTrue(i.peer_comm.size >= 1)
         if i.num_locales <= 1:
             self.assertEqual(None, i.inter_locale_comm)
         i.inter_locale_comm = _mpi.COMM_NULL
@@ -604,23 +604,23 @@ class CartLocaleCommsTest(_unittest.TestCase):
 
     def test_construct_shared(self):
         lc = CartLocaleComms(ndims=1)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
 
         lc = CartLocaleComms(ndims=4)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
 
         lc = CartLocaleComms(dims=(0,))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
 
         lc = CartLocaleComms(dims=(0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
 
         lc = CartLocaleComms(dims=(0, 0, 0))
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
 
     def test_construct_no_shared(self):
         lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
-        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.rank_comm))
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
         self.assertEqual(1, lc.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
@@ -671,7 +671,7 @@ class BlockPartitionTest(_unittest.TestCase):
         self.root_logger.info("distrib.locale_extents[0]=\n%s" % (distrib.locale_extents[0],))
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 globale_extent=GlobaleExtent(stop=(8,)),
                 cart_coord=(0,),
@@ -708,7 +708,7 @@ class BlockPartitionTest(_unittest.TestCase):
             )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 globale_extent=GlobaleExtent(stop=(32,)),
                 cart_coord=(0,),
@@ -721,7 +721,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=1,
                 globale_extent=GlobaleExtent(stop=(32,)),
                 cart_coord=(1,),
@@ -734,7 +734,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=2,
                 globale_extent=GlobaleExtent(stop=(32,)),
                 cart_coord=(2,),
@@ -747,7 +747,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=3,
                 globale_extent=GlobaleExtent(stop=(32,)),
                 cart_coord=(3,),
@@ -795,7 +795,7 @@ class BlockPartitionTest(_unittest.TestCase):
 
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 globale_extent=GlobaleExtent(stop=(2,)),
                 cart_coord=(0,),
@@ -808,7 +808,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=1,
                 globale_extent=GlobaleExtent(stop=(2,)),
                 cart_coord=(1,),
@@ -821,7 +821,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=2,
                 globale_extent=GlobaleExtent(stop=(2,)),
                 cart_coord=(2,),
@@ -834,7 +834,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=3,
                 globale_extent=GlobaleExtent(stop=(2,)),
                 cart_coord=(3,),
@@ -868,7 +868,7 @@ class BlockPartitionTest(_unittest.TestCase):
 
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 globale_extent=GlobaleExtent(stop=(16, 32,)),
                 cart_coord=(0, 0),
@@ -881,7 +881,7 @@ class BlockPartitionTest(_unittest.TestCase):
         )
         self.assertEqual(
             CartLocaleExtent(
-                rank=_mpi.UNDEFINED,
+                peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=7,
                 globale_extent=GlobaleExtent(stop=(16, 32,)),
                 cart_coord=(1, 3),
