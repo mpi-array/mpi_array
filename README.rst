@@ -33,7 +33,7 @@ array which utilizes
 Quick Start Example
 ===================
 
-The following `quickstart.py` script creates a zero-initialised array and
+The following ``quickstart.py`` script creates a zero-initialised array and
 performs some element assignments::
 
    import mpi_array as mpia
@@ -51,7 +51,7 @@ performs some element assignments::
    dary[...] = mpia.power(dary, 1.0/3.0)
 
 
-The `quickstart.py` script can be executed serially
+The ``quickstart.py`` script can be executed serially
 (single process) as::
 
    python quickstart.py
@@ -93,7 +93,7 @@ Requirements
 Requires:
 
    - python-2 version `>= 2.7` or python-3 version `>= 3.3`,
-   - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.3.0`,
+   - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.4.0`,
    - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.6`,
    - an MPI implementation which supports at least MPI-2 (such as 
      `OpenMPI <http://openmpi.org/>`_ or `MPICH <http://mpich.org/>`_)
