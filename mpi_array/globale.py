@@ -41,7 +41,7 @@ import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import locale as _locale
-from .distribution import create_distribution
+from .comms import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
 from .update import MpiHalosUpdate as _MpiHalosUpdate, MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent

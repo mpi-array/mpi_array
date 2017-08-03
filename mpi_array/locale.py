@@ -59,7 +59,8 @@ from array_split.split import convert_halo_to_array_form as _convert_halo_to_arr
 import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
-from .distribution import create_distribution, LocaleExtent as _LocaleExtent
+from .comms import create_distribution
+from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
 

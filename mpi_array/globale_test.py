@@ -29,7 +29,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .distribution import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB
+from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB
 from .distribution import IndexingExtent
 
 __author__ = "Shane J. Latham"

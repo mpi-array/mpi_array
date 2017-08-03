@@ -31,8 +31,8 @@ import mpi_array.locale
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
+from .comms import create_distribution, LT_PROCESS, LT_NODE
 from .distribution import IndexingExtent
-from .distribution import create_distribution, LT_PROCESS, LT_NODE
 
 
 __author__ = "Shane J. Latham"
