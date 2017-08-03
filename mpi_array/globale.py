@@ -43,7 +43,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import locale as _locale
 from .distribution import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
-from .update import MpiHalosUpdate as _MpiHalosUpdate
+from .update import MpiHalosUpdate as _MpiHalosUpdate, MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
 
 __author__ = "Shane J. Latham"
@@ -234,11 +234,48 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         self._src = src
         _UpdatesForRedistribute.__init__(
             self,
-            dst.comms_and_distrib,
-            src.comms_and_distrib,
-            dst.rma_window_buffer,
-            src.rma_window_buffer
+            dst.comms_and_distrib.distribution,
+            src.comms_and_distrib.distribution
         )
+        self._inter_win = self._src.rma_window_buffer.rank_win
+        self._dst.rank_logger.debug(
+            "self._dst_updates=%s",
+            self._dst_updates
+        )
+
+    def calc_can_use_existing_src_peer_comm(self):
+        can_use_existing_src_peer_comm = \
+            (
+                (self._dst.locale_comms.inter_locale_comm is not None)
+                and
+                (self._src.locale_comms.rank_comm is not None)
+            )
+        if self._dst.locale_comms.have_valid_inter_locale_comm:
+            if self._src.locale_comms.rank_comm != _mpi.COMM_NULL:
+                can_use_existing_src_peer_comm = \
+                    (
+                        (
+                            _mpi.Group.Intersection(
+                                self._dst.locale_comms.inter_locale_comm.group,
+                                self._src.locale_comms.rank_comm.group
+                            ).size
+                            ==
+                            self._dst.locale_comms.inter_locale_comm.group.size
+                        )
+                    )
+        self._dst.rank_logger.debug(
+            "BEG: self._dst_cad.locale_comms.intra_locale_comm.allreduce...")
+        can_use_existing_src_peer_comm = \
+            self._dst.locale_comms.intra_locale_comm.allreduce(
+                can_use_existing_src_peer_comm,
+                _mpi.BAND
+            )
+        self._dst.rank_logger.debug("END: self._dst_cad.locale_comms.intra_locale_comm.allreduce.")
+        self._dst.rank_logger.debug(
+            "can_use_existing_src_peer_comm = %s",
+            can_use_existing_src_peer_comm
+        )
+        return can_use_existing_src_peer_comm
 
     def create_pair_extent_update(
         self,
@@ -251,12 +288,14 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         of :obj:`mpi_array.distribution.MpiPairExtentUpdate` objects.
         """
         updates = \
-            _UpdatesForRedistribute.create_pair_extent_update(
-                self,
-                dst_extent,
-                src_extent,
-                intersection_extent
-            )
+            [
+                _MpiPairExtentUpdate(
+                    self._dst.distribution.locale_extents[dst_extent.inter_locale_rank],
+                    self._src.distribution.locale_extents[src_extent.inter_locale_rank],
+                    intersection_extent,
+                    intersection_extent
+                ),
+            ]
         for update in updates:
             update.initialise_data_types(
                 dst_dtype=self._dst.dtype,
@@ -271,33 +310,54 @@ class GndarrayRedistributeUpdater(_UpdatesForRedistribute):
         Performs RMA to get elements from remote locales to
         update the local array.
         """
-        if (self._inter_win is not None) and (self._inter_win != _mpi.WIN_NULL):
-            updates = self._dst_updates[self._dst_cad.this_locale.inter_locale_rank]
-            self.rank_logger.debug(
-                "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
-            )
-            self._inter_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
-            for single_update in updates:
-                self.rank_logger.debug(
-                    "BEG: Getting update:\n%s\n%s",
-                    single_update._header_str,
-                    single_update
-                )
-                self._inter_win.Get(
-                    [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
-                    single_update.src_extent.inter_locale_rank,
-                    [0, 1, single_update.src_data_type]
-                )
-                self.rank_logger.debug(
-                    "END: Getting update:\n%s\n%s",
-                    single_update._header_str,
-                    single_update
-                )
-            self._inter_win.Fence(_mpi.MODE_NOSUCCEED)
-            self.rank_logger.debug(
-                "END: Fence(_mpi.MODE_NOSUCCEED)."
-            )
         if self._dst.locale_comms.num_locales > 1:
+
+            can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
+
+            if can_use_existing_src_peer_comm:
+                if (
+                    (self._inter_win is not None)
+                    and
+                    (self._inter_win != _mpi.WIN_NULL)
+                    and
+                    (self._dst.locale_comms.have_valid_inter_locale_comm)
+                ):
+                    updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
+                    self._dst.rank_logger.debug(
+                        "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
+                    )
+                    self._inter_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                    for single_update in updates:
+                        self._dst.rank_logger.debug(
+                            "BEG: Getting update:\n%s\n%s",
+                            single_update._header_str,
+                            single_update
+                        )
+                        self._inter_win.Get(
+                            [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
+                            single_update.src_extent.rank,
+                            [0, 1, single_update.src_data_type]
+                        )
+                        self._dst.rank_logger.debug(
+                            "END: Getting update:\n%s\n%s",
+                            single_update._header_str,
+                            single_update
+                        )
+                    self._inter_win.Fence(_mpi.MODE_NOSUCCEED)
+                    self._dst.rank_logger.debug(
+                        "END: Fence(_mpi.MODE_NOSUCCEED)."
+                    )
+
+            else:
+                raise RuntimeError(
+                    (
+                        "can_use_existing_src_peer_comm=%s: "
+                        +
+                        "incompatible dst inter_locale_comma and src peer_comm."
+                    )
+                    %
+                    (can_use_existing_src_peer_comm,)
+                )
             self._dst.locale_comms.intra_locale_comm.barrier()
         else:
             _np.copyto(self._dst.lndarray.slndarray, self._src.lndarray.slndarray)
@@ -366,6 +426,10 @@ class gndarray(object):
                 (self.lndarray.rank_view_n[...] == other)
 
         return ret
+
+    @property
+    def this_locale(self):
+        return self._comms_and_distrib.this_locale
 
     @property
     def locale_comms(self):
