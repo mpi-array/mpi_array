@@ -198,6 +198,9 @@ class PerAxisRmaHaloUpdater(CommLogger):
                         )
                         self._inter_locale_win.Fence(
                             _mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                        self.rank_logger.debug(
+                            "END: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
+                        )
                         for single_update in axis_inter_locale_rank_updates:
                             single_update.initialise_data_types(self.dtype, self.order)
                             self.rank_logger.debug(
@@ -215,6 +218,9 @@ class PerAxisRmaHaloUpdater(CommLogger):
                                 single_update._header_str,
                                 single_update
                             )
+                        self.rank_logger.debug(
+                            "BEG: Fence(_mpi.MODE_NOSUCCEED)."
+                        )
                         self._inter_locale_win.Fence(_mpi.MODE_NOSUCCEED)
                         self.rank_logger.debug(
                             "END: Fence(_mpi.MODE_NOSUCCEED)."
@@ -377,9 +383,10 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 )
             self._dst.locale_comms.intra_locale_comm.barrier()
         else:
+
             _np.copyto(
-                self._dst.lndarray_proxy.lndarray,
-                self._src.lndarray_proxy.lndarray,
+                self._dst.rank_view_n,
+                self._src.rank_view_n,
                 casting=self._casting
             )
 
@@ -539,6 +546,7 @@ class gndarray(object):
             rank_logger = self.comms_and_distrib.locale_comms.rank_logger
             # Only communicate data between the ranks
             # of self.comms_and_distrib.locale_comms.inter_locale_comm
+            self.comms_and_distrib.locale_comms.peer_comm.barrier()
             if (
                 self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm
             ):

@@ -101,7 +101,7 @@ class GndarrayTest(_unittest.TestCase):
         """
 
         halo = 4
-        for lshape in ((100, 200), (1000,), ):
+        for lshape in ((1000,), (100, 200), ):
             gshape = (_mpi.COMM_WORLD.size * lshape[0],) + lshape[1:]
             cand_lt_process = \
                 create_distribution(
@@ -128,6 +128,16 @@ class GndarrayTest(_unittest.TestCase):
 
             for cand in cand_list:
                 gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int32")
+                gary.rank_logger.debug("gary.shape=%s", gary.shape)
+                gary.rank_logger.debug(
+                    "gary.locale_comms.num_locales=%s",
+                    gary.locale_comms.num_locales
+                )
+                gary.rank_logger.debug(
+                    "gary.locale_comms.dims=%s",
+                    gary.locale_comms.dims
+                )
+
                 self.assertEqual(_np.dtype("int32"), gary.dtype)
 
                 if gary.locale_comms.have_valid_inter_locale_comm:
