@@ -440,11 +440,6 @@ class GndarrayTest(_unittest.TestCase):
                 halo=halo
             )
 
-        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
-        rank_val = gary_node_slab.comms_and_distrib.this_locale.inter_locale_rank + 1
-        gary_node_slab.rank_view_n[...] = rank_val
-        gary_node_slab.update()
-
         cand_proc_blok = \
             create_distribution(
                 shape=gshape,
@@ -453,6 +448,10 @@ class GndarrayTest(_unittest.TestCase):
                 halo=halo
             )
 
+        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
+        rank_val = gary_node_slab.comms_and_distrib.this_locale.inter_locale_rank + 1
+        gary_node_slab.rank_view_n[...] = rank_val
+        gary_node_slab.update()
         gary_proc_blok = mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=dtype)
 
         mpi_array.globale.copyto(gary_proc_blok, gary_node_slab)
@@ -469,7 +468,34 @@ class GndarrayTest(_unittest.TestCase):
             )
         )
         self.assertTrue(
-            _np.all(gary_node_slab.rank_view_n[...] == gary_node_slab0.rank_view_n[...])
+            _np.all(gary_node_slab.rank_view_h[...] == gary_node_slab0.rank_view_h[...])
+        )
+        del gary_node_slab0, gary_node_slab, gary_proc_blok
+
+        # Try in copyto in opposite order
+
+        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
+
+        gary_proc_blok = mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=dtype)
+        rank_val = gary_proc_blok.comms_and_distrib.this_locale.inter_locale_rank + 1
+        gary_proc_blok.rank_view_n[...] = rank_val
+        gary_proc_blok.update()
+
+        mpi_array.globale.copyto(gary_node_slab, gary_proc_blok)
+        gary_proc_blok0 = mpi_array.globale.zeros_like(gary_proc_blok)
+        mpi_array.globale.copyto(gary_proc_blok0, gary_node_slab)
+
+        gary_proc_blok0.update()
+
+        gary_proc_blok.locale_comms.rank_logger.info(
+            "num diffs = %s",
+            _np.sum(
+                gary_proc_blok.rank_view_n[...] != gary_proc_blok0.rank_view_n[...],
+                dtype="int64"
+            )
+        )
+        self.assertTrue(
+            _np.all(gary_proc_blok.rank_view_h[...] == gary_proc_blok0.rank_view_h[...])
         )
 
     def test_copyto_arg_check(self):
