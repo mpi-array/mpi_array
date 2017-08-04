@@ -296,8 +296,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             update.initialise_data_types(
                 dst_dtype=self._dst.dtype,
                 src_dtype=self._src.dtype,
-                dst_order=self._dst.lndarray.md.order,
-                src_order=self._src.lndarray.md.order
+                dst_order=self._dst.lndarray_proxy.md.order,
+                src_order=self._src.lndarray_proxy.md.order
             )
         return updates
 
@@ -342,7 +342,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                                 single_update
                             )
                             self._inter_win.Get(
-                                [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
+                                [self._dst.lndarray_proxy.lndarray, 1, single_update.dst_data_type],
                                 src_peer_rank,
                                 [0, 1, single_update.src_data_type]
                             )
@@ -368,7 +368,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 )
             self._dst.locale_comms.intra_locale_comm.barrier()
         else:
-            _np.copyto(self._dst.lndarray.slndarray, self._src.lndarray.slndarray)
+            _np.copyto(self._dst.lndarray_proxy.lndarray, self._src.lndarray_proxy.lndarray)
 
     def barrier(self):
         """
@@ -393,7 +393,7 @@ class gndarray(object):
         cls,
         comms_and_distrib,
         rma_window_buffer,
-        lndarray
+        lndarray_proxy
     ):
         """
         Construct, at least one of :samp:{shape} or :samp:`comms_and_distrib` should
@@ -406,7 +406,7 @@ class gndarray(object):
         self = object.__new__(cls)
         self._comms_and_distrib = comms_and_distrib
         self._rma_window_buffer = rma_window_buffer
-        self._lndarray = lndarray
+        self._lndarray_proxy = lndarray_proxy
         self._halo_updater = None
 
         return self
@@ -427,11 +427,11 @@ class gndarray(object):
         """
         ret = empty_like(self, dtype='bool')
         if isinstance(other, gndarray):
-            ret.lndarray.rank_view_n[...] = \
-                (self.lndarray.rank_view_n[...] == other.lndarray.rank_view_n[...])
+            ret.lndarray_proxy.rank_view_n[...] = \
+                (self.lndarray_proxy.rank_view_n[...] == other.lndarray_proxy.rank_view_n[...])
         else:
-            ret.lndarray.rank_view_n[...] = \
-                (self.lndarray.rank_view_n[...] == other)
+            ret.lndarray_proxy.rank_view_n[...] = \
+                (self.lndarray_proxy.rank_view_n[...] == other)
 
         return ret
 
@@ -456,8 +456,8 @@ class gndarray(object):
         return self._rma_window_buffer
 
     @property
-    def lndarray(self):
-        return self._lndarray
+    def lndarray_proxy(self):
+        return self._lndarray_proxy
 
     @property
     def shape(self):
@@ -465,19 +465,19 @@ class gndarray(object):
 
     @property
     def dtype(self):
-        return self._lndarray.dtype
+        return self._lndarray_proxy.dtype
 
     @property
     def order(self):
-        return self._lndarray.md.order
+        return self._lndarray_proxy.md.order
 
     @property
     def rank_view_n(self):
-        return self._lndarray.rank_view_n
+        return self._lndarray_proxy.rank_view_n
 
     @property
     def rank_view_h(self):
-        return self._lndarray.rank_view_h
+        return self._lndarray_proxy.rank_view_h
 
     @property
     def rank_logger(self):
@@ -511,7 +511,7 @@ class gndarray(object):
                     dtype=self.dtype,
                     order=self.order,
                     inter_locale_win=self.rma_window_buffer.inter_locale_win,
-                    dst_buffer=self.lndarray.slndarray
+                    dst_buffer=self.lndarray_proxy.lndarray
                 )
             self._halo_updater.rank_logger = self.rank_logger
             self._halo_updater.root_logger = self.root_logger
@@ -571,7 +571,7 @@ class gndarray(object):
     def all(self, **unused_kwargs):
         return \
             self.locale_comms.peer_comm.allreduce(
-                bool(self.lndarray.rank_view_n.all()),
+                bool(self.lndarray_proxy.rank_view_n.all()),
                 op=_mpi.BAND
             )
 
@@ -582,7 +582,7 @@ class gndarray(object):
         :type value: scalar
         :param value: All non-ghost elements will be assigned this value.
         """
-        self.lndarray.fill(value)
+        self.lndarray_proxy.fill(value)
         self.intra_locale_barrier()
 
     def fill_h(self, value):
@@ -592,12 +592,12 @@ class gndarray(object):
         :type value: scalar
         :param value: All elements will be assigned this value.
         """
-        self.lndarray.fill_h(value)
+        self.lndarray_proxy.fill_h(value)
         self.intra_locale_barrier()
 
     def copy(self):
         ary_out = empty_like(self)
-        ary_out.lndarray.rank_view_partition_h[...] = self.lndarray.rank_view_partition_h[...]
+        ary_out.lndarray_proxy.rank_view_partition_h[...] = self.lndarray_proxy.rank_view_partition_h[...]
         self.intra_locale_barrier()
 
         return ary_out
@@ -626,7 +626,7 @@ def empty(
     """
     if comms_and_distrib is None:
         comms_and_distrib = create_distribution(shape, **kwargs)
-    lndarray, rma_window_buffer = \
+    lndarray_proxy, rma_window_buffer = \
         _locale.empty(
             comms_and_distrib=comms_and_distrib,
             dtype=dtype,
@@ -638,7 +638,7 @@ def empty(
         gndarray(
             comms_and_distrib=comms_and_distrib,
             rma_window_buffer=rma_window_buffer,
-            lndarray=lndarray
+            lndarray_proxy=lndarray_proxy
         )
 
     return ary
@@ -663,7 +663,7 @@ def empty_like(ary, dtype=None):
                 dtype=ary.dtype,
                 comms_and_distrib=ary.comms_and_distrib,
                 order=ary.order,
-                intra_partition_dims=ary.lndarray.intra_partition_dims
+                intra_partition_dims=ary.lndarray_proxy.intra_partition_dims
             )
     else:
         ret_ary = _np.empty_like(ary, dtype=dtype)

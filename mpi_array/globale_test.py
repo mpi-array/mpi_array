@@ -64,8 +64,8 @@ class GndarrayTest(_unittest.TestCase):
             self.assertEqual(gary.dtype, _np.dtype("int8"))
             self.assertSequenceEqual(list(gary.shape), list(gshape))
             self.assertTrue(gary.comms_and_distrib is not None)
-            self.assertTrue(gary.lndarray is not None)
-            self.assertTrue(isinstance(gary.lndarray, mpi_array.locale.lndarray))
+            self.assertTrue(gary.lndarray_proxy is not None)
+            self.assertTrue(isinstance(gary.lndarray_proxy, mpi_array.locale.LndarrayProxy))
             self.assertEqual("C", gary.order)
             self.assertTrue(gary.rank_logger is not None)
             self.assertTrue(isinstance(gary.rank_logger, _logging.Logger))
@@ -126,50 +126,52 @@ class GndarrayTest(_unittest.TestCase):
 
                 if gary.locale_comms.have_valid_inter_locale_comm:
                     cart_rank_val = gary.locale_comms.cart_comm.rank + 1
-                    gary.lndarray.view_h[...] = 0
-                    gary.lndarray.view_n[...] = cart_rank_val
+                    gary.lndarray_proxy.view_h[...] = 0
+                    gary.lndarray_proxy.view_n[...] = cart_rank_val
 
                     if gary.locale_comms.cart_comm.size > 1:
                         if gary.locale_comms.cart_comm.rank == 0:
-                            self.assertTrue(_np.all(gary.lndarray[-halo:] == 0))
+                            self.assertTrue(_np.all(gary.lndarray_proxy[-halo:] == 0))
                         elif (
                             gary.locale_comms.inter_locale_comm.rank
                             ==
                             (gary.locale_comms.inter_locale_comm.size - 1)
                         ):
-                            self.assertTrue(_np.all(gary.lndarray[0:halo] == 0))
+                            self.assertTrue(_np.all(gary.lndarray_proxy[0:halo] == 0))
                         else:
-                            self.assertTrue(_np.all(gary.lndarray[0:halo] == 0))
-                            self.assertTrue(_np.all(gary.lndarray[-halo:] == 0))
+                            self.assertTrue(_np.all(gary.lndarray_proxy[0:halo] == 0))
+                            self.assertTrue(_np.all(gary.lndarray_proxy[-halo:] == 0))
 
                 gary.update()
 
                 if gary.locale_comms.have_valid_inter_locale_comm:
 
-                    self.assertTrue(_np.all(gary.lndarray.view_n[...] == cart_rank_val))
+                    self.assertTrue(_np.all(gary.lndarray_proxy.view_n[...] == cart_rank_val))
 
                     if gary.locale_comms.cart_comm.size > 1:
                         if gary.locale_comms.cart_comm.rank == 0:
-                            self.assertTrue(_np.all(gary.lndarray[-halo:] == (cart_rank_val + 1)))
+                            self.assertTrue(
+                                _np.all(gary.lndarray_proxy[-halo:] == (cart_rank_val + 1))
+                            )
                         elif (
                             gary.locale_comms.cart_comm.rank
                             ==
                             (gary.locale_comms.cart_comm.size - 1)
                         ):
                             self.assertTrue(
-                                _np.all(gary.lndarray[0:halo] == (cart_rank_val - 1))
+                                _np.all(gary.lndarray_proxy[0:halo] == (cart_rank_val - 1))
                             )
                         else:
                             self.assertTrue(
                                 _np.all(
-                                    gary.lndarray[0:halo]
+                                    gary.lndarray_proxy[0:halo]
                                     ==
                                     (cart_rank_val - 1)
                                 )
                             )
                             self.assertTrue(
                                 _np.all(
-                                    gary.lndarray[-halo:]
+                                    gary.lndarray_proxy[-halo:]
                                     ==
                                     (cart_rank_val + 1)
                                 )
@@ -190,14 +192,14 @@ class GndarrayTest(_unittest.TestCase):
         self.assertEqual(_np.dtype("int64"), gary.dtype)
         self.assertSequenceEqual(
             list(lshape),
-            list(IndexingExtent(gary.lndarray.rank_view_slice_n).shape)
+            list(IndexingExtent(gary.lndarray_proxy.rank_view_slice_n).shape)
         )
 
         gary1 = mpi_array.globale.empty_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
         self.assertSequenceEqual(
             list(lshape),
-            list(IndexingExtent(gary1.lndarray.rank_view_slice_n).shape)
+            list(IndexingExtent(gary1.lndarray_proxy.rank_view_slice_n).shape)
         )
 
         ary = mpi_array.globale.empty_like(_np.zeros(lshape, dtype="int64"))
@@ -218,18 +220,18 @@ class GndarrayTest(_unittest.TestCase):
 
         gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), gary.dtype)
-        self.assertSequenceEqual(list(lshape), list(gary.lndarray.shape))
+        self.assertSequenceEqual(list(lshape), list(gary.lndarray_proxy.shape))
         self.assertSequenceEqual(
             list(lshape),
-            list(IndexingExtent(gary.lndarray.rank_view_slice_n).shape)
+            list(IndexingExtent(gary.lndarray_proxy.rank_view_slice_n).shape)
         )
 
         gary1 = mpi_array.globale.empty_like(gary)
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        self.assertSequenceEqual(list(lshape), list(gary1.lndarray.shape))
+        self.assertSequenceEqual(list(lshape), list(gary1.lndarray_proxy.shape))
         self.assertSequenceEqual(
             list(lshape),
-            list(IndexingExtent(gary1.lndarray.rank_view_slice_n).shape)
+            list(IndexingExtent(gary1.lndarray_proxy.rank_view_slice_n).shape)
         )
 
     def test_zeros_shared_1d(self):
@@ -386,25 +388,27 @@ class GndarrayTest(_unittest.TestCase):
             )
         gary_dst = mpi_array.globale.zeros(comms_and_distrib=cand_dst, dtype=dst_dtype)
         gary_dst.update()
-        self.assertTrue(_np.all(gary_dst.lndarray.slndarray[...] == 0))
+        self.assertTrue(_np.all(gary_dst.lndarray_proxy.lndarray[...] == 0))
 
         if gary_src.locale_comms.peer_comm.size <= 1:
-            self.assertSequenceEqual(gary_src.lndarray.shape, gary_dst.lndarray.shape)
+            self.assertSequenceEqual(gary_src.lndarray_proxy.shape, gary_dst.lndarray_proxy.shape)
         else:
-            self.assertTrue(_np.any(_np.array(gary_src.lndarray.shape) != gary_dst.lndarray.shape))
+            self.assertTrue(
+                _np.any(_np.array(gary_src.lndarray_proxy.shape) != gary_dst.lndarray_proxy.shape)
+            )
 
         mpi_array.globale.copyto(gary_dst, gary_src)
 
         for le0 in gary_src.distribution.locale_extents:
-            intersection_extent = le0.calc_intersection(gary_dst.lndarray.locale_extent)
+            intersection_extent = le0.calc_intersection(gary_dst.lndarray_proxy.locale_extent)
             rank_val = le0.cart_rank + 1
             self.assertNotEqual(0, rank_val)
             locale_slice = \
-                gary_dst.lndarray.locale_extent.globale_to_locale_extent_h(
+                gary_dst.lndarray_proxy.locale_extent.globale_to_locale_extent_h(
                     intersection_extent
                 ).to_slice()
             self.assertTrue(_np.all(_np.array(intersection_extent.shape) > 0))
-            self.assertTrue(_np.all(gary_dst.lndarray[locale_slice] == rank_val))
+            self.assertTrue(_np.all(gary_dst.lndarray_proxy[locale_slice] == rank_val))
 
     def test_copyto_no_halo(self):
         """

@@ -16,8 +16,8 @@ Classes
    :toctree: generated/
    :template: autosummary/inherits_TestCase_class.rst
 
-   SlndarrayTest - Tests for :obj:`mpi_array.locale.slndarray`.
    LndarrayTest - Tests for :obj:`mpi_array.locale.lndarray`.
+   LndarrayProxyTest - Tests for :obj:`mpi_array.locale.LndarrayProxy`.
 
 
 """
@@ -41,20 +41,20 @@ __copyright__ = _copyright()
 __version__ = _version()
 
 
-class SlndarrayTest(_unittest.TestCase):
+class LndarrayTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.locale.slndarray`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.locale.lndarray`.
     """
 
     def test_construct(self):
         """
-        Tests :meth:`mpi_array.locale.slndarray.__new__`.
+        Tests :meth:`mpi_array.locale.lndarray.__new__`.
         """
         gshape = (11, 13, 51)
         lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
 
-        slary = lary.slndarray
+        slary = lary.lndarray
 
         # MPI windows own buffer data
         self.assertTrue(slary.flags.carray)
@@ -65,16 +65,16 @@ class SlndarrayTest(_unittest.TestCase):
         lshape = slary.shape
         bad_lshape = list(lshape)
         bad_lshape[-1] += 1
-        self.assertRaises(ValueError, mpi_array.locale.slndarray,
+        self.assertRaises(ValueError, mpi_array.locale.lndarray,
                           shape=bad_lshape)
 
     def test_view(self):
         """
-        Tests :meth:`mpi_array.locale.slndarray.__getitem__`.
+        Tests :meth:`mpi_array.locale.lndarray.__getitem__`.
         """
         gshape = (11, 13, 51)
         lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
-        slary = lary.slndarray
+        slary = lary.lndarray
 
         # MPI windows own buffer data
         self.assertTrue(slary.flags.carray)
@@ -83,20 +83,20 @@ class SlndarrayTest(_unittest.TestCase):
         self.assertTrue(slary.base.flags.carray)
 
         v = lary[0:slary.shape[0] // 2, 0:slary.shape[1] // 2, 0:slary.shape[2] // 2]
-        self.assertTrue(isinstance(v, mpi_array.locale.slndarray))
+        self.assertTrue(isinstance(v, mpi_array.locale.lndarray))
         self.assertFalse(v.flags.owndata)
         self.assertFalse(v.flags.carray)
-        self.assertTrue(isinstance(v.base, mpi_array.locale.slndarray))
+        self.assertTrue(isinstance(v.base, mpi_array.locale.lndarray))
         self.assertFalse(v.base.flags.owndata)
         self.assertTrue(v.base.flags.carray)
-        self.assertFalse(isinstance(v.base.base, mpi_array.locale.slndarray))
+        self.assertFalse(isinstance(v.base.base, mpi_array.locale.lndarray))
         self.assertTrue(isinstance(v.base.base, _np.ndarray))
         self.assertFalse(v.base.base.flags.owndata)
         self.assertTrue(v.base.base.flags.carray)
 
     def test_numpy_sum(self):
         """
-        Test :func:`numpy.sum` reduction using a :obj:`mpi_array.locale.slndarray`
+        Test :func:`numpy.sum` reduction using a :obj:`mpi_array.locale.lndarray`
         as argument.
         """
         gshape = (50, 50, 50)
@@ -104,7 +104,7 @@ class SlndarrayTest(_unittest.TestCase):
         lary = \
             mpi_array.locale.ones(shape=gshape, comms_and_distrib=comms_and_distrib, dtype="int32")
 
-        slary = lary.slndarray
+        slary = lary.lndarray
         l_sum = _np.sum(lary.rank_view_n)
         self.assertFalse(l_sum.flags.owndata)
         self.assertTrue(l_sum.base.flags.owndata)
@@ -120,19 +120,19 @@ class SlndarrayTest(_unittest.TestCase):
         self.assertEqual(_np.product(gshape), g_sum)
 
 
-class LndarrayTest(_unittest.TestCase):
+class LndarrayProxyTest(_unittest.TestCase):
 
     """
-    :obj:`unittest.TestCase` for :obj:`mpi_array.locale.lndarray`.
+    :obj:`unittest.TestCase` for :obj:`mpi_array.locale.LndarrayProxy`.
     """
 
     def test_construct_arg_checking(self):
         """
-        Test for :meth:`mpi_array.locale.lndarray.__new__`.
+        Test for :meth:`mpi_array.locale.LndarrayProxy.__new__`.
         """
         self.assertRaises(
             ValueError,
-            mpi_array.locale.lndarray,
+            mpi_array.locale.LndarrayProxy,
             shape=None,
             locale_extent=None,
             dtype="int64"
@@ -332,8 +332,8 @@ class LndarrayTest(_unittest.TestCase):
 
     def do_test_views_2d(self, halo=0):
         """
-        Test for :meth:`mpi_array.locale.lndarray.rank_view_n`
-        and :meth:`mpi_array.locale.lndarray.rank_view_h`.
+        Test for :meth:`mpi_array.locale.LndarrayProxy.rank_view_n`
+        and :meth:`mpi_array.locale.LndarrayProxy.rank_view_h`.
         """
 
         lshape = _np.array((4, 3), dtype="int64")

@@ -3,7 +3,7 @@
 The :mod:`mpi_array.locale` Module
 ==================================
 
-Defines :obj:`lndarray` class and factory functions for
+Defines :obj:`LndarrayProxy` class and factory functions for
 creating multi-dimensional arrays where memory is allocated
 using :meth:`mpi4py.MPI.Win.Allocate_shared` or :meth:`mpi4py.MPI.Win.Allocate`.
 
@@ -11,20 +11,20 @@ Classes
 =======
 
 ..
-   Special template for mpi_array.locale.lndarray to avoid numpydoc
+   Special template for mpi_array.locale.LndarrayProxy to avoid numpydoc
    documentation style sphinx warnings/errors from numpy.ndarray inheritance.
 
 .. autosummary::
    :toctree: generated/
    :template: autosummary/inherits_ndarray_class.rst
 
-   slndarray - Sub-class of :obj:`numpy.ndarray` which uses MPI allocated memory.
+   lndarray - Sub-class of :obj:`numpy.ndarray` which uses MPI allocated memory buffer.
 
 .. autosummary::
    :toctree: generated/
    :template: autosummary/class.rst
 
-   lndarray - Thin container for :obj:`slndarray` which provides convenience views.
+   LndarrayProxy - Thin container for :obj:`lndarray` which provides convenience views.
    PartitionViewSlices - Container for per-rank slices for created locale extent array views.
 
 Factory Functions
@@ -53,6 +53,7 @@ Utilities
 
 from __future__ import absolute_import
 
+import sys as _sys
 import numpy as _np
 import array_split as _array_split
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
@@ -73,7 +74,7 @@ __version__ = _version()
 class NdarrayMetaData(object):
 
     """
-    Encapsulates, strides, offset and order argument of :meth:`lndarray.__new__`.
+    Encapsulates, strides, offset and order argument of :meth:`LndarrayProxy.__new__`.
     """
 
     def __init__(self, offset, strides, order):
@@ -97,7 +98,7 @@ class NdarrayMetaData(object):
         return self._order
 
 
-class slndarray(_np.ndarray):
+class lndarray(_np.ndarray):
 
     """
     Sub-class of :obj:`numpy.ndarray` which requires :samp:`{buffer}` to
@@ -182,14 +183,41 @@ PartitionViewSlices = \
             "lndarray_view_slice_n"
         ]
     )
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    PartitionViewSlices.__doc__ =\
+        """
+        Stores multiple :obj:`tuple`-of-:obj:`slice` objects indicating
+        the slice (tile) of the :obj:`lndarray` on which a :samp:`intra_locale_comm`
+        rank MPI process operates.  
+        """
+    PartitionViewSlices.rank_view_slice_n.__doc__ =\
+        """
+        Slice indicating tile of the non-halo array.
+        """
+    PartitionViewSlices.rank_view_slice_h.__doc__ =\
+        """
+        The slice :attr:`rank_view_slice_n` with halo added.
+        """
+    PartitionViewSlices.rank_view_relative_slice_n.__doc__ =\
+        """
+        *Relative* slice which can be used to remove the
+        halo elements from a view generated using :attr:`rank_view_slice_h`.
+        """
+    PartitionViewSlices.rank_view_partition_slice_h.__doc__ =\
+        """
+        Slice indicating tile of the halo array.
+        """
+    PartitionViewSlices.lndarray_view_slice_n.__doc__ =\
+        """
+        Slice for generating a view of a :obj:`lndarray` with
+        the halo removed.
+        """
 
-
-class lndarray(object):
+class LndarrayProxy(object):
 
     """
-    Thin container for :obj:`slndarray` instances.
-    Adds the :attr:`decomp` attribute to keep track
-    of distribution.
+    Proxy for :obj:`lndarray` instances. Provides :samp:`peer_rank`
+    views of the array for parallelism.
     """
 
     def __new__(
@@ -218,7 +246,7 @@ class lndarray(object):
         :param dtype: Data type for elements of the array.
         :type buffer: :obj:`memoryview`
         :param buffer: The sequence of bytes providing array element storage.
-           Must be specified.
+           Must be specified (not :samp:`None`).
         :type offset: :samp:`None` or :obj:`int`
         :param offset: Offset of array data in buffer, i.e where array begins in buffer
            (in buffer bytes).
@@ -244,8 +272,8 @@ class lndarray(object):
                 (shape, locale_extent.shape_h)
             )
 
-        self._slndarray = \
-            slndarray(
+        self._lndarray = \
+            lndarray(
                 shape=locale_extent.shape_h,
                 dtype=dtype,
                 buffer=buffer,
@@ -350,31 +378,31 @@ class lndarray(object):
 
     def __getitem__(self, *args, **kwargs):
         """
-        Return slice/item from :attr:`slndarray` array.
+        Return slice/item from :attr:`lndarray` array.
         """
-        return self._slndarray.__getitem__(*args, **kwargs)
+        return self._lndarray.__getitem__(*args, **kwargs)
 
     def __setitem__(self, *args, **kwargs):
         """
-        Set slice/item in :attr:`slndarray` array.
+        Set slice/item in :attr:`lndarray` array.
         """
-        self._slndarray.__setitem__(*args, **kwargs)
+        self._lndarray.__setitem__(*args, **kwargs)
 
     def __eq__(self, other):
         """
         """
-        if isinstance(other, lndarray):
-            return self._slndarray == other._slndarray
+        if isinstance(other, LndarrayProxy):
+            return self._lndarray == other._lndarray
         else:
-            return self._slndarray == other
+            return self._lndarray == other
 
     @property
-    def slndarray(self):
+    def lndarray(self):
         """
-        An :obj:`slndarray` instance containing array data in (potentially)
+        An :obj:`lndarray` instance containing array data in (potentially)
         shared memory.
         """
-        return self._slndarray
+        return self._lndarray
 
     @property
     def intra_partition(self):
@@ -412,35 +440,35 @@ class lndarray(object):
         """
         Meta-data object of type :obj:`NdarrayMetaData`.
         """
-        return self._slndarray.md
+        return self._lndarray.md
 
     @property
     def dtype(self):
         """
         A :obj:`numpy.dtype` object describing the element type of this array.
         """
-        return self._slndarray.dtype
+        return self._lndarray.dtype
 
     @property
     def shape(self):
         """
-        The shape of the locale array (including halo), i.e. :samp:`self.slndarray.shape`.
+        The shape of the locale array (including halo), i.e. :samp:`self.lndarray.shape`.
         """
-        return self._slndarray.shape
+        return self._lndarray.shape
 
     @property
     def rank_view_n(self):
         """
         A tile view of the array for this rank of :samp:`peer_comm`.
         """
-        return self._slndarray[self._intra_partition.rank_view_slice_n]
+        return self._lndarray[self._intra_partition.rank_view_slice_n]
 
     @property
     def rank_view_h(self):
         """
         A tile view (including halo elements) of the array for this rank of :samp:`peer_comm`.
         """
-        return self._slndarray[self._intra_partition.rank_view_slice_h]
+        return self._lndarray[self._intra_partition.rank_view_slice_h]
 
     @property
     def rank_view_slice_n(self):
@@ -459,25 +487,25 @@ class lndarray(object):
     @property
     def rank_view_partition_h(self):
         """
-        Rank tile view from the paritioning of entire :samp:`self._slndarray`
+        Rank tile view from the paritioning of entire :samp:`self._lndarray`
         (i.e. partition of halo array). Same as :samp:`self.rank_view_n` when
         halo is zero.
         """
-        return self._slndarray[self._intra_partition.rank_view_partition_slice_h]
+        return self._lndarray[self._intra_partition.rank_view_partition_slice_h]
 
     @property
     def view_n(self):
         """
         View of entire array without halo.
         """
-        return self._slndarray[self._intra_partition.lndarray_view_slice_n]
+        return self._lndarray[self._intra_partition.lndarray_view_slice_n]
 
     @property
     def view_h(self):
         """
-        The entire :obj:`lndarray` view including halo (i.e. :samp:{self}).
+        The entire :obj:`LndarrayProxy` view including halo (i.e. :samp:{self}).
         """
-        return self._slndarray.view()
+        return self._lndarray.view()
 
     def fill(self, value):
         """
@@ -486,7 +514,7 @@ class lndarray(object):
         :type value: scalar
         :param value: All non-ghost elements are assigned this value.
         """
-        self._slndarray.rank_view_n.fill(value)
+        self._lndarray.rank_view_n.fill(value)
 
     def fill_h(self, value):
         """
@@ -495,7 +523,7 @@ class lndarray(object):
         :type value: scalar
         :param value: All elements (including ghost elements) are assigned this value.
         """
-        self._slndarray[self._intra_partition.rank_view_partition_slice_h].fill(value)
+        self._lndarray[self._intra_partition.rank_view_partition_slice_h].fill(value)
 
 
 def empty(
@@ -517,7 +545,7 @@ def empty(
     :param dtype: Data type of array elements.
     :type comms_and_distrib: :obj:`numpy.dtype`
     :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with uninitialised elements.
     """
     if comms_and_distrib is None:
@@ -537,7 +565,7 @@ def empty(
         )
 
     ret = \
-        lndarray(
+        LndarrayProxy(
             shape=rma_window_buffer.shape,
             buffer=rma_window_buffer.buffer,
             dtype=dtype,
@@ -568,7 +596,7 @@ def empty_like(ary, dtype=None):
     """
     if dtype is None:
         dtype = ary.dtype
-    if (isinstance(ary, lndarray)):
+    if (isinstance(ary, LndarrayProxy)):
         ret_ary = \
             empty(
                 dtype=ary.dtype,
@@ -593,7 +621,7 @@ def zeros(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwar
     :param dtype: Data type of array elements.
     :type comms_and_distrib: :obj:`numpy.dtype`
     :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with zero-initialised elements.
     """
     ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
@@ -606,11 +634,11 @@ def zeros_like(ary, *args, **kwargs):
     """
     Return a new zero-initialised array with the same shape and type as a given array.
 
-    :type ary: :obj:`lndarray`
+    :type ary: :obj:`LndarrayProxy`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: Array of zero-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
@@ -630,7 +658,7 @@ def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwarg
     :param dtype: Data type of array elements.
     :type comms_and_distrib: :obj:`numpy.dtype`
     :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with one-initialised elements.
     """
     ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
@@ -643,11 +671,11 @@ def ones_like(ary, *args, **kwargs):
     """
     Return a new one-initialised array with the same shape and type as a given array.
 
-    :type ary: :obj:`lndarray`
+    :type ary: :obj:`LndarrayProxy`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: Array of one-initialized data with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
@@ -660,9 +688,9 @@ def copy(ary):
     """
     Return an array copy of the given object.
 
-    :type ary: :obj:`lndarray`
+    :type ary: :obj:`LndarrayProxy`
     :param ary: Array to copy.
-    :rtype: :obj:`lndarray`
+    :rtype: :obj:`LndarrayProxy`
     :return: A copy of :samp:`ary`.
     """
     ary_out = empty_like(ary)
