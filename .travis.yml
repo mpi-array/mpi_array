@@ -58,7 +58,7 @@ script:
   - mpirun -n 8 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
   - # run tests on installed mpi_array
   - cd docs
-  - mpirun -n 4 python -m mpi_array.globale_tests -vf
+  - mpirun -n 4 python -m mpi_array.globale_test -vf
   - cd ..
   - travis-sphinx build
 
