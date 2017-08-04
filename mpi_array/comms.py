@@ -13,9 +13,9 @@ Classes
 
    LocaleComms - Intra-locale and inter-locale communicators.
    CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
-   CommsAndDistribution - Pair consisting of :obj:`LocaleComms` and :obj:`Distribution`.
-   ThisLocaleInfo - Info on inter_locale_comm peer_rank and corresponding peer_comm peer_rank.
-   RmaWindowBuffer - Container for array buffer and associated RMA windows.
+   CommsAndDistribution - Tuple with :obj:`LocaleComms` and :obj:`Distribution`.
+   ThisLocaleInfo - The inter_locale_comm inter_locale_rank and corresponding peer_comm peer_rank.
+   RmaWindowBuffer - Container for locale array buffer and associated RMA windows.
 
 Factory Functions
 =================
@@ -30,6 +30,7 @@ Factory Functions
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
+import sys as _sys
 import mpi4py.MPI as _mpi
 import numpy as _np
 import collections as _collections
@@ -56,6 +57,18 @@ def mpi_version():
 
 
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    ThisLocaleInfo.__doc__ = \
+       """
+       Pair of communicator rank values :samp:`(inter_locale_rank, peer_rank)` which
+       indicates that the rank :samp:`inter_locale_rank` of the :samp:`inter_locale_comm`
+       communicator corresponds to the :samp:`peer_rank` rank of the :samp:`peer_comm`
+       communicator.
+       """
+    ThisLocaleInfo.inter_locale_rank.__doc__ = \
+        "A :obj:`int` indicating the rank of :samp:`inter_locale_comm` communicator."
+    ThisLocaleInfo.peer_rank.__doc__ = \
+        "A :obj:`int` indicating the rank of :samp:`peer_comm` communicator."
 
 
 RmaWindowBuffer = \
@@ -71,6 +84,46 @@ RmaWindowBuffer = \
             "inter_locale_win"
         ]
     )
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    RmaWindowBuffer.__doc__ = \
+       """
+       Details of the buffer allocated on a locale.
+       """
+    RmaWindowBuffer.buffer.__doc__ = \
+        """
+        The memory allocated using one of :meth:`mpi4py.MPI.Win.Allocate`
+        or :meth:`mpi4py.MPI.Win.Allocate_shared`. This memory is used to store
+        elements of the globale array apportioned to a locale.
+        """
+    RmaWindowBuffer.shape.__doc__ = \
+        "A sequence of :obj:`int` indicating the shape of the locale array."
+    RmaWindowBuffer.dtype.__doc__ = \
+        """
+        A :obj:`numpy.dtype` indicating the data type of elements
+        stored in the array.
+        """
+    RmaWindowBuffer.itemsize.__doc__ = \
+        """
+        An :obj:`int` indicating the number of bytes  per array element
+        (same as :attr:`numpy.dtype.itemsize`).
+        """
+    RmaWindowBuffer.peer_win.__doc__ = \
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`peer_comm` communicator
+        which exposes :attr:`buffer` for inter-locale RMA access.  
+        """
+    RmaWindowBuffer.intra_locale_win.__doc__ = \
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`intra_locale_comm` communicator
+        which exposes :attr:`buffer` for intra-locale RMA access.
+        When :samp:`{intra_locale_win}.group.size > 1` then :attr:`buffer` was
+        allocated as shared memory (using :meth:`mpi4py.MPI.Win.Allocate_shared`).
+        """
+    RmaWindowBuffer.inter_locale_win.__doc__ = \
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`inter_locale_comm` communicator
+        which exposes :attr:`buffer` for inter-locale RMA access.
+        """
 
 
 class LocaleComms(object):
@@ -500,6 +553,26 @@ _valid_locale_types = [LT_NODE, LT_PROCESS]
 
 CommsAndDistribution = \
     _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution", "this_locale"])
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    CommsAndDistribution.__doc__ = \
+       """
+       A 3 element tuple :samp:`(locale_comms, distribution, this_locale)`
+       describing the apportionment of array elements over MPI processes.
+       """
+    CommsAndDistribution.locale_comms.__doc__ = \
+       """
+       A :obj:`LocaleComms` object containing communicators for exchanging
+       data between locales.
+       """
+    CommsAndDistribution.distribution.__doc__ = \
+       """
+       A :obj:`mpi_array.distribution.Distribution` object describing the
+       apportionment of array elements over locales.
+       """
+    CommsAndDistribution.this_locale.__doc__ = \
+       """
+       A :obj:`ThisLocaleInfo` with rank pair pertinent for this locale.
+       """
 
 
 def create_block_distribution(
