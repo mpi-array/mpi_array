@@ -11,9 +11,12 @@ Classes and Functions
 .. autosummary::
    :toctree: generated/
 
+   ExtentAndRegion - container for locale extent and update region (sub-extent).
+   MpiExtentAndRegion - Provides MPI datatype creation.
    ExtentUpdate - Base class for describing a sub-extent update.
    PairExtentUpdate - Describes sub-extent source and sub-extent destination.
    MpiPairExtentUpdate - Extends :obj:`PairExtentUpdate` with MPI data type factory.
+   MpiPairExtentUpdateDifferentDtypes - Over-rides :meth:`MpiPairExtentUpdate.do_get`.
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
@@ -37,6 +40,11 @@ __version__ = _version()
 
 
 class ExtentAndRegion:
+
+    """
+    Container for :obj:`mpi_array.distribution.LocaleExtent` and
+    an update region (:obj:`mpi_array.indexing.IndexingExtent`).
+    """
 
     def __init__(self, locale_extent, region_extent=None):
         self._locale_extent = locale_extent
@@ -119,19 +127,30 @@ class PairExtentUpdate(ExtentUpdate):
 
 class MpiExtentAndRegion(ExtentAndRegion):
 
-    def __init__(self, locale_extent, region_extent, dtype=None, order=None, mpi_data_type=None):
+    def __init__(
+        self,
+        locale_extent,
+        region_extent,
+        dtype=None,
+        order=None,
+        mpi_data_type=None,
+        mpi_order=None
+    ):
         ExtentAndRegion.__init__(self, locale_extent, region_extent)
         self._dtype = dtype
+        self._parent_mpi_data_type = None
         self._order = order
         self._mpi_data_type = mpi_data_type
+        self._mpi_order = mpi_order
 
     def create_data_type(self, dtype, order="C"):
         mpi_order = _mpi.ORDER_C
         if order == "F":
             mpi_order = _mpi.ORDER_FORTRAN
 
+        parent_mpi_data_type = _mpi._typedict[dtype.char]
         mpi_data_type = \
-            _mpi._typedict[dtype.char].Create_subarray(
+            parent_mpi_data_type.Create_subarray(
                 self.locale_extent.shape_h,
                 self.region_extent.shape,
                 self.locale_extent.globale_to_locale_h(self.region_extent.start),
@@ -139,7 +158,7 @@ class MpiExtentAndRegion(ExtentAndRegion):
             )
         mpi_data_type.Commit()
 
-        return mpi_data_type
+        return mpi_data_type, mpi_order, parent_mpi_data_type
 
     def initialise_mpi_data_type(self, dtype, order):
         dtype = _np.dtype(dtype)
@@ -151,7 +170,8 @@ class MpiExtentAndRegion(ExtentAndRegion):
             or
             (self._order != order)
         ):
-            self._mpi_data_type = self.create_data_type(dtype, order)
+            self._mpi_data_type, self._mpi_order, self._parent_mpi_data_type = \
+                self.create_data_type(dtype, order)
             self._dtype = dtype
             self._order = order
 
@@ -170,6 +190,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
     """
 
     def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
+        self._casting = "same_kind"
         ExtentUpdate.__init__(
             self,
             MpiExtentAndRegion(dst_extent, dst_update_extent),
@@ -239,6 +260,22 @@ class MpiPairExtentUpdate(ExtentUpdate):
         return self._src.region_extent
 
     @property
+    def dst_dtype(self):
+        """
+        A :obj:`numpy.dtype` object indicating the element type
+        of the destination array.
+        """
+        return self._dst._dtype
+
+    @property
+    def src_dtype(self):
+        """
+        A :obj:`numpy.dtype` object indicating the element type
+        of the source array.
+        """
+        return self._src._dtype
+
+    @property
     def dst_data_type(self):
         """
         A :obj:`mpi4py.MPI.Datatype` object created
@@ -258,7 +295,31 @@ class MpiPairExtentUpdate(ExtentUpdate):
         """
         return self._src.mpi_data_type
 
+    @property
+    def casting(self):
+        """
+        A :obj:`str` indicating the casting allowed between different :obj:`numpy.dtype` elements.
+        See the :samp:`casting` parameter for the :func:`numpy.copyto` function.
+        """
+        return self._casting
+
+    @casting.setter
+    def casting(self, casting):
+        self._casting = casting
+
     def do_get(self, mpi_win, target_src_rank, origin_dst_buffer):
+        """
+        Performs calls :meth:`mpi4py.MPI.Win.Get` method of :samp:`mpi_win`
+        to perform the RMA data-transfer.
+
+        :type mpi_win: :obj:`mpi4py.MPI.Win.Get`
+        :param mpi_win: Window used to retrieve update region for array.
+        :type target_src_rank: :obj:`int`
+        :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
+        :type origin_dst_buffer: :obj:`memoryview`
+        :param origin_dst_buffer: The destination memory for the update, size of buffer
+           should correspond to the size of the :attr:`dst_extent`.
+        """
         mpi_win.Get(
             [origin_dst_buffer, 1, self.dst_data_type],
             target_src_rank,
@@ -271,10 +332,10 @@ class MpiPairExtentUpdate(ExtentUpdate):
         """
         dst_mpi_dtype = None
         if self._dst._dtype is not None:
-            dst_mpi_dtype = _mpi._typedict[self._dst._dtype.char].Get_name()
+            dst_mpi_dtype = self._dst._parent_mpi_data_type.Get_name()
         src_mpi_dtype = None
         if self._src._dtype is not None:
-            src_mpi_dtype = _mpi._typedict[self._src._dtype.char].Get_name()
+            src_mpi_dtype = self._src._parent_mpi_data_type.Get_name()
 
         return \
             (
@@ -299,6 +360,46 @@ class MpiPairExtentUpdate(ExtentUpdate):
                     src_mpi_dtype
                 )
             )
+
+
+class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
+
+    """
+    Over-rides :meth:`MpiPairExtentUpdate.do_get` to buffer-copy and
+    subsequent casting when source and destination arrays have different :obj:`numpy.dtype`.
+    """
+
+    def do_get(self, mpi_win, target_src_rank, origin_dst_buffer):
+        """
+        Performs calls :meth:`mpi4py.MPI.Win.Get` method of :samp:`mpi_win`
+        to perform the RMA data-transfer. Uses a locally allocated buffer
+        to receive the data and then uses :func:`numpy.copyto` to convert
+        the :attr:`src_dtype` to the :attr:`dst_dtype`.
+
+        :type mpi_win: :obj:`mpi4py.MPI.Win.Get`
+        :param mpi_win: Window used to retrieve update region for array.
+        :type target_src_rank: :obj:`int`
+        :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
+        :type origin_dst_buffer: :obj:`memoryview`
+        :param origin_dst_buffer: The destination memory for the update, size of buffer
+           should correspond to the size of the :attr:`dst_extent`.
+        """
+        origin_tmp_buffer = _np.zeros(shape=self._src.region_extent.shape, dtype=self._src._dtype)
+
+        r = mpi_win.Rget(
+            [origin_tmp_buffer, _np.product(origin_tmp_buffer.shape),
+             self._src._parent_mpi_data_type],
+            target_src_rank,
+            [0, 1, self.src_data_type]
+        )
+        origin_dst_buffer_slice = \
+            self._dst.locale_extent.globale_to_locale_extent_h(self._dst.region_extent).to_slice()
+        r.wait()
+        _np.copyto(
+            origin_dst_buffer[origin_dst_buffer_slice][...],
+            origin_tmp_buffer,
+            casting=self.casting
+        )
 
 
 class HaloSingleExtentUpdate(ExtentUpdate):

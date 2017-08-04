@@ -8,6 +8,12 @@ Execute as::
 
    python -m mpi_array.globale_test
 
+and with parallelism::
+
+   mpirun -n  2 python -m mpi_array.globale_test
+   mpirun -n  4 python -m mpi_array.globale_test
+   mpirun -n 27 python -m mpi_array.globale_test
+
 
 Classes
 =======
@@ -422,14 +428,17 @@ class GndarrayTest(_unittest.TestCase):
         """
         self.do_test_copyto(halo=4)
 
-    def test_copyto_different_locale_types(self):
+    def do_test_copyto_different_locale_types(
+        self,
+        halo=0,
+        node_slab_dtype="int32",
+        proc_blok_dtype="int32"
+    ):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        halo = 0
         lshape = (128, 128)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
-        dtype = "int32"
 
         cand_node_slab = \
             create_distribution(
@@ -448,15 +457,17 @@ class GndarrayTest(_unittest.TestCase):
                 halo=halo
             )
 
-        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
+        gary_node_slab = \
+            mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
         rank_val = gary_node_slab.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_node_slab.rank_view_n[...] = rank_val
         gary_node_slab.update()
-        gary_proc_blok = mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=dtype)
+        gary_proc_blok = \
+            mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
 
-        mpi_array.globale.copyto(gary_proc_blok, gary_node_slab)
+        mpi_array.globale.copyto(gary_proc_blok, gary_node_slab, casting="unsafe")
         gary_node_slab0 = mpi_array.globale.zeros_like(gary_node_slab)
-        mpi_array.globale.copyto(gary_node_slab0, gary_proc_blok)
+        mpi_array.globale.copyto(gary_node_slab0, gary_proc_blok, casting="unsafe")
 
         gary_node_slab0.update()
 
@@ -474,16 +485,19 @@ class GndarrayTest(_unittest.TestCase):
 
         # Try in copyto in opposite order
 
-        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
+        gary_node_slab = \
+            mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
 
-        gary_proc_blok = mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=dtype)
+        gary_proc_blok = \
+            mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
+
         rank_val = gary_proc_blok.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_proc_blok.rank_view_n[...] = rank_val
         gary_proc_blok.update()
 
-        mpi_array.globale.copyto(gary_node_slab, gary_proc_blok)
+        mpi_array.globale.copyto(gary_node_slab, gary_proc_blok, casting="unsafe")
         gary_proc_blok0 = mpi_array.globale.zeros_like(gary_proc_blok)
-        mpi_array.globale.copyto(gary_proc_blok0, gary_node_slab)
+        mpi_array.globale.copyto(gary_proc_blok0, gary_node_slab, casting="unsafe")
 
         gary_proc_blok0.update()
 
@@ -496,6 +510,46 @@ class GndarrayTest(_unittest.TestCase):
         )
         self.assertTrue(
             _np.all(gary_proc_blok.rank_view_h[...] == gary_proc_blok0.rank_view_h[...])
+        )
+
+    def test_copyto_different_locale_types_no_halo_same_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_different_locale_types(
+            halo=0,
+            node_slab_dtype="int32",
+            proc_blok_dtype="int32"
+        )
+
+    def test_copyto_different_locale_types_wt_halo_same_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_different_locale_types(
+            halo=4,
+            node_slab_dtype="int32",
+            proc_blok_dtype="int32"
+        )
+
+    def test_copyto_different_locale_types_no_halo_diff_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_different_locale_types(
+            halo=0,
+            node_slab_dtype="uint16",
+            proc_blok_dtype="int64"
+        )
+
+    def test_copyto_different_locale_types_wt_halo_diff_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_different_locale_types(
+            halo=8,
+            node_slab_dtype="float32",
+            proc_blok_dtype="uint64"
         )
 
     def test_copyto_arg_check(self):

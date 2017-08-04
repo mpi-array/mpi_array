@@ -1,7 +1,7 @@
 """
-==================================
-The :mod:`mpi_array.global` Module
-==================================
+===================================
+The :mod:`mpi_array.globale` Module
+===================================
 
 Defines :obj:`gndarray` class and factory functions for
 creating multi-dimensional distributed arrays (Partitioned Global Address Space).
@@ -44,7 +44,9 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import locale as _locale
 from .comms import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
-from .update import MpiHalosUpdate as _MpiHalosUpdate, MpiPairExtentUpdate as _MpiPairExtentUpdate
+from .update import MpiHalosUpdate as _MpiHalosUpdate
+from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
+from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
 
 __author__ = "Shane J. Latham"
@@ -228,11 +230,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
     remote :samp:`{src}` locales to local :samp:`{dst}` locales.
     """
 
-    def __init__(self, dst, src):
+    def __init__(self, dst, src, casting="same_kind"):
         """
         """
         self._dst = dst
         self._src = src
+        self._casting = casting
+        self._mpi_pair_extent_update_type = _MpiPairExtentUpdate
+        if self._dst.dtype != self._src.dtype:
+            self._mpi_pair_extent_update_type = _MpiPairExtentUpdateDifferentDtypes
+
         _UpdatesForRedistribute.__init__(
             self,
             dst.comms_and_distrib.distribution,
@@ -280,12 +287,12 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         intersection_extent
     ):
         """
-        Factory method for which creates sequence of
+        Factory method which creates sequence of
         of :obj:`mpi_array.distribution.MpiPairExtentUpdate` objects.
         """
         updates = \
             [
-                _MpiPairExtentUpdate(
+                self._mpi_pair_extent_update_type(
                     self._dst.distribution.locale_extents[dst_extent.inter_locale_rank],
                     self._src.distribution.locale_extents[src_extent.inter_locale_rank],
                     intersection_extent,
@@ -299,6 +306,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 dst_order=self._dst.lndarray_proxy.md.order,
                 src_order=self._src.lndarray_proxy.md.order
             )
+            update.casting = self._casting
+
         return updates
 
     def do_locale_update(self):
@@ -368,7 +377,11 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 )
             self._dst.locale_comms.intra_locale_comm.barrier()
         else:
-            _np.copyto(self._dst.lndarray_proxy.lndarray, self._src.lndarray_proxy.lndarray)
+            _np.copyto(
+                self._dst.lndarray_proxy.lndarray,
+                self._src.lndarray_proxy.lndarray,
+                casting=self._casting
+            )
 
     def barrier(self):
         """
@@ -538,20 +551,23 @@ class gndarray(object):
                 )
             self.intra_locale_barrier()
 
-    def calculate_copyfrom_updates(self, src):
+    def calculate_copyfrom_updates(self, src, casting="same_kind"):
         return \
             RmaRedistributeUpdater(
                 self,
-                src
+                src,
+                casting
             )
 
-    def copyfrom(self, src):
+    def copyfrom(self, src, casting="same_kind"):
         """
         Copy the elements of the :samp:`{src}` array to corresponding elements of
         the :samp:`{self}` array.
 
         :type src: :obj:`gndarray`
-        :type src: Global array from which elements are copied.
+        :param src: Global array from which elements are copied.
+        :type casting: :obj:`str`
+        :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
         """
 
         if not isinstance(src, gndarray):
@@ -559,7 +575,7 @@ class gndarray(object):
                 "Got type(src)=%s, expected %s." % (type(src), gndarray)
             )
 
-        redistribute_updater = self.calculate_copyfrom_updates(src)
+        redistribute_updater = self.calculate_copyfrom_updates(src, casting)
         self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
         self.rank_logger.debug("END: redistribute_updater.barrier().")
@@ -758,22 +774,24 @@ def copy(ary, **kwargs):
     return ary.copy()
 
 
-def copyto(dst, src, **kwargs):
+def copyto(dst, src, casting="same_kind", **kwargs):
     """
     Copy the elements of the :samp:`{src}` array to corresponding elements of
     the :samp:`dst` array.
 
     :type dst: :obj:`gndarray`
-    :type dst: Global array which receives elements.
+    :param dst: Global array which receives elements.
     :type src: :obj:`gndarray`
-    :type src: Global array from which elements are copied.
+    :param src: Global array from which elements are copied.
+    :type casting: :obj:`str`
+    :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
     """
     if not isinstance(dst, gndarray):
         raise ValueError(
             "Got type(dst)=%s, expected %s." % (type(dst), gndarray)
         )
 
-    dst.copyfrom(src)
+    dst.copyfrom(src, casting=casting)
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
