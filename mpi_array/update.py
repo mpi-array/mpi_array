@@ -36,38 +36,57 @@ __copyright__ = _copyright()
 __version__ = _version()
 
 
+class ExtentAndRegion:
+
+    def __init__(self, locale_extent, region_extent=None):
+        self._locale_extent = locale_extent
+        self._region_extent = region_extent
+
+    @property
+    def locale_extent(self):
+        return self._locale_extent
+
+    @property
+    def region_extent(self):
+        return self._region_extent
+
+    @region_extent.setter
+    def region_extent(self, region):
+        self._region_extent = region
+
+
 class ExtentUpdate(object):
 
     """
     Source and destination indexing info for updating a sub-extent region.
     """
 
-    def __init__(self, dst_extent, src_extent):
+    def __init__(self, dst_extent_info, src_extent_info):
         """
         Initialise.
 
-        :type dst_extent: :obj:`CartLocaleExtent`
-        :param dst_extent: Whole locale extent which receives update.
-        :type src_extent: :obj:`CartLocaleExtent`
-        :param src_extent: Whole locale extent from which update is read.
+        :type dst_extent_info: :obj:`ExtentAndRegion`
+        :param dst_extent_info: Info containing locale extent which is to receive region update.
+        :type dst_extent_info: :obj:`ExtentAndRegion`
+        :param dst_extent_info: Info containing locale extent from which the region update is read.
         """
         object.__init__(self)
-        self._dst_extent = dst_extent  #: whole tile of destination locale
-        self._src_extent = src_extent  #: whole tile of source locale
+        self._dst = dst_extent_info
+        self._src = src_extent_info
 
     @property
     def dst_extent(self):
         """
-        The locale :obj:`CartLocaleExtent` which is to receive sub-array update.
+        The locale :obj:`LocaleExtent` which is to receive sub-array update.
         """
-        return self._dst_extent
+        return self._dst.locale_extent
 
     @property
     def src_extent(self):
         """
         The locale :obj:`CartLocaleExtent` from which the sub-array update is read.
         """
-        return self._src_extent
+        return self._src.locale_extent
 
 
 class PairExtentUpdate(ExtentUpdate):
@@ -77,48 +96,85 @@ class PairExtentUpdate(ExtentUpdate):
     """
 
     def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
-        ExtentUpdate.__init__(self, dst_extent, src_extent)
-        self._dst_update_extent = dst_update_extent  #: sub-extent of self.dst_extent
-        self._src_update_extent = src_update_extent  #: sub-extent of self.src_extent
+        ExtentUpdate.__init__(
+            self,
+            ExtentAndRegion(dst_extent, dst_update_extent),
+            ExtentAndRegion(src_extent, src_update_extent)
+        )
 
     @property
     def dst_update_extent(self):
         """
         The locale sub-extent (:obj:`IndexingExtent`) to be updated.
         """
-        return self._dst_update_extent
+        return self._dst.region_extent
 
     @property
     def src_update_extent(self):
         """
         The locale sub-extent (:obj:`IndexingExtent`) from which the update is read.
         """
-        return self._src_update_extent
+        return self._src.region_extent
 
 
-class MpiPairExtentUpdate(PairExtentUpdate):
+class MpiExtentAndRegion(ExtentAndRegion):
+
+    def __init__(self, locale_extent, region_extent, dtype=None, order=None, mpi_data_type=None):
+        ExtentAndRegion.__init__(self, locale_extent, region_extent)
+        self._dtype = dtype
+        self._order = order
+        self._mpi_data_type = mpi_data_type
+
+    def create_data_type(self, dtype, order="C"):
+        mpi_order = _mpi.ORDER_C
+        if order == "F":
+            mpi_order = _mpi.ORDER_FORTRAN
+
+        mpi_data_type = \
+            _mpi._typedict[dtype.char].Create_subarray(
+                self.locale_extent.shape_h,
+                self.region_extent.shape,
+                self.locale_extent.globale_to_locale_h(self.region_extent.start),
+                order=mpi_order
+            )
+        mpi_data_type.Commit()
+
+        return mpi_data_type
+
+    def initialise_mpi_data_type(self, dtype, order):
+        dtype = _np.dtype(dtype)
+        order = order.lower()
+        if (
+            (self._dtype is None)
+            or
+            (self._dtype != dtype)
+            or
+            (self._order != order)
+        ):
+            self._mpi_data_type = self.create_data_type(dtype, order)
+            self._dtype = dtype
+            self._order = order
+
+    @property
+    def mpi_data_type(self):
+        return self._mpi_data_type
+
+
+class MpiPairExtentUpdate(ExtentUpdate):
 
     """
     Source and destination indexing info for updating the whole of a halo portion.
-    Extends :obj:`HaloSingleExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
+    Extends :obj:`ExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
     instances (using :meth:`mpi4py.MPI.Datatype.Create_subarray`) for convenient
     transfer of sub-array data.
     """
 
     def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
-        PairExtentUpdate.__init__(
+        ExtentUpdate.__init__(
             self,
-            dst_extent=dst_extent,
-            src_extent=src_extent,
-            dst_update_extent=dst_update_extent,
-            src_update_extent=src_update_extent
+            MpiExtentAndRegion(dst_extent, dst_update_extent),
+            MpiExtentAndRegion(src_extent, src_update_extent)
         )
-        self._dst_order = None
-        self._src_order = None
-        self._dst_dtype = None
-        self._src_dtype = None
-        self._dst_data_type = None
-        self._src_data_type = None
         self._str_format = \
             (
                 "%8s, %20s, %20s, %20s, %20s, %20s, %20s, %16s, "
@@ -165,71 +221,22 @@ class MpiPairExtentUpdate(PairExtentUpdate):
         :param order: Array memory layout, :samp:`"C"` for C array,
            or :samp:`"F"` for fortran array.
         """
-        dst_dtype = _np.dtype(dst_dtype)
-        dst_order = dst_order.upper()
-        src_dtype = _np.dtype(src_dtype)
-        src_order = src_order.upper()
-        if (
-            (self._dst_dtype is None)
-            or
-            (self._src_dtype is None)
-            or
-            (self._dst_dtype != dst_dtype)
-            or
-            (self._src_dtype != dst_dtype)
-            or
-            (self._dst_order != dst_order)
-            or
-            (self._src_order != src_order)
-        ):
-            self._dst_data_type, self._src_data_type = \
-                self.create_data_types(dst_dtype, src_dtype, dst_order, src_order)
-            self._dst_dtype = dst_dtype
-            self._src_dtype = src_dtype
-            self._dst_order = dst_order
-            self._src_order = src_order
+        self._dst.initialise_mpi_data_type(dst_dtype, dst_order)
+        self._src.initialise_mpi_data_type(src_dtype, src_order)
 
-    def create_data_types(self, dst_dtype, src_dtype, dst_order, src_order):
+    @property
+    def dst_update_extent(self):
         """
-        Returns pair of new `mpi4py.MPI.Datatype`
-        instances :samp:`(dst_data_type, src_data_type)`.
-
-        :type dtype: :obj:`numpy.dtype`
-        :param dtype: The array element type.
-        :type order: :obj:`str`
-        :param order: Array memory layout, :samp:`"C"` for C array,
-           or :samp:`"F"` for fortran array.
-        :rtype: :obj:`tuple`
-        :return: Pair of new `mpi4py.MPI.Datatype`
-           instances :samp:`(dst_data_type, src_data_type)`.
+        The locale sub-extent (:obj:`IndexingExtent`) to be updated.
         """
-        dst_mpi_order = _mpi.ORDER_C
-        if dst_order == "F":
-            dst_mpi_order = _mpi.ORDER_FORTRAN
+        return self._dst.region_extent
 
-        dst_data_type = \
-            _mpi._typedict[dst_dtype.char].Create_subarray(
-                self._dst_extent.shape_h,
-                self._dst_update_extent.shape,
-                self._dst_extent.globale_to_locale_h(self._dst_update_extent.start),
-                order=dst_mpi_order
-            )
-        dst_data_type.Commit()
-
-        src_mpi_order = _mpi.ORDER_C
-        if src_order == "F":
-            src_mpi_order = _mpi.ORDER_FORTRAN
-
-        src_data_type = \
-            _mpi._typedict[src_dtype.char].Create_subarray(
-                self._src_extent.shape_h,
-                self._src_update_extent.shape,
-                self._src_extent.globale_to_locale_h(self._src_update_extent.start),
-                order=src_mpi_order
-            )
-        src_data_type.Commit()
-
-        return dst_data_type, src_data_type
+    @property
+    def src_update_extent(self):
+        """
+        The locale sub-extent (:obj:`IndexingExtent`) from which the update is read.
+        """
+        return self._src.region_extent
 
     @property
     def dst_data_type(self):
@@ -239,7 +246,7 @@ class MpiPairExtentUpdate(PairExtentUpdate):
         defines the sub-array of halo elements which are to
         receive update values.
         """
-        return self._dst_data_type
+        return self._dst.mpi_data_type
 
     @property
     def src_data_type(self):
@@ -249,18 +256,25 @@ class MpiPairExtentUpdate(PairExtentUpdate):
         defines the sub-array of halo elements from which
         receive update values.
         """
-        return self._src_data_type
+        return self._src.mpi_data_type
+
+    def do_get(self, mpi_win, target_src_rank, origin_dst_buffer):
+        mpi_win.Get(
+            [origin_dst_buffer, 1, self.dst_data_type],
+            target_src_rank,
+            [0, 1, self.src_data_type]
+        )
 
     def __str__(self):
         """
         Stringify.
         """
         dst_mpi_dtype = None
-        if self._dst_dtype is not None:
-            dst_mpi_dtype = _mpi._typedict[self._dst_dtype.char].Get_name()
+        if self._dst._dtype is not None:
+            dst_mpi_dtype = _mpi._typedict[self._dst._dtype.char].Get_name()
         src_mpi_dtype = None
-        if self._src_dtype is not None:
-            src_mpi_dtype = _mpi._typedict[self._src_dtype.char].Get_name()
+        if self._src._dtype is not None:
+            src_mpi_dtype = _mpi._typedict[self._src._dtype.char].Get_name()
 
         return \
             (
@@ -294,32 +308,35 @@ class HaloSingleExtentUpdate(ExtentUpdate):
     """
 
     def __init__(self, dst_extent, src_extent, update_extent):
-        ExtentUpdate.__init__(self, dst_extent, src_extent)
-        self._update_extent = update_extent  #: portion from source required for update
+        ExtentUpdate.__init__(
+            self,
+            ExtentAndRegion(dst_extent, update_extent),
+            ExtentAndRegion(src_extent, update_extent)
+        )
 
     @property
     def update_extent(self):
         """
         The :obj:`IndexingExtent` indicating the halo sub-array which is to be updated.
         """
-        return self._update_extent
+        return self._src.region_extent
 
 
-class MpiHaloSingleExtentUpdate(HaloSingleExtentUpdate):
+class MpiHaloSingleExtentUpdate(ExtentUpdate):
 
     """
     Source and destination indexing info for updating the whole of a halo portion.
-    Extends :obj:`HaloSingleExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
+    Extends :obj:`ExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
     instances (using :meth:`mpi4py.MPI.Datatype.Create_subarray`) for convenient
     transfer of sub-array data.
     """
 
     def __init__(self, dst_extent, src_extent, update_extent):
-        HaloSingleExtentUpdate.__init__(self, dst_extent, src_extent, update_extent)
-        self._order = None
-        self._dtype = None
-        self._dst_data_type = None
-        self._src_data_type = None
+        ExtentUpdate.__init__(
+            self,
+            MpiExtentAndRegion(dst_extent, update_extent),
+            MpiExtentAndRegion(src_extent, update_extent)
+        )
         self._str_format = \
             "%8s, %20s, %20s, %20s, %20s, %8s, %20s, %20s, %20s, %20s, %20s, %20s, %16s"
         self._header_str = \
@@ -357,51 +374,8 @@ class MpiHaloSingleExtentUpdate(HaloSingleExtentUpdate):
         :param order: Array memory layout, :samp:`"C"` for C array,
            or :samp:`"F"` for fortran array.
         """
-        dtype = _np.dtype(dtype)
-        order = order.upper()
-        if (self._dtype is None) or (self._dtype != dtype) or (self._order != order):
-            self._dst_data_type, self._src_data_type = \
-                self.create_data_types(dtype, order)
-            self._dtype = dtype
-            self._order = order
-
-    def create_data_types(self, dtype, order):
-        """
-        Returns pair of new `mpi4py.MPI.Datatype`
-        instances :samp:`(dst_data_type, src_data_type)`.
-
-        :type dtype: :obj:`numpy.dtype`
-        :param dtype: The array element type.
-        :type order: :obj:`str`
-        :param order: Array memory layout, :samp:`"C"` for C array,
-           or :samp:`"F"` for fortran array.
-        :rtype: :obj:`tuple`
-        :return: Pair of new `mpi4py.MPI.Datatype`
-           instances :samp:`(dst_data_type, src_data_type)`.
-        """
-        mpi_order = _mpi.ORDER_C
-        if order == "F":
-            mpi_order = _mpi.ORDER_FORTRAN
-
-        dst_data_type = \
-            _mpi._typedict[dtype.char].Create_subarray(
-                self._dst_extent.shape_h,
-                self._update_extent.shape,
-                self._dst_extent.globale_to_locale_h(self._update_extent.start),
-                order=mpi_order
-            )
-        dst_data_type.Commit()
-
-        src_data_type = \
-            _mpi._typedict[dtype.char].Create_subarray(
-                self._src_extent.shape_h,
-                self._update_extent.shape,
-                self._src_extent.globale_to_locale_h(self._update_extent.start),
-                order=mpi_order
-            )
-        src_data_type.Commit()
-
-        return dst_data_type, src_data_type
+        self._dst.initialise_mpi_data_type(dtype=dtype, order=order)
+        self._src.initialise_mpi_data_type(dtype=dtype, order=order)
 
     @property
     def dst_data_type(self):
@@ -411,7 +385,7 @@ class MpiHaloSingleExtentUpdate(HaloSingleExtentUpdate):
         defines the sub-array of halo elements which are to
         receive update values.
         """
-        return self._dst_data_type
+        return self._dst.mpi_data_type
 
     @property
     def src_data_type(self):
@@ -421,15 +395,22 @@ class MpiHaloSingleExtentUpdate(HaloSingleExtentUpdate):
         defines the sub-array of halo elements from which
         receive update values.
         """
-        return self._src_data_type
+        return self._src.mpi_data_type
+
+    @property
+    def update_extent(self):
+        """
+        The :obj:`IndexingExtent` indicating the halo sub-array which is to be updated.
+        """
+        return self._src.region_extent
 
     def __str__(self):
         """
         Stringify.
         """
         mpi_dtype = None
-        if self._dtype is not None:
-            mpi_dtype = _mpi._typedict[self._dtype.char].Get_name()
+        if self._dst._dtype is not None:
+            mpi_dtype = _mpi._typedict[self._dst._dtype.char].Get_name()
         return \
             (
                 self._str_format

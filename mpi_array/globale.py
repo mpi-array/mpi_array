@@ -225,7 +225,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
     Helper class for redistributing array to new distribution.
     Calculates sequence of :obj:`mpi_array.distribution.ExtentUpdate`
     objects which are used to copy elements from
-    remote locales to local locale.
+    remote :samp:`{src}` locales to local :samp:`{dst}` locales.
     """
 
     def __init__(self, dst, src):
@@ -341,10 +341,10 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                                 single_update._header_str,
                                 single_update
                             )
-                            self._inter_win.Get(
-                                [self._dst.lndarray_proxy.lndarray, 1, single_update.dst_data_type],
+                            single_update.do_get(
+                                self._inter_win,
                                 src_peer_rank,
-                                [0, 1, single_update.src_data_type]
+                                self._dst.lndarray_proxy.lndarray
                             )
                             self._dst.rank_logger.debug(
                                 "END: Got update:\n%s\n%s",
