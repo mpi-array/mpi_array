@@ -24,7 +24,6 @@ env:
     - INSTALL_PREFIX=$HOME/local
     - BUILD_PREFIX=$HOME/src/builds
   matrix:
-    - MPI=mpich2-1.5
     - MPI=mpich-3.2
     - MPI=openmpi-1.10.7
     - MPI=openmpi-2.0.3
@@ -59,7 +58,7 @@ script:
   - mpirun -n 8 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests;
   - # run tests on installed mpi_array
   - cd docs
-  - mpirun -n 4 python -m mpi_array.tests
+  - mpirun -n 4 python -m mpi_array.tests -vf
   - cd ..
   - travis-sphinx build
 
