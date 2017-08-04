@@ -557,7 +557,7 @@ class ClonedDistribution(Distribution):
     Distribution where entire globale extent elements occur on every locale.
     """
 
-    def __init__(self, globale_extent, num_locales, halo=0):
+    def __init__(self, globale_extent, num_locales, halo=0, inter_locale_rank_to_peer_rank=None):
         """
         Initialise.
         """
@@ -565,7 +565,8 @@ class ClonedDistribution(Distribution):
             self,
             globale_extent=globale_extent,
             locale_extents=[globale_extent.deep_copy() for i in range(num_locales)],
-            halo=halo
+            halo=halo,
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank
         )
 
 
@@ -575,7 +576,14 @@ class SingleLocaleDistribution(Distribution):
     Distribution where entire globale extent elements occur on just a single locale.
     """
 
-    def __init__(self, globale_extent, num_locales, inter_locale_rank=0, halo=0):
+    def __init__(
+        self,
+        globale_extent,
+        num_locales,
+        inter_locale_rank=0,
+        halo=0,
+        inter_locale_rank_to_peer_rank=None
+    ):
         """
         Initialise.
         """
@@ -590,7 +598,8 @@ class SingleLocaleDistribution(Distribution):
             self,
             globale_extent=globale_extent,
             locale_extents=locale_extents,
-            halo=halo
+            halo=halo,
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank
         )
 
 

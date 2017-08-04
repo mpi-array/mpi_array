@@ -66,8 +66,6 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertTrue(i.intra_locale_comm.size >= 1)
         self.assertTrue(i.peer_comm is not None)
         self.assertTrue(i.peer_comm.size >= 1)
-        if i.num_locales <= 1:
-            self.assertEqual(None, i.inter_locale_comm)
         i.inter_locale_comm = _mpi.COMM_NULL
         self.assertEqual(_mpi.COMM_NULL, i.inter_locale_comm)
         i.inter_locale_comm = None
@@ -97,6 +95,18 @@ class CartLocaleCommsTest(_unittest.TestCase):
 
         self.assertEqual(None, lc)
 
+    def test_construct_invalid_cart_comm(self):
+        cart_comm = _mpi.COMM_WORLD.Create_cart(dims=(_mpi.COMM_WORLD.size,))
+
+        if _mpi.COMM_WORLD.size > 1:
+            self.assertRaises(
+                ValueError,
+                CartLocaleComms,
+                ndims=1,
+                peer_comm=_mpi.COMM_WORLD,
+                cart_comm=cart_comm
+            )
+    
     def test_construct_shared(self):
         lc = CartLocaleComms(ndims=1)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))

@@ -142,6 +142,11 @@ class LocaleComms(object):
                 %
                 (inter_locale_comm, )
             )
+        else:
+            if self.peer_comm.rank == 0:
+                self._inter_locale_comm = _mpi.COMM_SELF
+            else:
+                self._inter_locale_comm = _mpi.COMM_NULL
 
         self._rank_logger = \
             _logging.get_rank_logger(
@@ -387,38 +392,33 @@ class CartLocaleComms(LocaleComms):
 
         # Create a cartesian grid communicator
         # NB: use of self._inter_locale_comm (not self.inter_locale_comm)
-        # important here because self.inter_locale_comm us over-ridden to
+        # important here because self.inter_locale_comm is over-ridden to
         # return self._cart_comm.
         inter_locale_comm = self._inter_locale_comm
-        if self.num_locales > 1:
-            if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
-                rank_logger.debug("BEG: inter_locale_comm.Create to create cart_comm.")
-                cart_comm = \
-                    inter_locale_comm.Create_cart(
-                        self.dims,
-                        periods,
-                        reorder=True
-                    )
-                rank_logger.debug("END: inter_locale_comm.Create to create cart_comm.")
-            elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
-                cart_comm = _mpi.COMM_NULL
-            elif cart_comm != _mpi.COMM_NULL:
-                raise ValueError(
-                    (
-                        "Got object cart_comm=%s when expecting cart_comm to match "
-                        +
-                        "self._inter_locale_comm=%s"
-                    )
-                    %
-                    (cart_comm, inter_locale_comm)
+        if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
+            rank_logger.debug("BEG: inter_locale_comm.Create to create cart_comm.")
+            cart_comm = \
+                inter_locale_comm.Create_cart(
+                    self.dims,
+                    periods,
+                    reorder=True
                 )
-            self._cart_comm = cart_comm
-        elif (cart_comm is not None) and (cart_comm != _mpi.COMM_NULL):
+            rank_logger.debug("END: inter_locale_comm.Create to create cart_comm.")
+        elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
+            cart_comm = _mpi.COMM_NULL
+        if (
+            (cart_comm != _mpi.COMM_NULL)
+            and
+            (cart_comm.group.size != self._num_locales)
+        ):
             raise ValueError(
-                "Got object cart_comm=%s when self.num_locales <= 1, cart_comm should be None"
+                "Got cart_comm.group.size (=%s) != self._num_locales (=%s)."
                 %
-                (cart_comm, )
+                (self._cart_comm.group.size, self._num_locales)
             )
+
+        self._cart_comm = cart_comm
+
 
     @property
     def cart_coord_to_cart_rank_map(self):
@@ -547,6 +547,7 @@ def create_block_distribution(
             (cart_coord_to_cart_rank, cart_rank_to_peer_rank, this_locale),
             0
         )
+    cart_locale_comms.rank_logger.debug("cart_rank_to_peer_rank=%s", cart_rank_to_peer_rank)
 
     block_distrib = \
         BlockPartition(

@@ -38,6 +38,7 @@ from __future__ import absolute_import
 
 import mpi4py.MPI as _mpi
 import numpy as _np
+import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import locale as _locale
@@ -244,12 +245,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         )
 
     def calc_can_use_existing_src_peer_comm(self):
-        can_use_existing_src_peer_comm = \
-            (
-                (self._dst.locale_comms.inter_locale_comm is not None)
-                and
-                (self._src.locale_comms.peer_comm is not None)
-            )
+        can_use_existing_src_peer_comm = self._src.locale_comms.peer_comm is not None
         if self._dst.locale_comms.have_valid_inter_locale_comm:
             if self._src.locale_comms.peer_comm != _mpi.COMM_NULL:
                 can_use_existing_src_peer_comm = \
@@ -310,9 +306,17 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         Performs RMA to get elements from remote locales to
         update the local array.
         """
-        if self._dst.locale_comms.num_locales > 1:
+        if (self._src.locale_comms.num_locales > 1) or (self._dst.locale_comms.num_locales > 1):
 
             can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
+            self._dst.rank_logger.debug(
+                "%s.%s: "
+                +
+                "can_use_existing_src_peer_comm=%s",
+                self.__class__.__name__,
+                "do_locale_update",
+                can_use_existing_src_peer_comm
+            )
 
             if can_use_existing_src_peer_comm:
                 if (
@@ -320,33 +324,37 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                     and
                     (self._inter_win != _mpi.WIN_NULL)
                     and
-                    (self._dst.locale_comms.have_valid_inter_locale_comm)
+                    self._dst.locale_comms.have_valid_inter_locale_comm
                 ):
                     updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
-                    self._dst.rank_logger.debug(
-                        "BEG: Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)..."
-                    )
-                    self._inter_win.Fence(_mpi.MODE_NOPUT | _mpi.MODE_NOPRECEDE)
+                    update_dict = _collections.defaultdict(list)
                     for single_update in updates:
+                        update_dict[single_update.src_extent.peer_rank].append(single_update)
+                    for src_peer_rank in update_dict.keys():
                         self._dst.rank_logger.debug(
-                            "BEG: Getting update:\n%s\n%s",
-                            single_update._header_str,
-                            single_update
+                            "BEG: Lock(rank=%s, _mpi.LOCK_SHARED)...", src_peer_rank
                         )
-                        self._inter_win.Get(
-                            [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
-                            single_update.src_extent.peer_rank,
-                            [0, 1, single_update.src_data_type]
-                        )
+                        self._inter_win.Lock(src_peer_rank, _mpi.LOCK_SHARED)
+                        for single_update in update_dict[src_peer_rank]:
+                            self._dst.rank_logger.debug(
+                                "BEG: Getting update:\n%s\n%s",
+                                single_update._header_str,
+                                single_update
+                            )
+                            self._inter_win.Get(
+                                [self._dst.lndarray.slndarray, 1, single_update.dst_data_type],
+                                src_peer_rank,
+                                [0, 1, single_update.src_data_type]
+                            )
+                            self._dst.rank_logger.debug(
+                                "END: Got update:\n%s\n%s",
+                                single_update._header_str,
+                                single_update
+                            )
+                        self._inter_win.Unlock(src_peer_rank)
                         self._dst.rank_logger.debug(
-                            "END: Getting update:\n%s\n%s",
-                            single_update._header_str,
-                            single_update
+                            "END: Unlock(rank=%s).", src_peer_rank
                         )
-                    self._inter_win.Fence(_mpi.MODE_NOSUCCEED)
-                    self._dst.rank_logger.debug(
-                        "END: Fence(_mpi.MODE_NOSUCCEED)."
-                    )
 
             else:
                 raise RuntimeError(

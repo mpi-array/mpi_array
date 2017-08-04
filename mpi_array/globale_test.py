@@ -29,7 +29,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB
+from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
 from .distribution import IndexingExtent
 
 __author__ = "Shane J. Latham"
@@ -417,6 +417,56 @@ class GndarrayTest(_unittest.TestCase):
         Tests for :func:`mpi_array.globale.copyto`.
         """
         self.do_test_copyto(halo=4)
+
+    def test_copyto_different_locale_types(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        halo = 0
+        lshape = (128, 128)
+        gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
+        dtype = "int32"
+
+        cand_node_slab = \
+            create_distribution(
+                shape=gshape,
+                distrib_type=DT_SLAB,
+                axis=0,
+                locale_type=LT_NODE,
+                halo=halo
+            )
+
+        gary_node_slab = mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=dtype)
+        rank_val = gary_node_slab.comms_and_distrib.this_locale.inter_locale_rank + 1
+        gary_node_slab.rank_view_n[...] = rank_val
+        gary_node_slab.update()
+
+        cand_proc_blok = \
+            create_distribution(
+                shape=gshape,
+                distrib_type=DT_BLOCK,
+                locale_type=LT_PROCESS,
+                halo=halo
+            )
+
+        gary_proc_blok = mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=dtype)
+
+        mpi_array.globale.copyto(gary_proc_blok, gary_node_slab)
+        gary_node_slab0 = mpi_array.globale.zeros_like(gary_node_slab)
+        mpi_array.globale.copyto(gary_node_slab0, gary_proc_blok)
+
+        gary_node_slab0.update()
+
+        gary_proc_blok.locale_comms.rank_logger.info(
+            "num diffs = %s",
+            _np.sum(
+                gary_node_slab.rank_view_n[...] != gary_node_slab0.rank_view_n[...],
+                dtype="int64"
+            )
+        )
+        self.assertTrue(
+            _np.all(gary_node_slab.rank_view_n[...] == gary_node_slab0.rank_view_n[...])
+        )
 
     def test_copyto_arg_check(self):
         """
