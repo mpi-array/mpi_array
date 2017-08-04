@@ -106,7 +106,7 @@ class CartLocaleCommsTest(_unittest.TestCase):
                 peer_comm=_mpi.COMM_WORLD,
                 cart_comm=cart_comm
             )
-    
+
     def test_construct_shared(self):
         lc = CartLocaleComms(ndims=1)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))

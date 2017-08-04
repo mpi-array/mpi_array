@@ -188,7 +188,7 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         """
         Stores multiple :obj:`tuple`-of-:obj:`slice` objects indicating
         the slice (tile) of the :obj:`lndarray` on which a :samp:`intra_locale_comm`
-        rank MPI process operates.  
+        rank MPI process operates.
         """
     PartitionViewSlices.rank_view_slice_n.__doc__ =\
         """
@@ -212,6 +212,7 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         Slice for generating a view of a :obj:`lndarray` with
         the halo removed.
         """
+
 
 class LndarrayProxy(object):
 

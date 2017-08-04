@@ -597,7 +597,8 @@ class gndarray(object):
 
     def copy(self):
         ary_out = empty_like(self)
-        ary_out.lndarray_proxy.rank_view_partition_h[...] = self.lndarray_proxy.rank_view_partition_h[...]
+        ary_out.lndarray_proxy.rank_view_partition_h[
+            ...] = self.lndarray_proxy.rank_view_partition_h[...]
         self.intra_locale_barrier()
 
         return ary_out

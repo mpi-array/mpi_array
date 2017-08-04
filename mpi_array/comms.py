@@ -59,7 +59,7 @@ def mpi_version():
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     ThisLocaleInfo.__doc__ = \
-       """
+        """
        Pair of communicator rank values :samp:`(inter_locale_rank, peer_rank)` which
        indicates that the rank :samp:`inter_locale_rank` of the :samp:`inter_locale_comm`
        communicator corresponds to the :samp:`peer_rank` rank of the :samp:`peer_comm`
@@ -86,7 +86,7 @@ RmaWindowBuffer = \
     )
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     RmaWindowBuffer.__doc__ = \
-       """
+        """
        Details of the buffer allocated on a locale.
        """
     RmaWindowBuffer.buffer.__doc__ = \
@@ -110,7 +110,7 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     RmaWindowBuffer.peer_win.__doc__ = \
         """
         The :obj:`mpi4py.MPI.Win` created from the :samp:`peer_comm` communicator
-        which exposes :attr:`buffer` for inter-locale RMA access.  
+        which exposes :attr:`buffer` for inter-locale RMA access.
         """
     RmaWindowBuffer.intra_locale_win.__doc__ = \
         """
@@ -472,7 +472,6 @@ class CartLocaleComms(LocaleComms):
 
         self._cart_comm = cart_comm
 
-
     @property
     def cart_coord_to_cart_rank_map(self):
         """
@@ -555,22 +554,22 @@ CommsAndDistribution = \
     _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution", "this_locale"])
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     CommsAndDistribution.__doc__ = \
-       """
+        """
        A 3 element tuple :samp:`(locale_comms, distribution, this_locale)`
        describing the apportionment of array elements over MPI processes.
        """
     CommsAndDistribution.locale_comms.__doc__ = \
-       """
+        """
        A :obj:`LocaleComms` object containing communicators for exchanging
        data between locales.
        """
     CommsAndDistribution.distribution.__doc__ = \
-       """
+        """
        A :obj:`mpi_array.distribution.Distribution` object describing the
        apportionment of array elements over locales.
        """
     CommsAndDistribution.this_locale.__doc__ = \
-       """
+        """
        A :obj:`ThisLocaleInfo` with rank pair pertinent for this locale.
        """
 
