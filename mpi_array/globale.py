@@ -388,11 +388,11 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         MPI barrier.
         """
         self._dst.locale_comms.rank_logger.debug(
-            "BEG: self._src.comms_and_distrib.intra_locale_comm.barrier()..."
+            "BEG: self._src.locale_comms.peer_comm.barrier()..."
         )
-        self._dst.locale_comms.intra_locale_comm.barrier()
+        self._src.locale_comms.peer_comm.barrier()
         self._dst.locale_comms.rank_logger.debug(
-            "END: self._src.comms_and_distrib.intra_locale_comm.barrier()."
+            "END: self._src.locale_comms.peer_comm.barrier()."
         )
 
 
