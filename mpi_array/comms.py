@@ -237,7 +237,10 @@ class LocaleComms(object):
                     comm=self.intra_locale_comm
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
-            self.rank_logger.debug("END: Win.Allocate_shared - allocated %d bytes", buffer.nbytes)
+            self.rank_logger.debug(
+                "END: Win.Allocate_shared - allocated %d bytes",
+                _np.product(buffer.shape) * buffer.itemsize
+            )
 
             if num_rank_bytes > 0:
                 peer_buffer = buffer
@@ -248,9 +251,16 @@ class LocaleComms(object):
                 buffer.nbytes
             )
             peer_win = _mpi.Win.Create(peer_buffer, itemsize, comm=self.peer_comm)
+            if peer_win.memory is None:
+                peer_win_memory_nbytes = None
+            elif (hasattr(peer_win.memory, 'nbytes')):
+                peer_win_memory_nbytes = peer_win.memory.nbytes
+            else:
+                peer_win_memory_nbytes = \
+                    _np.product(peer_win.memory.shape) * peer_win.memory.itemsize
             self.rank_logger.debug(
                 "END: Win.Create for self.peer_comm, peer_win.memory.nbytes=%s...",
-                (peer_win.memory.nbytes, peer_win.memory)[int(peer_win.memory is None)]
+                peer_win_memory_nbytes
             )
         else:
             self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
