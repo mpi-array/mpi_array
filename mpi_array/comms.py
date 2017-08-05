@@ -246,9 +246,17 @@ class LocaleComms(object):
                 peer_buffer = buffer
             else:
                 peer_buffer = None
+            if peer_buffer is None:
+                peer_buffer_nbytes = None
+            elif (hasattr(peer_buffer, 'nbytes')):
+                peer_buffer_nbytes = peer_buffer.nbytes
+            else:
+                peer_buffer_nbytes = \
+                    _np.product(peer_buffer) * peer_buffer.itemsize
+
             self.rank_logger.debug(
                 "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
-                buffer.nbytes
+                peer_buffer_nbytes
             )
             peer_win = _mpi.Win.Create(peer_buffer, itemsize, comm=self.peer_comm)
             if peer_win.memory is None:
