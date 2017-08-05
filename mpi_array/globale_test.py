@@ -113,7 +113,7 @@ class GndarrayTest(_unittest.TestCase):
         """
 
         halo = 4
-        for lshape in ((1000,), (100, 200), ):
+        for lshape in ((100,), (10, 20), ):
             gshape = (_mpi.COMM_WORLD.size * lshape[0],) + lshape[1:]
             cand_lt_process = \
                 create_distribution(
@@ -124,8 +124,10 @@ class GndarrayTest(_unittest.TestCase):
                     halo=halo
                 )
 
-            lshape = (10000,) + lshape[1:]
             gshape = (cand_lt_process.locale_comms.num_locales * lshape[0],) + lshape[1:]
+            if len(lshape) > 1:
+                lshape = (lshape[0],) + (cand_lt_process.locale_comms.num_locales * lshape[1],)
+
             halo = 4
             cand_lt_node = \
                 create_distribution(

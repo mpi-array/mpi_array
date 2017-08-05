@@ -147,6 +147,7 @@ setup(
         [
             "numpy>=1.6",
             "array_split>=0.4.0",
+            "psutil>=4.3.0",
         ]
         + sphinx_requires
         + other_requires,

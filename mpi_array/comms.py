@@ -31,6 +31,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
 import sys as _sys
+import psutil as _psutil
 import mpi4py.MPI as _mpi
 import numpy as _np
 import collections as _collections
@@ -124,6 +125,16 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         The :obj:`mpi4py.MPI.Win` created from the :samp:`inter_locale_comm` communicator
         which exposes :attr:`buffer` for inter-locale RMA access.
         """
+
+
+def get_shared_mem_usage_percent_string():
+    usage_percent = "'unknown'"
+    try:
+        usage_percent_float = _psutil.disk_usage("/dev/shm").percent
+        usage_percent = "%5.2f%%" % usage_percent_float
+    except Exception:
+        pass
+    return usage_percent
 
 
 class LocaleComms(object):
@@ -229,7 +240,11 @@ class LocaleComms(object):
         if self.intra_locale_comm.rank == 0:
             num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
-            self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+            self.rank_logger.debug(
+                "BEG: Win.Allocate_shared - allocating %12d bytes, shared-mem-usage=%s...",
+                num_rank_bytes,
+                get_shared_mem_usage_percent_string()
+            )
             intra_locale_win = \
                 _mpi.Win.Allocate_shared(
                     num_rank_bytes,
@@ -238,8 +253,9 @@ class LocaleComms(object):
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
             self.rank_logger.debug(
-                "END: Win.Allocate_shared - allocated %d bytes",
-                _np.product(buffer.shape) * buffer.itemsize
+                "END: Win.Allocate_shared - allocating %12d bytes, shared-mem-usage=%s.",
+                _np.product(buffer.shape) * buffer.itemsize,
+                get_shared_mem_usage_percent_string()
             )
 
             if num_rank_bytes > 0:
