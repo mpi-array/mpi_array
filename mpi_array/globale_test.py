@@ -60,12 +60,8 @@ class GndarrayTest(_unittest.TestCase):
             cand = create_distribution(gshape, locale_type=LT_PROCESS, halo=halo)
             locale_comms = cand.locale_comms
             gary = mpi_array.globale.zeros(gshape, comms_and_distrib=cand, dtype="int8")
-            locale_comms.rank_logger.info("all zero gary.rank_view_h = %s" % (gary.rank_view_h,))
             rank_val = locale_comms.peer_comm.rank + 1
             gary.rank_view_n[...] = rank_val
-            cand.locale_comms.rank_logger.info(
-                "rank_val gary.rank_view_h = %s" %
-                (gary.rank_view_h,))
 
             self.assertEqual(gary.dtype, _np.dtype("int8"))
             self.assertSequenceEqual(list(gary.shape), list(gshape))
@@ -77,11 +73,27 @@ class GndarrayTest(_unittest.TestCase):
             self.assertTrue(isinstance(gary.rank_logger, _logging.Logger))
             self.assertTrue(gary.root_logger is not None)
             self.assertTrue(isinstance(gary.root_logger, _logging.Logger))
-            self.assertTrue(_np.all(gary.rank_view_n == rank_val))
+            gary.rank_logger.info(
+                "halo=%s, gary.rank_view_n.shape=%s",
+                halo,
+                gary.rank_view_n.shape
+            )
+            gary.rank_logger.info(
+                "gary.rank_view_n=\n%s",
+                gary.rank_view_n
+            )
+            self.assertEqual(
+                _np.product(gary.rank_view_n.shape),
+                _np.sum((gary.rank_view_n == rank_val).astype("uint8"), dtype="int64")
+            )
             if _np.any(gary.rank_view_h.shape > gary.rank_view_n.shape):
                 cand.locale_comms.rank_logger.info("gary.rank_view_h = %s" % (gary.rank_view_h,))
-                self.assertTrue(
-                    _np.all(_np.where(gary.rank_view_h == rank_val, 0, gary.rank_view_h) == 0)
+                self.assertEqual(
+                    0,
+                    _np.sum(
+                        _np.where(gary.rank_view_h == rank_val, 0, gary.rank_view_h),
+                        dtype="int64"
+                    )
                 )
 
     def test_get_item_and_set_item(self):
@@ -378,9 +390,9 @@ class GndarrayTest(_unittest.TestCase):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        lshape = (128, 128)
+        lshape = (16, 16)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
-        cand_src = \
+        cand_slab_ax0 = \
             create_distribution(
                 shape=gshape,
                 distrib_type=DT_SLAB,
@@ -389,12 +401,11 @@ class GndarrayTest(_unittest.TestCase):
                 halo=halo
             )
 
-        gary_src = mpi_array.globale.zeros(comms_and_distrib=cand_src, dtype=src_dtype)
-        rank_val = gary_src.comms_and_distrib.this_locale.inter_locale_rank + 1
-        gary_src.rank_view_n[...] = rank_val
-        gary_src.update()
+        gary_slb_ax0 = mpi_array.globale.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
+        rank_val = gary_slb_ax0.comms_and_distrib.this_locale.inter_locale_rank + 1
+        gary_slb_ax0.rank_view_n[...] = rank_val
 
-        cand_dst = \
+        cand_slb_ax1 = \
             create_distribution(
                 shape=gshape,
                 distrib_type=DT_SLAB,
@@ -402,29 +413,59 @@ class GndarrayTest(_unittest.TestCase):
                 locale_type=LT_PROCESS,
                 halo=halo
             )
-        gary_dst = mpi_array.globale.zeros(comms_and_distrib=cand_dst, dtype=dst_dtype)
-        gary_dst.update()
-        self.assertTrue(_np.all(gary_dst.lndarray_proxy.lndarray[...] == 0))
+        gary_slb_ax1 = mpi_array.globale.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
+        self.assertTrue(_np.all(gary_slb_ax1.lndarray_proxy.lndarray[...] == 0))
 
-        if gary_src.locale_comms.peer_comm.size <= 1:
-            self.assertSequenceEqual(gary_src.lndarray_proxy.shape, gary_dst.lndarray_proxy.shape)
+        if gary_slb_ax0.locale_comms.peer_comm.size <= 1:
+            self.assertSequenceEqual(
+                gary_slb_ax0.lndarray_proxy.shape, gary_slb_ax1.lndarray_proxy.shape
+            )
         else:
             self.assertTrue(
-                _np.any(_np.array(gary_src.lndarray_proxy.shape) != gary_dst.lndarray_proxy.shape)
+                _np.any(
+                    _np.array(gary_slb_ax0.lndarray_proxy.shape)
+                    !=
+                    gary_slb_ax1.lndarray_proxy.shape
+                )
             )
 
-        mpi_array.globale.copyto(gary_dst, gary_src)
+        mpi_array.globale.copyto(gary_slb_ax1, gary_slb_ax0)
+        gary_slb_ax0_0 = mpi_array.zeros_like(gary_slb_ax0)
+        mpi_array.globale.copyto(gary_slb_ax0_0, gary_slb_ax1)
 
-        for le0 in gary_src.distribution.locale_extents:
-            intersection_extent = le0.calc_intersection(gary_dst.lndarray_proxy.locale_extent)
-            rank_val = le0.cart_rank + 1
-            self.assertNotEqual(0, rank_val)
-            locale_slice = \
-                gary_dst.lndarray_proxy.locale_extent.globale_to_locale_extent_h(
-                    intersection_extent
-                ).to_slice()
-            self.assertTrue(_np.all(_np.array(intersection_extent.shape) > 0))
-            self.assertTrue(_np.all(gary_dst.lndarray_proxy[locale_slice] == rank_val))
+        gary_slb_ax0.locale_comms.rank_logger.info(
+            "num diffs = %s",
+            _np.sum(
+                gary_slb_ax0.rank_view_n[...] != gary_slb_ax0_0.rank_view_n[...],
+                dtype="int64"
+            )
+        )
+        self.assertTrue(
+            _np.all(gary_slb_ax0.rank_view_n[...] == gary_slb_ax0_0.rank_view_n[...])
+        )
+
+        del gary_slb_ax0, gary_slb_ax0_0, gary_slb_ax1
+
+        gary_slb_ax0 = mpi_array.globale.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
+
+        gary_slb_ax1 = mpi_array.globale.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
+        rank_val = gary_slb_ax1.comms_and_distrib.this_locale.inter_locale_rank + 1
+        gary_slb_ax1.rank_view_n[...] = rank_val
+
+        mpi_array.globale.copyto(gary_slb_ax0, gary_slb_ax1)
+        gary_slb_ax1_1 = mpi_array.zeros_like(gary_slb_ax1)
+        mpi_array.globale.copyto(gary_slb_ax1_1, gary_slb_ax0)
+
+        gary_slb_ax1.locale_comms.rank_logger.info(
+            "num diffs = %s",
+            _np.sum(
+                gary_slb_ax1.rank_view_n[...] != gary_slb_ax1_1.rank_view_n[...],
+                dtype="int64"
+            )
+        )
+        self.assertTrue(
+            _np.all(gary_slb_ax1.rank_view_n[...] == gary_slb_ax1_1.rank_view_n[...])
+        )
 
     def test_copyto_same_locale_types_no_halo_same_dtype(self):
         """
@@ -447,7 +488,7 @@ class GndarrayTest(_unittest.TestCase):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        lshape = (128, 128)
+        lshape = (16, 16)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
 
         cand_node_slab = \

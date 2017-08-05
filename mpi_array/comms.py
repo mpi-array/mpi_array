@@ -231,13 +231,27 @@ class LocaleComms(object):
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
             self.rank_logger.debug("BEG: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
             intra_locale_win = \
-                _mpi.Win.Allocate_shared(num_rank_bytes, dtype.itemsize,
-                                         comm=self.intra_locale_comm)
-            self.rank_logger.debug("END: Win.Allocate_shared - allocating %d bytes", num_rank_bytes)
+                _mpi.Win.Allocate_shared(
+                    num_rank_bytes,
+                    dtype.itemsize,
+                    comm=self.intra_locale_comm
+                )
             buffer, itemsize = intra_locale_win.Shared_query(0)
-            self.rank_logger.debug("BEG: Win.Create for self.peer_comm")
-            peer_win = _mpi.Win.Create(buffer, itemsize, comm=self.peer_comm)
-            self.rank_logger.debug("END: Win.Create for self.peer_comm")
+            self.rank_logger.debug("END: Win.Allocate_shared - allocated %d bytes", buffer.nbytes)
+
+            if num_rank_bytes > 0:
+                peer_buffer = buffer
+            else:
+                peer_buffer = None
+            self.rank_logger.debug(
+                "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
+                buffer.nbytes
+            )
+            peer_win = _mpi.Win.Create(peer_buffer, itemsize, comm=self.peer_comm)
+            self.rank_logger.debug(
+                "END: Win.Create for self.peer_comm, peer_win.memory.nbytes=%s...",
+                (peer_win.memory.nbytes, peer_win.memory)[int(peer_win.memory is None)]
+            )
         else:
             self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
             peer_win = \
@@ -252,7 +266,12 @@ class LocaleComms(object):
             inter_locale_win = _mpi.WIN_NULL
             if self.have_valid_inter_locale_comm:
                 self.rank_logger.debug("BEG: Win.Create for self.inter_locale_comm")
-                inter_locale_win = _mpi.Win.Create(buffer, itemsize, comm=self.inter_locale_comm)
+                inter_locale_win = \
+                    _mpi.Win.Create(
+                        buffer,
+                        itemsize,
+                        comm=self.inter_locale_comm
+                    )
                 self.rank_logger.debug("END: Win.Create for self.inter_locale_comm")
 
         buffer = _np.array(buffer, dtype='B', copy=False)

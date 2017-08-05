@@ -370,7 +370,6 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                         self._dst.rank_logger.debug(
                             "END: Unlock(rank=%s).", src_peer_rank
                         )
-
             else:
                 raise RuntimeError(
                     (
