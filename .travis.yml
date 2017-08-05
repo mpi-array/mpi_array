@@ -39,6 +39,9 @@ before_install:
   - export LD_LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LD_LIBRARY_PATH
   - export CPATH=${MPI_PREFIX}/include:$CPATH
   - which mpirun
+  - df -h
+  - cat /proc/sys/kernel/shmmax
+  - cat /proc/sys/kernel/shmall
 
 install:
   - git config --global user.name mpi-array
