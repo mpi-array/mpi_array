@@ -38,6 +38,7 @@ from __future__ import absolute_import
 
 import mpi4py.MPI as _mpi
 import numpy as _np
+from numpy.lib.mixins import NDArrayOperatorsMixin as _NDArrayOperatorsMixin
 import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
@@ -48,6 +49,7 @@ from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
+from .globale_ufunc import gndarray_array_ufunc as _gndarray_array_ufunc
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -402,7 +404,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         )
 
 
-class gndarray(object):
+class gndarray(_NDArrayOperatorsMixin):
 
     """
     A Partitioned Global Address Space array with :obj:`numpy.ndarray` API.
@@ -422,7 +424,7 @@ class gndarray(object):
         :param comms_and_distrib: Array distribution info and used to allocate (possibly)
            shared memory.
         """
-        self = object.__new__(cls)
+        self = _NDArrayOperatorsMixin.__new__(cls)
         self._comms_and_distrib = comms_and_distrib
         self._rma_window_buffer = rma_window_buffer
         self._lndarray_proxy = lndarray_proxy
@@ -453,6 +455,11 @@ class gndarray(object):
                 (self.lndarray_proxy.rank_view_n[...] == other)
 
         return ret
+
+    def __array_ufunc__(self, *args, **kwargs):
+        """
+        """
+        return _gndarray_array_ufunc(self, *args, **kwargs)
 
     @property
     def this_locale(self):
