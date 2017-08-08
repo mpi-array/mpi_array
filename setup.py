@@ -145,7 +145,7 @@ setup(
     ],
     install_requires= \
         [
-            "numpy>=1.6",
+            "numpy>=1.13.0",
             "array_split>=0.4.0",
             "psutil>=4.3.0",
         ]
