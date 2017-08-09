@@ -28,7 +28,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
-__version__ = _version
+__version__ = _version()
 
 from .globale import gndarray, copy, empty, empty_like  # noqa: E402,F401
 from .globale import ones, ones_like, zeros, zeros_like  # noqa: E402,F401
