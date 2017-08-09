@@ -94,7 +94,7 @@ Requires:
 
    - python-2 version `>= 2.7` or python-3 version `>= 3.3`,
    - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.4.0`,
-   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.6`,
+   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.13` (for ``__array_ufunc__`` API),
    - an MPI implementation which supports at least MPI-3 (such as 
      `OpenMPI <http://openmpi.org/>`_ or `MPICH <http://mpich.org/>`_)
    - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`.
