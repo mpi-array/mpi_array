@@ -157,13 +157,13 @@ def broadcast_shape(*shape_args):
 
     Examples::
 
-        >>> broadcast((4,), (4,))
+        >>> broadcast_shape((4,), (4,))
         (4,)
-        >>> broadcast((4, 1), (1, 5))
+        >>> broadcast_shape((4, 1), (1, 5))
         (4, 5)
-        >>> broadcast((4, 1, 3, 7), (1, 8, 1, 7))
+        >>> broadcast_shape((4, 1, 3, 7), (1, 8, 1, 7))
         (4, 8, 3, 7)
-        >>> broadcast((3, 7), ())
+        >>> broadcast_shape((3, 7), ())
         (3, 7)
     """
     ndim = _np.max(tuple(len(shape) for shape in shape_args))
