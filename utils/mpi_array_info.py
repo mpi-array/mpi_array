@@ -38,7 +38,7 @@ if __name__ == "__main__":
     else:
         print("\narray_split: error:")
         print(str(array_split))
-    
+
     if not isinstance(mpi4py, Exception):
         print("\nmpi4py:")
         print("mpi4py.__version__      = %s" % (mpi4py.__version__,))
