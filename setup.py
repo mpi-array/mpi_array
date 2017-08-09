@@ -155,5 +155,6 @@ setup(
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]
     },
     test_suite="mpi_array.tests",
+    scripts=[os.path.join("utils", "mpi_array_info.py"),]
     # could also include download_url, etc.
 )
