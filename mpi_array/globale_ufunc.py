@@ -19,6 +19,8 @@ Functions
 .. autosummary::
    :toctree: generated/
 
+   ufunc_result_type - Like :func:`numpy.result_type`.
+   broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
    gndarray_array_ufunc - A :obj:`numpy.ndarray` like distributed array.
 
 
@@ -40,10 +42,45 @@ __copyright__ = _copyright()
 __version__ = _version()
 
 
-def ufunc_result_type(ufunc_types, inputs, outputs, casting="safe"):
+def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
     """
+    Like :obj:`numpy.result_type`, but
+    handles :obj:`mpi_array.globale.gndarray` in the :samp:`{inputs}`
+    and handles multuple :samp:`{outputs}`.
 
+    :type ufunc_types: sequence of `str`
+    :param ufunc_types: The :attr:`numpy.ufunc.types` attribute,
+       e.g. :samp:`['??->?', 'bb->b', 'BB->B', 'hh->h', 'HH->H', ..., 'mm->m', 'mM->M', 'OO->O']`.
+    :type inputs: sequence of :obj:`object`
+    :param inputs: The inputs (e.g. :obj:`numpy.ndarray`, scalars
+       or :obj:`mpi_array.globale.gndarray`) to a :obj:`numpy.ufunc` call.
+    :type outputs: :samp:`None` or sequence of :obj:`object`
+    :param outputs: The output arrays (, these are explicitly checked casting correctness.
+    :type casting: :obj:`str` {‘no’, ‘equiv’, ‘safe’, ‘same_kind’, ‘unsafe’}
+    :param casting: Casting mode. See :func:`numpy.can_cast`
     :rtype: :obj:`tuple` of :obj:`numpy.dtype`
+    :return: A tuple of :obj:`numpy.dtype` indicating the output types produced for
+       the given inputs.
+    :raises ValueError: If the the inputs (and outputs) cannot be cast to an
+       appropriate element of :samp:`{ufunc_types}`.
+
+    Example::
+
+       >>> from numpy import zeros as npz
+       >>> from mpi_array.globale import zeros as maz
+       >>> inp = (
+       ... npz((10,10,10), dtype='float16'),
+       ... 16.0,
+       ... maz((10,10,10), dtype='float32'),
+       ... )
+       >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
+       (dtype('float32'), dtype('bool'))
+       >>> out = (maz((10,10,10), dtype="float64"),)
+       >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+       (dtype('float64'), dtype('bool'))
+       >>> out += (maz((10, 10, 10), dtype="uint16"),)
+       >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+       (dtype('float64'), dtype('uint16'))
     """
     result_dtypes = None
     ufunc_in_types = tuple(in2out_str.split("->")[0] for in2out_str in ufunc_types)
@@ -64,10 +101,12 @@ def ufunc_result_type(ufunc_types, inputs, outputs, casting="safe"):
         )
 
     in_dtypes = \
-        list(
-            input.dtype
-            if hasattr(input, "dtype") else _np.asarray(input).dtype
-            for input in inputs
+        _np.asarray(
+            tuple(
+                input.dtype
+                if hasattr(input, "dtype") else _np.asarray(input).dtype
+                for input in inputs
+            )
         )
     out_dtypes = None
     if (outputs is not None) and (len(outputs) > 0):
@@ -145,7 +184,7 @@ def ufunc_result_type(ufunc_types, inputs, outputs, casting="safe"):
                 ufunc_out_dtypes_for_in[len(out_dtypes):].tolist()
             )
     else:
-        raise TypeError(
+        raise ValueError(
             "Could not cast inputs types = %s to ufunc types=\n%s"
             %
             (in_dtypes, ufunc_in_dtypes, )

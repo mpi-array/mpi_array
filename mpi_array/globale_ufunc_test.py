@@ -93,7 +93,7 @@ class UfuncResultTypeTest(_unittest.TestCase):
         inputs = (_np.array([1, 2], dtype='complex128'), 5.0e150)
         outputs = None
         self.assertRaises(
-            TypeError,
+            ValueError,
             ufunc_result_type, uft, inputs, outputs
         )
 
@@ -143,6 +143,23 @@ class UfuncResultTypeTest(_unittest.TestCase):
             ValueError,
             ufunc_result_type, uft, inputs, outputs
         )
+
+    def test_example(self):
+        from numpy import zeros as npz
+        from mpi_array.globale import zeros as maz
+        inp = (
+            npz((10, 10, 10), dtype='float16'),
+            16.0,
+            maz((10, 10, 10), dtype='float32'),
+        )
+        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
+        self.assertSequenceEqual((_np.dtype('float32'), _np.dtype('bool')), dtypes)
+        out = (maz((10, 10, 10), dtype="float64"),)
+        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+        self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('bool')), dtypes)
+        out += (maz((10, 10, 10), dtype="uint16"),)
+        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+        self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('uint16')), dtypes)
 
 
 class BroadcastShapeTest(_unittest.TestCase):
