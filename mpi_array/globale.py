@@ -49,7 +49,6 @@ from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
-from .globale_ufunc import gndarray_array_ufunc as _gndarray_array_ufunc
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -459,6 +458,8 @@ class gndarray(_NDArrayOperatorsMixin):
     def __array_ufunc__(self, *args, **kwargs):
         """
         """
+        from .globale_ufunc import gndarray_array_ufunc as _gndarray_array_ufunc
+
         return _gndarray_array_ufunc(self, *args, **kwargs)
 
     @property
@@ -484,6 +485,16 @@ class gndarray(_NDArrayOperatorsMixin):
     @property
     def lndarray_proxy(self):
         return self._lndarray_proxy
+
+    @property
+    def ndim(self):
+        return len(self.shape)
+
+    @property
+    def num_locales(self):
+        """
+        """
+        return self._comms_and_distrib.locale_comms.num_locales
 
     @property
     def shape(self):

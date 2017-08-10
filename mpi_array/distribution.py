@@ -402,8 +402,8 @@ class Distribution(object):
         globale_extent,
         locale_extents,
         halo=0,
-        globale_extent_type=LocaleExtent,
-        locale_extent_type=GlobaleExtent,
+        globale_extent_type=GlobaleExtent,
+        locale_extent_type=LocaleExtent,
         inter_locale_rank_to_peer_rank=None
     ):
         """
@@ -444,7 +444,14 @@ class Distribution(object):
             and
             _np.all([isinstance(e, slice) for e in iter(globale_extent)])
         ):
-            globale_extent = GlobaleExtent(slice=globale_extent, halo=halo)
+            globale_extent = self._globale_extent_type(slice=globale_extent, halo=halo)
+        elif hasattr(globale_extent, "start") and hasattr(globale_extent, "stop"):
+            globale_extent = \
+                self._globale_extent_type(
+                    start=globale_extent.start,
+                    stop=globale_extent.stop,
+                    halo=halo
+                )
         elif (
             (hasattr(globale_extent, "__iter__") or hasattr(globale_extent, "__getitem__"))
             and
@@ -456,10 +463,8 @@ class Distribution(object):
             )
         ):
             stop = _np.array(globale_extent)
-            globale_extent = GlobaleExtent(start=_np.zeros_like(stop), stop=stop, halo=halo)
-        elif hasattr(globale_extent, "start") and hasattr(globale_extent, "stop"):
             globale_extent = \
-                GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop, halo=halo)
+                self._globale_extent_type(start=_np.zeros_like(stop), stop=stop, halo=halo)
         else:
             raise ValueError(
                 "Could not construct %s instance from globale_extent=%s."
@@ -506,6 +511,28 @@ class Distribution(object):
                     halo=halo,
                     **kwargs
                 )
+        elif (
+            (hasattr(locale_extent, "__iter__") or hasattr(locale_extent, "__getitem__"))
+            and
+            _np.all(
+                [
+                    (hasattr(e, "__int__") or hasattr(e, "__long__"))
+                    for e in iter(locale_extent)
+                ]
+            )
+        ):
+            stop = _np.array(locale_extent)
+            locale_extent = \
+                self._locale_extent_type(
+                    peer_rank=peer_rank,
+                    inter_locale_rank=inter_locale_rank,
+                    globale_extent=globale_extent,
+                    start=_np.zeros_like(stop),
+                    stop=stop,
+                    halo=halo,
+                    **kwargs
+                )
+
         else:
             raise ValueError(
                 "Could not construct %s instance from locale_extent=%s."
@@ -564,7 +591,7 @@ class ClonedDistribution(Distribution):
         Distribution.__init__(
             self,
             globale_extent=globale_extent,
-            locale_extents=[globale_extent.deep_copy() for i in range(num_locales)],
+            locale_extents=[_copy.deepcopy(globale_extent) for i in range(num_locales)],
             halo=halo,
             inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank
         )
@@ -642,6 +669,7 @@ class BlockPartition(Distribution):
            communicator coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`)
            and cartesian communicator peer_rank.
         """
+        self._globale_extent_type = GlobaleExtent
         globale_extent = self.create_globale_extent(globale_extent, halo)
         self._num_locales = _np.product(dims)
         self._dims = dims
@@ -678,7 +706,8 @@ class BlockPartition(Distribution):
             locale_extents=locale_extents,
             inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
             halo=halo,
-            locale_extent_type=CartLocaleExtent
+            locale_extent_type=CartLocaleExtent,
+            globale_extent_type=self._globale_extent_type
         )
 
     def create_locale_extent(

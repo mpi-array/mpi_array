@@ -375,6 +375,26 @@ class HaloIndexingExtentTest(_unittest.TestCase):
             hie.locale_to_globale_extent_h(lext)
         )
 
+    def test_globale_and_locale_slice_conversion(self):
+        """
+        Test for :meth:`mpi_array.indexing.HaloIndexingExtent.globale_to_locale_slice_h`,
+        and :meth:`mpi_array.indexing.HaloIndexingExtent.locale_to_globale_slice_h`.
+        """
+        hie = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        gext = HaloIndexingExtent(start=(10, 3), stop=(32, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertEqual(
+            HaloIndexingExtent(
+                start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4)))
+            ).to_slice_h(),
+            hie.globale_to_locale_slice_h(gext.to_slice_h())
+        )
+
+        lext = HaloIndexingExtent(start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4))))
+        self.assertEqual(
+            hie.to_slice_h(),
+            hie.locale_to_globale_slice_h(lext.to_slice_h())
+        )
+
     def test_to_slice(self):
         """
         :obj:`unittest.TestCase` for :obj:`mpi_array.indexing.HaloIndexingExtent`

@@ -35,7 +35,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
+from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK, DT_CLONED
 from .distribution import IndexingExtent
 
 __author__ = "Shane J. Latham"
@@ -207,6 +207,21 @@ class GndarrayTest(_unittest.TestCase):
                                 )
                             )
                 gary.locale_comms.intra_locale_comm.barrier()
+
+    def test_empty_scalar(self):
+        """
+        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
+        """
+        gary = \
+            mpi_array.globale.empty(
+                shape=(),
+                dtype="float64",
+                locale_type=LT_PROCESS,
+                distrib_type=DT_CLONED
+            )
+        gary.lndarray_proxy[...] = 4
+
+        self.assertEqual(4, gary.lndarray_proxy.lndarray)
 
     def test_empty_shared_1d(self):
         """

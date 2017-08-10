@@ -5,6 +5,14 @@ The :mod:`mpi_array.globale_ufunc` Module
 
 Defines :obj:`numpy.ufunc` functions for :obj:`mpi_array.globale.gndarray`.
 
+Classes
+=======
+
+.. autosummary::
+   :toctree: generated/
+
+   GndarrayArrayUfuncExecutor - Creates :obj:`gndarray` outputs and forwards to `numpy.ufunc`.
+
 Functions
 =========
 
@@ -19,10 +27,12 @@ Functions
 from __future__ import absolute_import
 
 import numpy as _np
+import copy as _copy
 
 from .license import license as _license, copyright as _copyright, version as _version
-# from . import globale as _globale
 from . import logging as _logging  # noqa: E402,F401
+# from .globale_creation import asarray as _asarray
+from .globale import empty as _empty, empty_like as _empty_like
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -170,7 +180,8 @@ def broadcast_shape(*shape_args):
 
     bcast_shape = ()
     if ndim > 0:
-        ndim_shapes = _np.asarray(tuple((1,) * (ndim - len(shape)) + shape for shape in shape_args))
+        ndim_shapes = \
+            _np.asarray(tuple((1,) * (ndim - len(shape)) + tuple(shape) for shape in shape_args))
         bcast_shape = _np.amax(ndim_shapes, axis=0)
 
         if (_np.any(_np.logical_and(ndim_shapes != 1, ndim_shapes != bcast_shape))):
@@ -185,13 +196,184 @@ def broadcast_shape(*shape_args):
     return bcast_shape
 
 
-def gndarray_array_ufunc(self, ufunc, method, *inputs, **kwargs):
+class GndarrayArrayUfuncExecutor(object):
+    """
+    """
+
+    def __init__(self, array_like_obj, ufunc, method, *inputs, **kwargs):
+        """
+        """
+        self._array_like_obj = array_like_obj
+        self._ufunc = ufunc
+        self._method = method
+        self._inputs = inputs
+        self._kwargs = kwargs
+        self._outputs = None
+        if "out" in self._kwargs.keys():
+            self._outputs = self._kwargs["out"]
+        self._casting = None
+        if "casting" in self._kwargs.keys():
+            self._casting = self._kwargs["casting"]
+
+    @property
+    def peer_comm(self):
+        """
+        """
+        return self._array_like_obj.locale_comms.peer_comm
+
+    @property
+    def intra_locale_comm(self):
+        """
+        """
+        return self._array_like_obj.locale_comms.intra_locale_comm
+
+    @property
+    def inter_locale_comm(self):
+        """
+        """
+        return self._array_like_obj.locale_comms.inter_locale_comm
+
+    @property
+    def ufunc(self):
+        """
+        """
+        return self._ufunc
+
+    @property
+    def outputs(self):
+        """
+        """
+        return self._outputs
+
+    @property
+    def inputs(self):
+        """
+        """
+        return self._inputs
+
+    @property
+    def casting(self):
+        """
+        """
+        return self._casting
+
+    @property
+    def method(self):
+        """
+        """
+        return self._method
+
+    def get_inputs_shapes(self):
+        """
+        """
+        return \
+            tuple(
+                input.shape
+                if hasattr(input, "shape") else
+                _np.asarray(
+                    input,
+                    peer_comm=self.peer_comm,
+                    intra_locale_comm=self.intra_locale_comm,
+                    inter_locale_comm=self.inter_locale_comm
+                ).shape
+                for input in self._inputs
+            )
+
+    def get_best_match_input(self, result_shape):
+        """
+        """
+        return None
+
+    def execute___call__(self):
+        """
+        """
+        result_shape = broadcast_shape(*(self.get_inputs_shapes()))
+        result_types = ufunc_result_type(self.ufunc.types, self.inputs, self.outputs, self.casting)
+        outputs = self.outputs
+
+        best_match_input = self.get_best_match_input(result_shape)
+        if outputs is None:
+            outputs = ()
+
+        if best_match_input is not None:
+            outputs = \
+                (
+                    outputs
+                    +
+                    tuple(
+                        _empty_like(best_match_input, dtype=result_types[i])
+                        for i in range(len(outputs), len(result_types))
+                    )
+                )
+        else:
+            outputs = \
+                (
+                    outputs
+                    +
+                    tuple(
+                        _empty(result_shape, dtype=result_types[i])
+                        for i in range(len(outputs), len(result_types))
+                    )
+                )
+
+        kwargs = _copy.copy(self._kwargs)
+        inputs = tuple(input.lndarray_proxy.lndarray for input in self.inputs)
+        kwargs["out"] = tuple(output.lndarray_proxy.lndarray for output in outputs)
+
+        self.ufunc.__call__(*(inputs), **kwargs)
+        if len(outputs) == 1:
+            return outputs[0]
+        return outputs
+
+    def execute_accumulate(self):
+        """
+        """
+        return NotImplemented()
+
+    def execute_reduce(self):
+        """
+        """
+        return NotImplemented()
+
+    def execute_reduceat(self):
+        """
+        """
+        return NotImplemented()
+
+    def execute_at(self):
+        """
+        """
+        return NotImplemented()
+
+    def execute_outer(self):
+        """
+        """
+        return NotImplemented()
+
+    def execute(self):
+        """
+        Perform the ufunc operation.
+        """
+        return getattr(self, "execute_" + self.method)()
+
+
+gndarray_ufunc_executor_factory = GndarrayArrayUfuncExecutor
+
+
+def gndarray_array_ufunc(array_like_obj, ufunc, method, *inputs, **kwargs):
     """
     The implementation for  :meth:`mpi_array.globale.gndarray.__array_ufunc__`.
     """
-    rank_logger = self.rank_logger
+    ufunc_executor = \
+        gndarray_ufunc_executor_factory(
+            array_like_obj,
+            ufunc,
+            method,
+            *inputs,
+            **kwargs
+        )
 
-    rank_logger.debug("gndarray_array_ufunc: ufunc=%s")
+    return ufunc_executor.execute()
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

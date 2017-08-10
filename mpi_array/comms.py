@@ -39,7 +39,7 @@ import collections as _collections
 import array_split as _array_split
 
 from . import logging as _logging
-from .distribution import BlockPartition
+from .distribution import BlockPartition, ClonedDistribution, SingleLocaleDistribution
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -591,8 +591,14 @@ DT_BLOCK = "block"
 #: Hyper-slab partition distribution type
 DT_SLAB = "slab"
 
+#: Entire array repeated on each locale.
+DT_CLONED = "cloned"
+
+#: Entire array on single locale, no array elements on other locales.
+DT_SINGLE_LOCALE = "single_locale"
+
 #: List of value :samp:`distrib_type` values.
-_valid_distrib_types = [DT_BLOCK, DT_SLAB]
+_valid_distrib_types = [DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE]
 
 #: Node (NUMA) locale type
 LT_NODE = "node"
@@ -625,6 +631,107 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         """
        A :obj:`ThisLocaleInfo` with rank pair pertinent for this locale.
        """
+
+
+def create_locale_comms(
+    locale_type=None,
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None
+):
+    if locale_type.lower() == LT_PROCESS:
+        if (intra_locale_comm is not None) and (intra_locale_comm.size > 1):
+            raise ValueError(
+                "Got locale_type=%s, but intra_locale_comm.size=%s"
+                %
+                (locale_type, intra_locale_comm.size)
+            )
+        intra_locale_comm = _mpi.COMM_SELF
+    locale_comms = \
+        LocaleComms(
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
+    inter_locale_rank_to_peer_rank = locale_comms.inter_locale_rank_to_peer_rank_map
+    this_locale = locale_comms.this_locale_rank_info
+
+    # Broadcast on intra_locale_comm to get peer_rank mapping to all
+    # peer_comm ranks
+    inter_locale_rank_to_peer_rank, this_locale = \
+        locale_comms.intra_locale_comm.bcast(
+            (inter_locale_rank_to_peer_rank, this_locale),
+            0
+        )
+    locale_comms.rank_logger.debug(
+        "inter_locale_rank_to_peer_rank=%s",
+        inter_locale_rank_to_peer_rank
+    )
+
+    return locale_comms, inter_locale_rank_to_peer_rank, this_locale
+
+
+def create_cloned_distribution(
+    shape,
+    locale_type=None,
+    halo=0,
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None
+):
+    """
+    Factory function for creating :obj:`ClonedDistribution` distribution instance.
+
+    :rtype: :obj:`CommsAndDistribution`
+    :return: A :obj:`CommsAndDistribution` pair.
+    """
+    locale_comms, inter_locale_rank_to_peer_rank, this_locale =\
+        create_locale_comms(
+            locale_type=locale_type,
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
+
+    cloned_distrib = \
+        ClonedDistribution(
+            globale_extent=shape,
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
+            num_locales=locale_comms.num_locales,
+            halo=halo
+        )
+    return CommsAndDistribution(locale_comms, cloned_distrib, this_locale)
+
+
+def create_single_locale_distribution(
+    shape,
+    locale_type=None,
+    halo=0,
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None
+):
+    """
+    Factory function for creating :obj:`SingleLocaleDistribution` distribution instance.
+
+    :rtype: :obj:`CommsAndDistribution`
+    :return: A :obj:`CommsAndDistribution` pair.
+    """
+    locale_comms, inter_locale_rank_to_peer_rank, this_locale =\
+        create_locale_comms(
+            locale_type=locale_type,
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
+
+    cloned_distrib = \
+        SingleLocaleDistribution(
+            globale_extent=shape,
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
+            halo=halo
+        )
+    return CommsAndDistribution(locale_comms, cloned_distrib, this_locale)
 
 
 def create_block_distribution(
@@ -735,6 +842,19 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
         dims = _np.ones_like(shape, dtype="int64")
         dims[axis] = 0
         comms_and_distrib = create_block_distribution(shape, locale_type, dims=dims, **kwargs)
+    elif distrib_type.lower() == DT_CLONED:
+        comms_and_distrib = create_cloned_distribution(shape, locale_type, **kwargs)
+    elif distrib_type.lower() == DT_SINGLE_LOCALE:
+        comms_and_distrib = create_single_locale_distribution(shape, locale_type, **kwargs)
+    else:
+        raise ValueError(
+            "Got invalid distrib_type='%s', valid distrib_type values are: %s"
+            %
+            (
+                distrib_type,
+                ", ".join(["'" + str(dt) + "'" for dt in _valid_distrib_types])
+            )
+        )
 
     return comms_and_distrib
 

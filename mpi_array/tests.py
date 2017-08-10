@@ -94,6 +94,7 @@ def load_tests(loader, tests, pattern):
                 "mpi_array.update_test",
                 "mpi_array.locale_test",
                 "mpi_array.globale_test",
+                "mpi_array.globale_creation_test",
                 "mpi_array.globale_ufunc_test",
             ]
         )

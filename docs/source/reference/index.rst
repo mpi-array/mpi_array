@@ -12,6 +12,10 @@
    mpi_array_distribution_test
    mpi_array_globale
    mpi_array_globale_test
+   mpi_array_globale_creation
+   mpi_array_globale_creation_test
+   mpi_array_globale_ufunc
+   mpi_array_globale_ufunc_test
    mpi_array_indexing
    mpi_array_indexing_test
    mpi_array_license

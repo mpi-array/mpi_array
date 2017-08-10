@@ -34,6 +34,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .globale_ufunc import broadcast_shape, ufunc_result_type
+from .globale import gndarray as _gndarray, zeros as _zeros, ones as _ones
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -46,8 +47,13 @@ class UfuncResultTypeTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`.
     """
 
-    def test_ufunc_types(self):
-        rank_logger = _logging.get_rank_logger(__name__)
+    def test_single_output(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
+        with single output array.
+        """
+
+        rank_logger = _logging.get_rank_logger(self.id())
 
         uft = ['ff->f', 'll->l', 'cc->c', 'fl->b', 'dd->d']
 
@@ -88,6 +94,53 @@ class UfuncResultTypeTest(_unittest.TestCase):
         outputs = None
         self.assertRaises(
             TypeError,
+            ufunc_result_type, uft, inputs, outputs
+        )
+
+    def test_multiple_output(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
+        with multiple output arrays.
+        """
+
+        rank_logger = _logging.get_rank_logger(self.id())
+
+        uft = ['eee->eBl', 'fff->fBl', 'ddd->dBl', ]
+
+        inputs = (_np.array([1, 2], dtype='e'), _np.array([3, 4], dtype='f'), 4.0)
+        outputs = None
+        dtypes = ufunc_result_type(uft, inputs, outputs)
+        rank_logger.debug("dtypes=%s", dtypes)
+        self.assertSequenceEqual((_np.dtype('f'), _np.dtype('B'), _np.dtype('l')), dtypes)
+
+        inputs = (_np.array([1, 2], dtype='e'), _np.array([3, 4], dtype='f'), 4.0)
+        outputs = (_np.array([1, 2], dtype='f'),)
+        dtypes = ufunc_result_type(uft, inputs, outputs)
+        rank_logger.debug("dtypes=%s", dtypes)
+        self.assertSequenceEqual((_np.dtype('f'), _np.dtype('B'), _np.dtype('l')), dtypes)
+
+        inputs = (_np.array([1, 2], dtype='e'), _np.array([3, 4], dtype='f'), 4.0)
+        outputs = (_np.array([1, 2], dtype='d'), _np.array([1, 2], dtype='i'))
+        dtypes = ufunc_result_type(uft, inputs, outputs)
+        rank_logger.debug("dtypes=%s", dtypes)
+        self.assertSequenceEqual((_np.dtype('d'), _np.dtype('i'), _np.dtype('l')), dtypes)
+
+        inputs = (_np.array([1, 2], dtype='e'), _np.array([3, 4], dtype='f'), 4.0)
+        outputs = (_np.array([1, 2], dtype='d'), _np.array([1, 2], dtype='b'))
+        self.assertRaises(
+            ValueError,
+            ufunc_result_type, uft, inputs, outputs
+        )
+
+        inputs = (_np.array([1, 2], dtype='e'), _np.array([3, 4], dtype='f'), 4.0)
+        outputs = \
+            (
+                _np.array([1, 2], dtype='d'),
+                _np.array([1, 2], dtype='i'),
+                _np.array([1, 2], dtype='i')
+            )
+        self.assertRaises(
+            ValueError,
             ufunc_result_type, uft, inputs, outputs
         )
 
@@ -157,7 +210,16 @@ class GndarrayUfuncTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.globale_ufunc`.
     """
 
-    pass
+    def test_add(self):
+        """
+        """
+        a = _zeros((32, 48), dtype="int32")
+        b = _ones((32, 48), dtype="int32")
+
+        c = a + b
+
+        self.assertTrue(isinstance(c, _gndarray))
+        self.assertTrue((c == b).all())
 
 
 _unittest.main(__name__)
