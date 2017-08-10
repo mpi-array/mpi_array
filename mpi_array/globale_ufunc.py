@@ -55,9 +55,9 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
     :param inputs: The inputs (e.g. :obj:`numpy.ndarray`, scalars
        or :obj:`mpi_array.globale.gndarray`) to a :obj:`numpy.ufunc` call.
     :type outputs: :samp:`None` or sequence of :obj:`object`
-    :param outputs: The output arrays (, these are explicitly checked casting correctness.
-    :type casting: :obj:`str` {‘no’, ‘equiv’, ‘safe’, ‘same_kind’, ‘unsafe’}
-    :param casting: Casting mode. See :func:`numpy.can_cast`
+    :param outputs: The output arrays these are explicitly checked casting correctness.
+    :type casting: :obj:`str` :samp:`{'no', 'equiv', 'safe', 'same_kind', 'unsafe'}`
+    :param casting: Casting mode. See :func:`numpy.can_cast`.
     :rtype: :obj:`tuple` of :obj:`numpy.dtype`
     :return: A tuple of :obj:`numpy.dtype` indicating the output types produced for
        the given inputs.
