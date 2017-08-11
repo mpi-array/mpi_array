@@ -30,7 +30,8 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
 
-from .globale import gndarray, copy, empty, empty_like  # noqa: E402,F401
-from .globale import ones, ones_like, zeros, zeros_like  # noqa: E402,F401
+from .globale import gndarray  # noqa: E402,F401
+from .globale_creation import copy, empty, empty_like  # noqa: E402,F401
+from .globale_creation import ones, ones_like, zeros, zeros_like  # noqa: E402,F401
 
 __all__ = [s for s in dir() if not s.startswith('_')]

@@ -23,8 +23,21 @@ Factory Functions
 .. autosummary::
    :toctree: generated/
 
-   create_distribution - Factory function for creating :obj:`Distribution` instances.
+   create_locale_comms - Factory function for creating :obj:`LocaleComms` instances.
    create_block_distribution - Factory function for creating :obj:`BlockPartition` instances.
+   create_cloned_distribution - Factory function for creating :obj:`ClonedDistribution` instances.
+   create_single_locale_distribution - Creating :obj:`SingleLocaleDistribution` instances.
+   create_distribution - Factory function for creating :obj:`Distribution` instances.
+
+Attributes
+==========
+
+.. autodata:: LT_PROCESS
+.. autodata:: LT_NODE
+.. autodata:: DT_BLOCK
+.. autodata:: DT_SLAB
+.. autodata:: DT_CLONED
+.. autodata:: DT_SINGLE_LOCALE
 
 """
 from __future__ import absolute_import
@@ -140,28 +153,48 @@ def get_shared_mem_usage_percent_string():
 class LocaleComms(object):
 
     """
-    Info on possible shared memory allocation for a specified MPI communicator.
+    MPI communicators for inter and intra locale data exchange. There are three
+    communicators:
+
+    :attr:`peer_comm`
+       Typically this is :attr:`mpi4py.MPI.COMM_WORLD`. It is the group
+       of processes which operate on (perform computations on portions of) a globale array.
+    :attr:`intra_locale_comm`
+       Can be :attr:`mpi4py.MPI.COMM_SELF`, but is more typically
+       the communicator returned
+       by :samp:`self.peer_comm.Split_type(mpi4py.MPI.COMM_TYPE_SHARED, key=self.peer_comm.rank)`.
+       It is the communicator passed to the :func:`mpi4py.MPI.Win.Allocate_shared` function
+       which allocates shared-memory and creates a shared-memory :obj:`mpi4py.MPI.Win` window.
+    :attr:`inter_locale_comm`
+       Typically this communicator is formed by selecting a single process from each locale.
+       This communicator (and associated `mpi4py.MPI.Win` window) is used to exchange
+       data between locales.
     """
 
     def __init__(self, peer_comm=None, intra_locale_comm=None, inter_locale_comm=None):
         """
-        Construct.
+        Construct, this is a collective call over the :samp:`{peer_comm}` communcator.
 
         :type peer_comm: :obj:`mpi4py.MPI.Comm`
         :param peer_comm: Communicator which is split according to
            shared memory allocation (uses :meth:`mpi4py.MPI.Comm.Split_type`).
+           If :samp:`None`, uses :attr:`mpi4py.MPI.COMM_WORLD`.
         :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
         :param intra_locale_comm: Intra-locale communicator.
            Should be a subset of processes returned
            by :samp:`{peer_comm}.Split_type(mpi4py.MPI.COMM_TYPE_SHARED)`.
            If :samp:`None`, :samp:`{peer_comm}` is *split* into groups
            which can use a MPI window to allocate shared memory
-           (i.e. locale is a (NUMA) node).
+           (i.e. in this case locale is a (possibly NUMA) node).
            Can also specify as :samp:`mpi4py.MPI.COMM_SELF`, in which case the
-           locale is a single process.
+           locale is a single process and regular (non-shared) memory
+           is not allocated in :meth:`alloc_locale_buffer`.
         :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
         :param inter_locale_comm: Inter-locale communicator used to exchange
-            data between different locales.
+            data between different locales. If :samp:`None` then one process
+            (the :samp:`{intra_locale_comm}.rank == 0`
+            process) is selected from each locale to form the :samp:`{inter_locale_comm}`
+            communicator group.
         """
         if peer_comm is None:
             peer_comm = _mpi.COMM_WORLD
@@ -229,6 +262,10 @@ class LocaleComms(object):
         Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
         provides storage for the elements of the locale multi-dimensional array.
 
+        :type shape: sequence of :obj:`int`
+        :param shape: The shape of the locale array for which a buffer is allocated.
+        :type dtype: :obj:`numpy.dtype`
+        :param dtype: The array element type.
         :rtype: :obj:`RmaWindowBuffer`
         :returns: A :obj:`collections.namedtuple` containing allocated buffer
            and associated RMA MPI windows.
@@ -325,15 +362,15 @@ class LocaleComms(object):
     @property
     def num_locales(self):
         """
-        An integer indicating the number of *locales* over which an array is distributed.
+        An :samp:`int` indicating the number of *locales* over which an array is distributed.
         """
         return self._num_locales
 
     @property
     def peer_comm(self):
         """
-        MPI communicator which is super-set of :attr:`intra_locale_comm`
-        and :attr:`inter_locale_comm`.
+        A :obj:`mpi4py.MPI.Comm` which is super-set of the :attr:`intra_locale_comm`
+        and :attr:`inter_locale_comm` communicators.
         """
         return self._peer_comm
 
@@ -361,7 +398,7 @@ class LocaleComms(object):
     @property
     def have_valid_inter_locale_comm(self):
         """
-        Is :samp:`True` if this peer_rank has :samp:`{self}.inter_locale_comm`
+        Is :samp:`True` if this *peer rank* has :samp:`{self}.inter_locale_comm`
         which is not :samp:`None` and is not :obj:`mpi4py.MPI.COMM_NULL`.
         """
         return \
@@ -375,8 +412,9 @@ class LocaleComms(object):
     def inter_locale_rank_to_peer_rank_map(self):
         """
         Returns sequence, :samp:`m` say, of :obj:`int`
-        where :samp:`m[inter_r]` is the peer_rank of :samp:`self.peer_comm`
-        corresponding to peer_rank :samp:`inter_r` of :samp:`self.inter_locale_comm`.
+        where :samp:`m[inter_r]` is the *peer rank* of :samp:`self.peer_comm`
+        which corresponds to the *inter-locale rank* :samp:`inter_r`
+        of :samp:`self.inter_locale_comm`.
 
         :rtype: :samp:`None` or sequence of :obj:`int`
         :return: Sequence of length :samp:`self.inter_locale_comm.size` on
@@ -396,6 +434,11 @@ class LocaleComms(object):
     @property
     def this_locale_rank_info(self):
         """
+        A :obj:`ThisLocaleInfo` object. Indicates the :samp:`self.inter_locale_comm.rank`
+        and `self.peer_comm.rank` on processes for
+        which :samp:`self.have_valid_inter_locale_comm is True`.
+        Is :attr:`mpi4py.MPI.UNDEFINED` on processes
+        where :samp:`self.have_valid_inter_locale_comm is False`.
         """
         if self.have_valid_inter_locale_comm:
             i = ThisLocaleInfo(self.inter_locale_comm.rank, self.peer_comm.rank)
@@ -424,6 +467,15 @@ class CartLocaleComms(LocaleComms):
 
     """
     Defines cartesian communication topology for locales.
+    In addition to the :obj:`LocaleComms` communicators, defines:
+
+    :attr:`cart_comm`
+       Typically this communicator is created using
+       the call :samp:`{inter_locale_comm}.Create_cart(...)`.
+       This communicator (and associated `mpi4py.MPI.Win` window) is used to exchange
+       data between locales.
+       In construction, this :obj:`mpi4py.MPI.CartComm` communicator
+       replaces the :attr:`LocaleComms.inter_locale_comm` communicator.
     """
 
     def __init__(
@@ -551,7 +603,7 @@ class CartLocaleComms(LocaleComms):
     @property
     def ndim(self):
         """
-        Dimension (:obj:`int`) of the cartesian topology.
+        An :obj:`int` indicating the dimension of the cartesian topology.
         """
         return self._dims.size
 
@@ -639,6 +691,21 @@ def create_locale_comms(
     intra_locale_comm=None,
     inter_locale_comm=None
 ):
+    """
+    Factory function for creating a :obj:`LocaleComms` object.
+
+    :type locale_type: :obj:`str`
+    :param locale_type: One of :attr:`mpi_array.comms.DT_PROCESS`
+       or :attr:`mpi_array.comms.DT_NODE`.
+    :type peer_comm: :obj:`mpi4py.MPI.Comm`
+    :param peer_comm: See :obj:`LocaleComms`.
+    :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param intra_locale_comm: See :obj:`LocaleComms`.
+    :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param inter_locale_comm: See :obj:`LocaleComms`.
+    :rtype: :obj:`LocaleComms`
+    :return: A :obj:`LocaleComms` object.
+    """
     if locale_type.lower() == LT_PROCESS:
         if (intra_locale_comm is not None) and (intra_locale_comm.size > 1):
             raise ValueError(
@@ -680,7 +747,8 @@ def create_cloned_distribution(
     inter_locale_comm=None
 ):
     """
-    Factory function for creating :obj:`ClonedDistribution` distribution instance.
+    Factory function for creating :obj:`mpi_array.distrbution.ClonedDistribution`
+    distribution and associated :obj:`LocaleComms`.
 
     :rtype: :obj:`CommsAndDistribution`
     :return: A :obj:`CommsAndDistribution` pair.
@@ -712,7 +780,8 @@ def create_single_locale_distribution(
     inter_locale_comm=None
 ):
     """
-    Factory function for creating :obj:`SingleLocaleDistribution` distribution instance.
+    Factory function for creating :obj:`mpi_array.distrbution.SingleLocaleDistribution`
+    distribution and associated :obj:`LocaleComms`.
 
     :rtype: :obj:`CommsAndDistribution`
     :return: A :obj:`CommsAndDistribution` pair.
@@ -745,10 +814,27 @@ def create_block_distribution(
     cart_comm=None
 ):
     """
-    Factory function for creating :obj:`BlockPartition` distribution instance.
+    Factory function for creating :obj:`mpi_array.distrbution.BlockPartition`
+    distribution and associated :obj:`CartLocaleComms`.
 
+
+    :type shape: sequence of :obj:`int`
+    :param shape: Shape of the globale array.
+    :type locale_type: :obj:`str`
+    :param locale_type: One of :attr:`mpi_array.comms.DT_PROCESS`
+       or :attr:`mpi_array.comms.DT_NODE`. Defines locales.
+    :type dims: sequence of :obj:`int`
+    :param dims: Defines the partitioning of the globale array axes.
+    :type peer_comm: :obj:`mpi4py.MPI.Comm`
+    :param peer_comm: See :obj:`LocaleComms`.
+    :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param intra_locale_comm: See :obj:`LocaleComms`.
+    :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param inter_locale_comm: See :obj:`LocaleComms`.
+    :type cart_comm: :obj:`mpi4py.MPI.Comm`
+    :param cart_comm: See :obj:`CartLocaleComms`.
     :rtype: :obj:`CommsAndDistribution`
-    :return: A :obj:`CommsAndDistribution` pair.
+    :return: A :obj:`CommsAndDistribution` :obj:`collections.namedtuple`.
     """
     if dims is None:
         dims = _np.zeros_like(shape, dtype="int64")
@@ -795,6 +881,11 @@ def create_block_distribution(
 def check_distrib_type(distrib_type):
     """
     Checks :samp:`{distrib_type}` occurs in :samp:`_valid_distrib_types`.
+
+    :type distrib_type: :obj:`str`
+    :param distrib_type: String to check.
+    :raises ValueError: If :samp:`{distrib_type}` is not a valid *distribution type* specifier.
+
     """
     if distrib_type.lower() not in _valid_distrib_types:
         raise ValueError(
@@ -810,6 +901,10 @@ def check_distrib_type(distrib_type):
 def check_locale_type(locale_type):
     """
     Checks :samp:`{locale_type}` occurs in :samp:`_valid_locale_types`.
+
+    :type locale_type: :obj:`str`
+    :param locale_type: String to check.
+    :raises ValueError: If :samp:`{locale_type}` is not a valid *locale type* specifier.
     """
     if locale_type.lower() not in _valid_locale_types:
         raise ValueError(
@@ -824,10 +919,42 @@ def check_locale_type(locale_type):
 
 def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwargs):
     """
-    Factory function for creating :obj:`mpi_array.distribution.Distribution` instance.
+    Factory function for creating :obj:`mpi_array.distribution.Distribution`
+    and associated :obj:`LocaleComms`.
 
+    :type shape: sequence of :obj:`int`
+    :param shape: Shape of the globale array.
+    :type distrib_type: :obj:`str`
+    :param distrib_type: One
+       of :attr:`mpi_array.comms.DT_BLOCK` or :attr:`mpi_array.comms.DT_SLAB`
+       or :attr:`mpi_array.comms.DT_CLONED` or :attr:`mpi_array.comms.DT_SINGLE_LOCALE`.
+       Defines how the globale array is dstributed over locales.
+    :type locale_type: :obj:`str`
+    :param locale_type: One of :attr:`mpi_array.comms.DT_PROCESS`
+       or :attr:`mpi_array.comms.DT_NODE`. Defines locales.
+    :type dims: sequence of :obj:`int`
+    :param dims: Only relevant when :samp:`{distrib_type} == DT_BLOCK`.
+       Defines the partitioning of the globale array axes.
+    :type axis: :obj:`int`
+    :param axis: Only relevant when :samp:`{distrib_type} == DT_SLAB`.
+       Indicates the single axis of the globale array partitioned into slabs.
+    :type peer_comm: :obj:`mpi4py.MPI.Comm`
+    :param peer_comm: See :obj:`LocaleComms`.
+    :type intra_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param intra_locale_comm: See :obj:`LocaleComms`.
+    :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
+    :param inter_locale_comm: See :obj:`LocaleComms`.
+    :type cart_comm: :obj:`mpi4py.MPI.Comm`
+    :param cart_comm: Only relevant when :samp:`{distrib_type} == DT_BLOCK`
+        or :samp:`{distrib_type} == DT_SLAB`. See :obj:`CartLocaleComms`.
     :rtype: :obj:`CommsAndDistribution`
-    :return: A :obj:`CommsAndDistribution` pair.
+    :return: A :obj:`CommsAndDistribution` :obj:`collections.namedtuple`.
+
+    See also:
+
+       :func:`create_block_distribution`
+       :func:`create_cloned_distribution`
+       :func:`create_single_locale_distribution`
     """
     check_distrib_type(distrib_type)
     check_locale_type(locale_type)
@@ -846,15 +973,6 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
         comms_and_distrib = create_cloned_distribution(shape, locale_type, **kwargs)
     elif distrib_type.lower() == DT_SINGLE_LOCALE:
         comms_and_distrib = create_single_locale_distribution(shape, locale_type, **kwargs)
-    else:
-        raise ValueError(
-            "Got invalid distrib_type='%s', valid distrib_type values are: %s"
-            %
-            (
-                distrib_type,
-                ", ".join(["'" + str(dt) + "'" for dt in _valid_distrib_types])
-            )
-        )
 
     return comms_and_distrib
 

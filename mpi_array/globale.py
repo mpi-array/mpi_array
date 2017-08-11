@@ -16,19 +16,12 @@ Classes
    PerAxisRmaHaloUpdater - Helper class for performing ghost element updates.
    RmaRedistributeUpdater - Helper class for redistributing elements between distributions.
 
-Factory Functions
-=================
+Functions
+=========
 
 .. autosummary::
    :toctree: generated/
 
-   empty - Create uninitialised array.
-   empty_like - Create uninitialised array same size/shape as another array.
-   zeros - Create zero-initialised array.
-   zeros_like - Create zero-initialised array same size/shape as another array.
-   ones - Create one-initialised array.
-   ones_like - Create one-initialised array same size/shape as another array.
-   copy - Create a replica of a specified array.
    copyto - Copy elements of one array to another array.
 
 
@@ -42,13 +35,13 @@ from numpy.lib.mixins import NDArrayOperatorsMixin as _NDArrayOperatorsMixin
 import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
-from . import locale as _locale
-from .comms import create_distribution
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
 from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
+from . import globale_creation as _globale_creation
+from . import globale_ufunc as _globale_ufunc
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -85,8 +78,10 @@ class CommLogger:
 class PerAxisRmaHaloUpdater(CommLogger):
 
     """
-    Helper class for performing halo data transfer using RMA via MPI windows.
+    Helper class for performing halo data transfer using RMA
+    via MPI windows (:obj:`mpi4py.MPI.Win` objects).
     """
+
     #: Halo "low index" indices.
     LO = _HaloIndexingExtent.LO
 
@@ -95,6 +90,20 @@ class PerAxisRmaHaloUpdater(CommLogger):
 
     def __init__(self, locale_extents, dtype, order, inter_locale_win, dst_buffer):
         """
+        Initialise.
+
+        :type locale_extents: sequence of :obj:`mpi_array.distributon.LocaleExtent`
+        :param locale_extents: :samp:`locale_extents[r]` is the extent of the array
+           elements which reside on rank :samp:`r` of the :samp:`inter_locale_comm`
+           communicator.
+        :type dtype: :obj:`numpy.dtype`
+        :param dtype: Data type of elements in array.
+        :type order: :obj:`str`
+        :param order: The array order, :samp:`'C'` for C memory layout.
+        :type inter_locale_win: :obj:`mpi4py.MPI.Win`
+        :param inter_locale_win: The window used to exchange halo element data.
+        :type dst_buffer: :obj:`memoryview`
+        :param dst_buffer: The buffer into which the halo elements are written.
         """
         CommLogger.__init__(self)
         self._locale_extents = locale_extents
@@ -108,19 +117,39 @@ class PerAxisRmaHaloUpdater(CommLogger):
     @property
     def locale_extents(self):
         """
+        Sequence of :obj:`mpi_array.distribution.LocaleExtent` objects which
+        define the partitioning of the array.
         """
         return self._locale_extents
 
     @property
     def dtype(self):
+        """
+        The :obj:`numpy.dtype` of the data to be exchanged in the halo update.
+        """
         return self._dtype
 
     @property
     def order(self):
+        """
+        Array order :obj:`str`, :samp:`'C'` for C memory layout.
+        """
         return self._order
 
     def calc_halo_updates(self):
         """
+        Calculates the per-axis halo-region updates for
+        all inter-locale ranks (of the :samp:`inter_locale_comm`).
+
+        :rtype: :obj:`tuple` pair
+        :return: A :samp:`(rank_2_updates_dict, bool_sequence)` pair
+           where `rank_2_updates` is a :obj:`dict` of :samp:`{inter_locale_rank, halos_update}`,
+           where :samp:`inter_locale_rank` is an :obj:`int` indicating the
+           rank of the process in :samp:`inter_locale_comm` and :samp:`halos_update`
+           is a :obj:`mpi_array.update.MpiHalosUpdate` containing the description
+           of regions which are required to be fetched from remote processes.
+           The :samp:`bool_sequence` is of length :attr:`ndim` and :samp:`bool_sequence[a] is True`
+           indicates that halo updates are required on axis :samp:`a`.
         """
         halo_updates_dict = dict()
         ndim = self.locale_extents[0].ndim
@@ -161,7 +190,19 @@ class PerAxisRmaHaloUpdater(CommLogger):
         return halo_updates_dict, have_axis_updates
 
     @property
+    def dst_buffer(self):
+        """
+        A :obj:`memoryview` which provides the buffer
+        into which the halo data is written.
+        """
+        return self._dst_buffer
+
+    @property
     def halo_updates(self):
+        """
+        The :samp:`(rank_2_updates_dict, bool_sequence)` pair calculated
+        by :meth:`calc_halo_updates`.
+        """
         if self._halo_updates is None:
             self._halo_updates, self._have_axis_updates = self.calc_halo_updates()
 
@@ -169,11 +210,21 @@ class PerAxisRmaHaloUpdater(CommLogger):
 
     def update_halos(self):
         """
+        Performs the data exchange required to update the halo (ghost)
+        elements of the array buffer :attr:`dst_buffer`:samp:`.buffer`.
+        Can be called :samp:`peer_comm` collectively.
         """
         self.do_update_halos(self.halo_updates)
 
     def do_update_halos(self, halo_updates):
         """
+        Performs the data exchange required to update the halo (ghost)
+        elements of the array buffer :attr:`dst_buffer`:samp:`.buffer`.
+        Can be called :samp:`peer_comm` collectively.
+
+        :type halo_updates: :obj:`mpi_array.update.MpiHalosUpdate`
+        :param halo_updates: A :obj:`dict` of per :samp:`inter_locale_rank`
+           halo region updates. See :meth:`calc_halo_updates`.
         """
         if halo_updates is not None:
             # Get the halo updates for this rank
@@ -253,12 +304,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             src.comms_and_distrib.distribution
         )
         self._inter_win = self._src.rma_window_buffer.peer_win
-        self._dst.rank_logger.debug(
-            "self._dst_updates=%s",
-            self._dst_updates
-        )
 
     def calc_can_use_existing_src_peer_comm(self):
+        """
+        Returns :samp:`True` if :samp:`self._src.locale_comms.peer_comm`
+        can be used to redistribute to the distribution of the :samp:`self._dst` array.
+
+        :rtype: :obj:`bool`
+        :return: :samp:`True` if :samp:`self._src.locale_comms.peer_comm` is a super-set
+           of the processes of :samp:`self._dst.locale_comms.peer_comm`
+        """
         can_use_existing_src_peer_comm = self._src.locale_comms.peer_comm is not None
         if self._dst.locale_comms.have_valid_inter_locale_comm:
             if self._src.locale_comms.peer_comm != _mpi.COMM_NULL:
@@ -445,7 +500,7 @@ class gndarray(_NDArrayOperatorsMixin):
     def __eq__(self, other):
         """
         """
-        ret = empty_like(self, dtype='bool')
+        ret = _globale_creation.empty_like(self, dtype='bool')
         if isinstance(other, gndarray):
             ret.lndarray_proxy.rank_view_n[...] = \
                 (self.lndarray_proxy.rank_view_n[...] == other.lndarray_proxy.rank_view_n[...])
@@ -458,9 +513,7 @@ class gndarray(_NDArrayOperatorsMixin):
     def __array_ufunc__(self, *args, **kwargs):
         """
         """
-        from .globale_ufunc import gndarray_array_ufunc as _gndarray_array_ufunc
-
-        return _gndarray_array_ufunc(self, *args, **kwargs)
+        return _globale_ufunc.gndarray_array_ufunc(self, *args, **kwargs)
 
     @property
     def this_locale(self):
@@ -639,166 +692,12 @@ class gndarray(_NDArrayOperatorsMixin):
         self.intra_locale_barrier()
 
     def copy(self):
-        ary_out = empty_like(self)
-        ary_out.lndarray_proxy.rank_view_partition_h[
-            ...] = self.lndarray_proxy.rank_view_partition_h[...]
+        ary_out = _globale_creation.empty_like(self)
+        ary_out.lndarray_proxy.rank_view_partition_h[...] = \
+            self.lndarray_proxy.rank_view_partition_h[...]
         self.intra_locale_barrier()
 
         return ary_out
-
-
-def empty(
-    shape=None,
-    dtype="float64",
-    comms_and_distrib=None,
-    order='C',
-    intra_partition_dims=None,
-    **kwargs
-):
-    """
-    Creates array of uninitialised elements.
-
-    :type shape: :samp:`None` or sequence of :obj:`int`
-    :param shape: **Global** shape to be distributed amongst
-       memory nodes.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`gndarray`
-    :return: Newly created array with uninitialised elements.
-    """
-    if comms_and_distrib is None:
-        comms_and_distrib = create_distribution(shape, **kwargs)
-    lndarray_proxy, rma_window_buffer = \
-        _locale.empty(
-            comms_and_distrib=comms_and_distrib,
-            dtype=dtype,
-            order=order,
-            return_rma_window_buffer=True,
-            intra_partition_dims=intra_partition_dims
-        )
-    ary = \
-        gndarray(
-            comms_and_distrib=comms_and_distrib,
-            rma_window_buffer=rma_window_buffer,
-            lndarray_proxy=lndarray_proxy
-        )
-
-    return ary
-
-
-def empty_like(ary, dtype=None):
-    """
-    Return a new array with the same shape and type as a given array.
-
-    :type ary: :obj:`numpy.ndarray`
-    :param ary: Copy attributes from this array.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Specifies different dtype for the returned array.
-    :rtype: :samp:`type(ary)`
-    :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{a}`.
-    """
-    if dtype is None:
-        dtype = ary.dtype
-    if (isinstance(ary, gndarray)):
-        ret_ary = \
-            empty(
-                dtype=ary.dtype,
-                comms_and_distrib=ary.comms_and_distrib,
-                order=ary.order,
-                intra_partition_dims=ary.lndarray_proxy.intra_partition_dims
-            )
-    else:
-        ret_ary = _np.empty_like(ary, dtype=dtype)
-
-    return ret_ary
-
-
-def zeros(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
-    """
-    Creates array of zero-initialised elements.
-
-    :type shape: :samp:`None` or sequence of :obj:`int`
-    :param shape: **Global** shape to be distributed amongst
-       memory nodes.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`gndarray`
-    :return: Newly created array with zero-initialised elements.
-    """
-    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
-    ary.fill_h(ary.dtype.type(0))
-
-    return ary
-
-
-def zeros_like(ary, *args, **kwargs):
-    """
-    Return a new zero-initialised array with the same shape and type as a given array.
-
-    :type ary: :obj:`gndarray`
-    :param ary: Copy attributes from this array.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Specifies different dtype for the returned array.
-    :rtype: :obj:`gndarray`
-    :return: Array of zero-initialized data with the same shape and type as :samp:`{ary}`.
-    """
-    ary = empty_like(ary, *args, **kwargs)
-    ary.fill_h(ary.dtype.type(0))
-
-    return ary
-
-
-def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
-    """
-    Creates array of one-initialised elements.
-
-    :type shape: :samp:`None` or sequence of :obj:`int`
-    :param shape: **Global** shape to be distributed amongst
-       memory nodes.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
-    :rtype: :obj:`gndarray`
-    :return: Newly created array with one-initialised elements.
-    """
-    ary = empty(shape, dtype=dtype, comms_and_distrib=comms_and_distrib, order=order, **kwargs)
-    ary.fill_h(ary.dtype.type(1))
-
-    return ary
-
-
-def ones_like(ary, *args, **kwargs):
-    """
-    Return a new one-initialised array with the same shape and type as a given array.
-
-    :type ary: :obj:`gndarray`
-    :param ary: Copy attributes from this array.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: Specifies different dtype for the returned array.
-    :rtype: :obj:`gndarray`
-    :return: Array of one-initialized data with the same shape and type as :samp:`{ary}`.
-    """
-    ary = empty_like(ary, *args, **kwargs)
-    ary.fill_h(ary.dtype.type(1))
-
-    return ary
-
-
-def copy(ary, **kwargs):
-    """
-    Return an array copy of the given object.
-
-    :type ary: :obj:`gndarray`
-    :param ary: Array to copy.
-    :rtype: :obj:`gndarray`
-    :return: A copy of :samp:`ary`.
-    """
-    return ary.copy()
 
 
 def copyto(dst, src, casting="same_kind", **kwargs):

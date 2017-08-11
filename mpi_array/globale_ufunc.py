@@ -33,8 +33,7 @@ import copy as _copy
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import logging as _logging  # noqa: E402,F401
-# from .globale_creation import asarray as _asarray
-from .globale import empty as _empty, empty_like as _empty_like
+from . import globale_creation as _globale_creation
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -66,19 +65,19 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
 
     Example::
 
-       >>> from numpy import zeros as npz
-       >>> from mpi_array.globale import zeros as maz
+       >>> import numpy as np
+       >>> import mpi_array as mpia
        >>> inp = (
-       ... npz((10,10,10), dtype='float16'),
+       ... np.zeros((10,10,10), dtype='float16'),
        ... 16.0,
-       ... maz((10,10,10), dtype='float32'),
+       ... mpia.zeros((10,10,10), dtype='float32'),
        ... )
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
        (dtype('float32'), dtype('bool'))
-       >>> out = (maz((10,10,10), dtype="float64"),)
+       >>> out = (mpia.zeros((10,10,10), dtype="float64"),)
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
        (dtype('float64'), dtype('bool'))
-       >>> out += (maz((10, 10, 10), dtype="uint16"),)
+       >>> out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
        (dtype('float64'), dtype('uint16'))
     """
@@ -340,7 +339,7 @@ class GndarrayArrayUfuncExecutor(object):
                     outputs
                     +
                     tuple(
-                        _empty_like(best_match_input, dtype=result_types[i])
+                        _globale_creation.empty_like(best_match_input, dtype=result_types[i])
                         for i in range(len(outputs), len(result_types))
                     )
                 )
@@ -350,7 +349,7 @@ class GndarrayArrayUfuncExecutor(object):
                     outputs
                     +
                     tuple(
-                        _empty(result_shape, dtype=result_types[i])
+                        _globale_creation.empty(result_shape, dtype=result_types[i])
                         for i in range(len(outputs), len(result_types))
                     )
                 )

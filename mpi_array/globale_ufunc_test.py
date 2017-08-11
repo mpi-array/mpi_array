@@ -34,7 +34,8 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .globale_ufunc import broadcast_shape, ufunc_result_type
-from .globale import gndarray as _gndarray, zeros as _zeros, ones as _ones
+from .globale import gndarray as _gndarray
+from .globale_creation import zeros as _zeros, ones as _ones
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -145,19 +146,19 @@ class UfuncResultTypeTest(_unittest.TestCase):
         )
 
     def test_example(self):
-        from numpy import zeros as npz
-        from mpi_array.globale import zeros as maz
+        import numpy as np
+        import mpi_array as mpia
         inp = (
-            npz((10, 10, 10), dtype='float16'),
+            np.zeros((10, 10, 10), dtype='float16'),
             16.0,
-            maz((10, 10, 10), dtype='float32'),
+            mpia.zeros((10, 10, 10), dtype='float32'),
         )
         dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
         self.assertSequenceEqual((_np.dtype('float32'), _np.dtype('bool')), dtypes)
-        out = (maz((10, 10, 10), dtype="float64"),)
+        out = (mpia.zeros((10, 10, 10), dtype="float64"),)
         dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
         self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('bool')), dtypes)
-        out += (maz((10, 10, 10), dtype="uint16"),)
+        out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
         dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
         self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('uint16')), dtypes)
 

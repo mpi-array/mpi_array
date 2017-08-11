@@ -35,8 +35,8 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK, DT_CLONED
-from .distribution import IndexingExtent
+from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
+from . import globale_creation as _globale_creation
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -59,7 +59,7 @@ class GndarrayTest(_unittest.TestCase):
             gshape = (50, 17, 23)
             cand = create_distribution(gshape, locale_type=LT_PROCESS, halo=halo)
             locale_comms = cand.locale_comms
-            gary = mpi_array.globale.zeros(gshape, comms_and_distrib=cand, dtype="int8")
+            gary = _globale_creation.zeros(gshape, comms_and_distrib=cand, dtype="int8")
             rank_val = locale_comms.peer_comm.rank + 1
             gary.rank_view_n[...] = rank_val
 
@@ -101,7 +101,7 @@ class GndarrayTest(_unittest.TestCase):
         Test the :meth:`mpi_array.globale.gndarray.__getitem__`
         and :meth:`mpi_array.globale.gndarray.__setitem__` methods.
         """
-        gary = mpi_array.globale.zeros((20, 20, 20), dtype="int8")
+        gary = _globale_creation.zeros((20, 20, 20), dtype="int8")
         gary[1, 2, 8] = 22
         gary[1:10, 2:4, 4:8]
         gary[...] = 19
@@ -141,7 +141,7 @@ class GndarrayTest(_unittest.TestCase):
             cand_list = [cand_lt_process, cand_lt_node]
 
             for cand in cand_list:
-                gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int32")
+                gary = _globale_creation.empty(comms_and_distrib=cand, dtype="int32")
                 gary.rank_logger.debug("gary.shape=%s", gary.shape)
                 gary.rank_logger.debug(
                     "gary.locale_comms.num_locales=%s",
@@ -208,189 +208,6 @@ class GndarrayTest(_unittest.TestCase):
                             )
                 gary.locale_comms.intra_locale_comm.barrier()
 
-    def test_empty_scalar(self):
-        """
-        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
-        """
-        gary = \
-            mpi_array.globale.empty(
-                shape=(),
-                dtype="float64",
-                locale_type=LT_PROCESS,
-                distrib_type=DT_CLONED
-            )
-        gary.lndarray_proxy[...] = 4
-
-        self.assertEqual(4, gary.lndarray_proxy.lndarray)
-
-    def test_empty_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape)
-
-        gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int64")
-
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        self.assertSequenceEqual(
-            list(lshape),
-            list(IndexingExtent(gary.lndarray_proxy.rank_view_slice_n).shape)
-        )
-
-        gary1 = mpi_array.globale.empty_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        self.assertSequenceEqual(
-            list(lshape),
-            list(IndexingExtent(gary1.lndarray_proxy.rank_view_slice_n).shape)
-        )
-
-        ary = mpi_array.globale.empty_like(_np.zeros(lshape, dtype="int64"))
-        self.assertEqual(_np.dtype("int64"), ary.dtype)
-        self.assertSequenceEqual(
-            list(lshape),
-            list(ary.shape)
-        )
-
-    def test_empty_non_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.empty` and :func:`mpi_array.globale.empty_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
-
-        gary = mpi_array.globale.empty(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        self.assertSequenceEqual(list(lshape), list(gary.lndarray_proxy.shape))
-        self.assertSequenceEqual(
-            list(lshape),
-            list(IndexingExtent(gary.lndarray_proxy.rank_view_slice_n).shape)
-        )
-
-        gary1 = mpi_array.globale.empty_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        self.assertSequenceEqual(list(lshape), list(gary1.lndarray_proxy.shape))
-        self.assertSequenceEqual(
-            list(lshape),
-            list(IndexingExtent(gary1.lndarray_proxy.rank_view_slice_n).shape)
-        )
-
-    def test_zeros_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.zeros` and :func:`mpi_array.globale.zeros_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape, locale_type=LT_NODE)
-
-        gary = mpi_array.globale.zeros(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary == 0).all())
-
-        gary1 = mpi_array.globale.zeros_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == 0).all())
-
-    def test_zeros_non_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.zeros` and :func:`mpi_array.globale.zeros_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
-
-        gary = mpi_array.globale.zeros(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary == 0).all())
-
-        gary1 = mpi_array.globale.zeros_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == 0).all())
-
-    def test_ones_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.ones` and :func:`mpi_array.globale.ones_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape)
-
-        gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary == 1).all())
-
-        gary1 = mpi_array.globale.ones_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == 1).all())
-
-    def test_ones_non_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.ones` and :func:`mpi_array.globale.ones_like`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
-
-        gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary == 1).all())
-
-        gary1 = mpi_array.globale.ones_like(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == 1).all())
-
-    def test_copy_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.copy`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(gshape)
-
-        gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.rank_view_n[...] = gary.locale_comms.peer_comm.rank
-
-        gary1 = mpi_array.globale.copy(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == gary).all())
-
-    def test_copy_non_shared_1d(self):
-        """
-        Test for :func:`mpi_array.globale.copy`.
-        """
-
-        lshape = (10,)
-        gshape = (_mpi.COMM_WORLD.size * lshape[0],)
-        cand = create_distribution(gshape, locale_type=LT_PROCESS)
-
-        gary = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
-        self.assertEqual(_np.dtype("int64"), gary.dtype)
-        gary.rank_view_n[...] = gary.locale_comms.peer_comm.rank
-
-        gary1 = mpi_array.globale.copy(gary)
-        self.assertEqual(_np.dtype("int64"), gary1.dtype)
-        gary.locale_comms.peer_comm.barrier()
-        self.assertTrue((gary1 == gary).all())
-
     def test_all(self):
         """
         Tests for :meth:`mpi_array.globale.gndarray.all`.
@@ -399,8 +216,8 @@ class GndarrayTest(_unittest.TestCase):
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
 
-        gary0 = mpi_array.globale.zeros(comms_and_distrib=cand, dtype="int64")
-        gary1 = mpi_array.globale.ones(comms_and_distrib=cand, dtype="int64")
+        gary0 = _globale_creation.zeros(comms_and_distrib=cand, dtype="int64")
+        gary1 = _globale_creation.ones(comms_and_distrib=cand, dtype="int64")
         self.assertFalse((gary0 == gary1).all())
 
     def do_test_copyto_same_locale_types(self, halo=0, dst_dtype="int32", src_dtype="int32"):
@@ -418,7 +235,7 @@ class GndarrayTest(_unittest.TestCase):
                 halo=halo
             )
 
-        gary_slb_ax0 = mpi_array.globale.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
+        gary_slb_ax0 = _globale_creation.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
         rank_val = gary_slb_ax0.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_slb_ax0.rank_view_n[...] = rank_val
 
@@ -430,7 +247,7 @@ class GndarrayTest(_unittest.TestCase):
                 locale_type=LT_PROCESS,
                 halo=halo
             )
-        gary_slb_ax1 = mpi_array.globale.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
+        gary_slb_ax1 = _globale_creation.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
         self.assertTrue(_np.all(gary_slb_ax1.lndarray_proxy.lndarray[...] == 0))
 
         if gary_slb_ax0.locale_comms.peer_comm.size <= 1:
@@ -463,9 +280,9 @@ class GndarrayTest(_unittest.TestCase):
 
         del gary_slb_ax0, gary_slb_ax0_0, gary_slb_ax1
 
-        gary_slb_ax0 = mpi_array.globale.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
+        gary_slb_ax0 = _globale_creation.zeros(comms_and_distrib=cand_slab_ax0, dtype=src_dtype)
 
-        gary_slb_ax1 = mpi_array.globale.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
+        gary_slb_ax1 = _globale_creation.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
         rank_val = gary_slb_ax1.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_slb_ax1.rank_view_n[...] = rank_val
 
@@ -526,15 +343,15 @@ class GndarrayTest(_unittest.TestCase):
             )
 
         gary_node_slab = \
-            mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
+            _globale_creation.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
         rank_val = gary_node_slab.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_node_slab.rank_view_n[...] = rank_val
         # gary_node_slab.update()
         gary_proc_blok = \
-            mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
+            _globale_creation.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
 
         mpi_array.globale.copyto(gary_proc_blok, gary_node_slab, casting="unsafe")
-        gary_node_slab0 = mpi_array.globale.zeros_like(gary_node_slab)
+        gary_node_slab0 = _globale_creation.zeros_like(gary_node_slab)
         mpi_array.globale.copyto(gary_node_slab0, gary_proc_blok, casting="unsafe")
 
         # gary_node_slab0.update()
@@ -554,17 +371,17 @@ class GndarrayTest(_unittest.TestCase):
         # Try in copyto in opposite order
 
         gary_node_slab = \
-            mpi_array.globale.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
+            _globale_creation.zeros(comms_and_distrib=cand_node_slab, dtype=node_slab_dtype)
 
         gary_proc_blok = \
-            mpi_array.globale.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
+            _globale_creation.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
 
         rank_val = gary_proc_blok.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_proc_blok.rank_view_n[...] = rank_val
         # gary_proc_blok.update()
 
         mpi_array.globale.copyto(gary_node_slab, gary_proc_blok, casting="unsafe")
-        gary_proc_blok0 = mpi_array.globale.zeros_like(gary_proc_blok)
+        gary_proc_blok0 = _globale_creation.zeros_like(gary_proc_blok)
         mpi_array.globale.copyto(gary_proc_blok0, gary_node_slab, casting="unsafe")
 
         # gary_proc_blok0.update()
@@ -624,7 +441,7 @@ class GndarrayTest(_unittest.TestCase):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        gary = mpi_array.globale.zeros(shape=(10, 10, 10), dtype="uint64")
+        gary = _globale_creation.zeros(shape=(10, 10, 10), dtype="uint64")
 
         self.assertRaises(ValueError, mpi_array.globale.copyto, gary, [1, ])
         self.assertRaises(ValueError, mpi_array.globale.copyto, [1, ], gary)

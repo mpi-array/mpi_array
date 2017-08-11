@@ -130,7 +130,7 @@ class LocaleExtent(HaloSubExtent):
 
         :type peer_rank: :obj:`int`
         :param peer_rank: Rank of MPI process in :samp:`peer_comm` communicator which
-           corresponds to :samp:`{inter_locale_rank}` peer_rank of :samp:`{inter_locale_comm}`.
+           corresponds to :samp:`{inter_locale_rank}` rank of :samp:`{inter_locale_comm}`.
         :type inter_locale_rank: :obj:`int`
         :param inter_locale_rank: Rank of MPI process in :samp:`inter_locale_comm` communicator.
         :type globale_extent: :obj:`GlobaleExtent`
@@ -175,7 +175,7 @@ class LocaleExtent(HaloSubExtent):
     @property
     def peer_rank(self):
         """
-        MPI peer_rank of the process in the :samp:`peer_comm` communicator
+        An :obj:`int` indicating the rank of the process in the :samp:`peer_comm` communicator
         which corresponds to the :attr:`inter_locale_rank` in
         the :samp:`inter_locale_comm` communicator.
         """
@@ -184,7 +184,8 @@ class LocaleExtent(HaloSubExtent):
     @property
     def inter_locale_rank(self):
         """
-        MPI peer_rank of the process in the :samp:`inter_locale_comm`.
+        An :obj:`int` indicating the rank of the process in the :samp:`inter_locale_comm`
+        responsible for exchanging data to/from this extent.
         """
         return self._inter_locale_rank
 
@@ -338,16 +339,17 @@ class CartLocaleExtent(LocaleExtent):
     @property
     def cart_rank(self):
         """
-        Rank of MPI process in :samp:`cart_comm` cartesian communicator
-        which corresponds to the :attr:`{peer_rank}` peer_rank in the :samp:`peer_comm`
-        communicator.
+        An :obj:`int` indicating the rank of the process in the :samp:`cart_comm`
+        cartesian communicator which corresponds to the :attr:`{peer_rank}` rank
+        in the :samp:`peer_comm` communicator.
         """
         return self.inter_locale_rank
 
     @property
     def cart_coord(self):
         """
-        Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
+        A :obj:`tuple` of :obj:`int` indicating the coordinate
+        index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
         this :obj:`LocaleExtent` in the cartesian domain distribution.
         """
         return self._cart_coord
@@ -355,8 +357,8 @@ class CartLocaleExtent(LocaleExtent):
     @property
     def cart_shape(self):
         """
-        Number of :obj:`LocaleExtent` regions in each axis direction
-        of the cartesian distribution.
+        A :obj:`tuple` of :obj:`int` indicating the number of :obj:`LocaleExtent`
+        regions in each axis direction of the cartesian distribution.
         """
         return self._cart_shape
 
@@ -423,6 +425,9 @@ class Distribution(object):
 
     def get_peer_rank(self, inter_locale_rank):
         """
+        Returns the :samp:`peer_rank` rank (of :samp:`peer_comm`) which is
+        is the equivalent process of the  :samp:`{inter_locale_rank}` rank
+        of the :samp:`inter_locale_comm` communicator.
         """
         rank = _mpi.UNDEFINED
         if self._inter_locale_rank_to_peer_rank is not None:
@@ -432,11 +437,22 @@ class Distribution(object):
     def create_globale_extent(self, globale_extent, halo=0):
         """
         Factory function for creating :obj:`GlobaleExtent` object.
+
+        :type globale_extent: :obj:`object`
+        :param globale_extent: Can be specified as a *sequence-of-int* shape,
+            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the globale extent of the array.
+        :type halo: :obj:`int`
+        :param halo: Globale array halo (border), currently ignored.
+        :rtype: :obj:`GlobaleExtent`
+        :return: A :samp:`self._globale_extent_type` instance.
+
+        :todo: Handle globale_extent halo.
         """
 
         # Don't support globale halo/border yet.
         halo = 0
-        if isinstance(globale_extent, GlobaleExtent):
+        if isinstance(globale_extent, self._globale_extent_type):
             globale_extent = _copy.deepcopy(globale_extent)
             globale_extent.halo = halo
         elif (
@@ -484,6 +500,23 @@ class Distribution(object):
     ):
         """
         Factory function for creating :obj:`LocaleExtent` object.
+        The :samp:`**kwargs` are passed through to
+        the :samp:`self._locale_extent_type` constructor.
+
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: Rank of :samp:`inter_locale_comm` which is
+            responsible for exchanging data to/from the array region defined
+            by the returned locale extent.
+        :type locale_extent: :obj:`object`
+        :param locale_extent: Can be specified as a *sequence-of-int* shape,
+            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the locale extent of the array.
+        :type globale_extent: :obj:`GlobaleExtent`
+        :param globale_extent: The globale array extent.
+        :type halo: :obj:`int`, sequence of :obj:`int`,...
+        :param halo: Locale array halo (ghost elements).
+        :rtype: :obj:`LocaleExtent`
+        :return: A :samp:`self._locale_extent_type` instance.
         """
         peer_rank = self.get_peer_rank(inter_locale_rank)
         if hasattr(locale_extent, "start") and hasattr(locale_extent, "stop"):
@@ -544,36 +577,45 @@ class Distribution(object):
 
     def get_extent_for_rank(self, inter_locale_rank):
         """
-        Returns extent associated with the specified peer_rank
+        Returns extent associated with the specified rank
         of the :attr:`inter_locale_comm` communicator.
+
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: Return the locale extent
+           associated with this rank.
+        :rtype: :obj:`LocaleExtent`
+        :return: The locale extent for the specified :samp:`{inter_locale_rank}` rank.
         """
         return self._locale_extents[inter_locale_rank]
 
     @property
     def halo(self):
         """
+        A :samp:`(ndim, 2)` shaped array of :obj:`int` indicating the
+        halo (ghost elements) for extents. This may differ from the :attr:`LocaleExtent.halo`
+        value due to the locale extent halos getting trimmed to lie within the globale extent.
         """
         return self._halo
 
     @property
     def globale_extent(self):
         """
-        The global indexing extent (:obj:`GlobaleExtent`) for the distributed array.
+        A :obj:`GlobaleExtent` specifying the globale array indexing extent.
         """
         return self._globale_extent
 
     @property
     def locale_extents(self):
         """
-        Sequence of :samp:`LocaleExtent` objects where :samp:`locale_extents[r]`
-        is the extent assigned to locale with :samp:`inter_locale_comm` peer_rank :samp:`r`.
+        Sequence of :obj:`LocaleExtent` objects where :samp:`locale_extents[r]`
+        is the extent assigned to locale with :samp:`inter_locale_comm` rank :samp:`r`.
         """
         return self._locale_extents
 
     @property
     def num_locales(self):
         """
-        Number (:obj:`int`) of locales in this distribution.
+        An :obj:`int` specifying the number of locales in this distribution.
         """
         return len(self._locale_extents)
 
@@ -667,7 +709,7 @@ class BlockPartition(Distribution):
         :type cart_coord_to_cart_rank: :obj:`dict`
         :param cart_coord_to_cart_rank: Mapping between cartesian
            communicator coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`)
-           and cartesian communicator peer_rank.
+           and cartesian communicator rank.
         """
         self._globale_extent_type = GlobaleExtent
         globale_extent = self.create_globale_extent(globale_extent, halo)
@@ -718,6 +760,12 @@ class BlockPartition(Distribution):
             halo=0,
             **kwargs
     ):
+        """
+        Over-rides :meth:`Distrbution.create_locale_extent`.
+
+        :rtype: :obj:`CartLocaleExtent`
+        :returns: A :obj:`CartLocaleExtent` instance.
+        """
         return \
             Distribution.create_locale_extent(
                 self,
@@ -753,7 +801,7 @@ class BlockPartition(Distribution):
     @property
     def root_logger(self):
         """
-        A :obj:`logging.Logger` for peer_rank 0 of the :attr:`peer_comm` communicator.
+        A :obj:`logging.Logger` for *peer rank* :samp:`0` of the :attr:`peer_comm` communicator.
         """
         if self._root_logger is None:
             self._root_logger = \
