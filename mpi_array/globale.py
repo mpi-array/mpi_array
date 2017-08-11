@@ -40,8 +40,6 @@ from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
-from . import globale_creation as _globale_creation
-from . import globale_ufunc as _globale_ufunc
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -500,6 +498,7 @@ class gndarray(_NDArrayOperatorsMixin):
     def __eq__(self, other):
         """
         """
+        from . import globale_creation as _globale_creation
         ret = _globale_creation.empty_like(self, dtype='bool')
         if isinstance(other, gndarray):
             ret.lndarray_proxy.rank_view_n[...] = \
@@ -513,6 +512,7 @@ class gndarray(_NDArrayOperatorsMixin):
     def __array_ufunc__(self, *args, **kwargs):
         """
         """
+        from . import globale_ufunc as _globale_ufunc
         return _globale_ufunc.gndarray_array_ufunc(self, *args, **kwargs)
 
     @property
@@ -692,6 +692,8 @@ class gndarray(_NDArrayOperatorsMixin):
         self.intra_locale_barrier()
 
     def copy(self):
+        from . import globale_creation as _globale_creation
+
         ary_out = _globale_creation.empty_like(self)
         ary_out.lndarray_proxy.rank_view_partition_h[...] = \
             self.lndarray_proxy.rank_view_partition_h[...]

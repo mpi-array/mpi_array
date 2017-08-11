@@ -28,10 +28,10 @@ from __future__ import absolute_import
 import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
-from . import globale as _globale
 from . import logging as _logging  # noqa: E402,F401
 from . import locale as _locale
 from . import comms as _comms
+from . import globale as _globale
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
