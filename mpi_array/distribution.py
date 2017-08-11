@@ -45,7 +45,7 @@ __version__ = _version()
 class GlobaleExtent(HaloIndexingExtent):
 
     """
-    Indexing extent for an entire array.
+    Indexing extent for an entire globale array.
     """
 
     pass
@@ -55,6 +55,8 @@ class HaloSubExtent(HaloIndexingExtent):
 
     """
     Indexing extent for single region of a larger globale extent.
+    Simply over-rides construction to trim the halo to the
+    the :samp:`{globale_extent}` (with halo) bounds.
     """
 
     def __init__(
@@ -113,6 +115,9 @@ class LocaleExtent(HaloSubExtent):
 
     """
     Indexing extent for single region of array residing on a locale.
+    Extends :obj:`HaloSubExtent` by storing additional :attr:`{peer_rank}`
+    and :attr:`inter_locale_rank` rank integers indicating the process
+    responsible for exchanging the data to/from this extent.
     """
 
     def __init__(
@@ -199,6 +204,11 @@ class LocaleExtent(HaloSubExtent):
         :param dir: Indicates low-index halo slab or high-index halo slab.
         :rtype: :obj:`IndexingExtent`
         :return: Indexing extent for halo slab.
+
+        .. todo::
+
+           Provide an example code here.
+
         """
         start = self.start_h.copy()
         stop = self.stop_h.copy()
@@ -222,6 +232,10 @@ class LocaleExtent(HaloSubExtent):
         :param axis: Axis (or axes) for which halo is trimmed.
         :rtype: :obj:`IndexingExtent`
         :return: Indexing extent with halo trimmed from specified axis (or axes) :samp:`{axis}`.
+
+        .. todo::
+
+           Provide an example code here.
         """
         start = self.start_h.copy()
         stop = self.stop_h.copy()
@@ -399,6 +413,12 @@ class Distribution(object):
     Describes the apportionment of array extents amongst locales.
     """
 
+    #: The "low index" indices.
+    LO = HaloIndexingExtent.LO
+
+    #: The "high index" indices.
+    HI = HaloIndexingExtent.HI
+
     def __init__(
         self,
         globale_extent,
@@ -409,7 +429,34 @@ class Distribution(object):
         inter_locale_rank_to_peer_rank=None
     ):
         """
-        Initialise.
+        Construct.
+
+        :type globale_extent: :obj:`object`
+        :param globale_extent: Can be specified as a *sequence-of-int* shape,
+            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the globale extent of the array.
+        :type locale_extents: sequence of :obj:`object`
+        :param locale_extents: Can be specified as a
+            sequence of *sequence-of-slice* slices or
+            a sequence of :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the distribution of the globale array over locales.
+            The element :samp:`locale_extents[r]` defines the extent
+            which is to be allocated by :samp:`inter_locale_comm` rank :samp:`r`.
+        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(ndim, 2)` shaped array
+        :param halo: Locale array halo (ghost elements).
+        :type globale_extent_type: :obj:`object`
+        :param globale_extent_type: The class/type for :attr:`globale_extent`.
+        :type locale_extent_type: :obj:`object`
+        :param locale_extent_type: The class/type for elements of :attr:`locale_extents`.
+        :type inter_locale_rank_to_peer_rank: sequence of :obj:`int` or :obj:`dict`
+        :param inter_locale_rank_to_peer_rank: A :obj:`dict`
+           of :samp:`(inter_locale_rank, peer_rank)` pairs. If a sequence,
+           then :samp:`{inter_locale_rank_to_peer_rank}[inter_locale_rank] = peer_rank`.
+
+        .. todo::
+
+           Provide example here.
+
         """
         self._locale_extent_type = locale_extent_type
         self._globale_extent_type = globale_extent_type
@@ -428,6 +475,11 @@ class Distribution(object):
         Returns the :samp:`peer_rank` rank (of :samp:`peer_comm`) which is
         is the equivalent process of the  :samp:`{inter_locale_rank}` rank
         of the :samp:`inter_locale_comm` communicator.
+
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: A rank of :samp:`inter_locale_comm`.
+        :rtype: :obj:`int`
+        :return: The equivalent rank from :samp:`peer_comm`.
         """
         rank = _mpi.UNDEFINED
         if self._inter_locale_rank_to_peer_rank is not None:
@@ -447,7 +499,9 @@ class Distribution(object):
         :rtype: :obj:`GlobaleExtent`
         :return: A :samp:`self._globale_extent_type` instance.
 
-        :todo: Handle globale_extent halo.
+        .. todo::
+
+           Handle :samp:`{globale_extent}` for non-zero :samp:`{halo}`.
         """
 
         # Don't support globale halo/border yet.
@@ -629,6 +683,23 @@ class ClonedDistribution(Distribution):
     def __init__(self, globale_extent, num_locales, halo=0, inter_locale_rank_to_peer_rank=None):
         """
         Initialise.
+
+        :type globale_extent: :obj:`object`
+        :param globale_extent: Can be specified as a *sequence-of-int* shape,
+            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the globale extent of the array.
+        :type num_locales: :obj:`int`
+        :param num_locales: Number of locales over which the globale array is cloned.
+        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(ndim, 2)` shaped array
+        :param halo: Locale array halo (ghost elements).
+        :type inter_locale_rank_to_peer_rank: sequence of :obj:`int` or :obj:`dict`
+        :param inter_locale_rank_to_peer_rank: A :obj:`dict`
+           of :samp:`(inter_locale_rank, peer_rank)` pairs. If a sequence,
+           then :samp:`{inter_locale_rank_to_peer_rank}[inter_locale_rank] = peer_rank`.
+
+        .. todo::
+
+           Provide example here.
         """
         Distribution.__init__(
             self,
@@ -655,6 +726,21 @@ class SingleLocaleDistribution(Distribution):
     ):
         """
         Initialise.
+
+        :type globale_extent: :obj:`object`
+        :param globale_extent: Can be specified as a *sequence-of-int* shape,
+            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
+            Defines the globale extent of the array.
+        :type num_locales: :obj:`int`
+        :param num_locales: Number of locales. One non-empty extent on the first
+           (i.e. :samp:`inter_locale_rank == 0` rank) locale, empty extents on
+           remaining locales.
+        :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(ndim, 2)` shaped array
+        :param halo: Locale array halo (ghost elements).
+        :type inter_locale_rank_to_peer_rank: sequence of :obj:`int` or :obj:`dict`
+        :param inter_locale_rank_to_peer_rank: A :obj:`dict`
+           of :samp:`(inter_locale_rank, peer_rank)` pairs. If a sequence,
+           then :samp:`{inter_locale_rank_to_peer_rank}[inter_locale_rank] = peer_rank`.
         """
         self._halo = halo
         globale_extent = self.create_globale_extent(globale_extent)
@@ -678,12 +764,6 @@ class BlockPartition(Distribution):
     Block partition of an array (shape) over locales.
     """
 
-    #: The "low index" indices.
-    LO = HaloIndexingExtent.LO
-
-    #: The "high index" indices.
-    HI = HaloIndexingExtent.HI
-
     def __init__(
         self,
         globale_extent,
@@ -694,7 +774,7 @@ class BlockPartition(Distribution):
         inter_locale_rank_to_peer_rank=None
     ):
         """
-        Create a partitioning of :samp:`{shape}` over locales.
+        Creates a block-partitioning of :samp:`{shape}` over locales.
 
         :type globale_extent: :obj:`GlobaleExtent`
         :param globale_extent: The globale extent to be partitioned.
