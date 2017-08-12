@@ -293,6 +293,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self._src = src
         self._casting = casting
         self._mpi_pair_extent_update_type = _MpiPairExtentUpdate
+        self._max_outstanding_requests = 64 * 128
+        self._min_outstanding_requests_per_proc = 4
         if self._dst.dtype != self._src.dtype:
             self._mpi_pair_extent_update_type = _MpiPairExtentUpdateDifferentDtypes
 
@@ -302,6 +304,18 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             src.comms_and_distrib.distribution
         )
         self._inter_win = self._src.rma_window_buffer.peer_win
+        self._max_outstanding_requests_per_proc = \
+            _np.max(
+                (
+                    self._min_outstanding_requests_per_proc,
+                    self._max_outstanding_requests // len(self._dst_updates.keys())
+                )
+            )
+        seed_str = str(2**31)[1:]
+        rank_str = str(self._inter_win.group.rank + 1)
+        seed_str = rank_str + seed_str[len(rank_str):]
+        seed_str = seed_str[0:-len(rank_str)] + rank_str[::-1]
+        self._random_state = _np.random.RandomState(seed=int(seed_str))
 
     def calc_can_use_existing_src_peer_comm(self):
         """
@@ -370,10 +384,23 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
 
         return updates
 
+    def wait_all(self, req_list):
+        """
+        """
+        self._dst.rank_logger.debug(
+            "BEG: Waiting for outstanding rget requests, len(req_list)=%s...",
+            len(req_list)
+        )
+        _mpi.Request.Waitall(req_list)
+        self._dst.rank_logger.debug(
+            "END: Waiting for outstanding rget requests, len(req_list)=%s.",
+            len(req_list)
+        )
+
     def do_locale_update(self):
         """
         Performs RMA to get elements from remote locales to
-        update the local array.
+        update the local locale array.
         """
         if (self._src.locale_comms.num_locales > 1) or (self._dst.locale_comms.num_locales > 1):
 
@@ -397,33 +424,36 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 ):
                     updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
                     update_dict = _collections.defaultdict(list)
+                    self._dst.rank_logger.debug("BEG: Lock_all()...")
+                    self._inter_win.Lock_all()
+
+                    req_list = []
                     for single_update in updates:
                         update_dict[single_update.src_extent.peer_rank].append(single_update)
-                    for src_peer_rank in update_dict.keys():
-                        self._dst.rank_logger.debug(
-                            "BEG: Lock(rank=%s, _mpi.LOCK_SHARED)...", src_peer_rank
-                        )
-                        self._inter_win.Lock(src_peer_rank, _mpi.LOCK_SHARED)
+                    src_peer_ranks = self._random_state.permutation(tuple(update_dict.keys()))
+                    for src_peer_rank in src_peer_ranks:
                         for single_update in update_dict[src_peer_rank]:
                             self._dst.rank_logger.debug(
-                                "BEG: Getting update:\n%s\n%s",
+                                "Getting update:\n%s\n%s",
                                 single_update._header_str,
                                 single_update
                             )
-                            single_update.do_get(
-                                self._inter_win,
-                                src_peer_rank,
-                                self._dst.lndarray_proxy.lndarray
-                            )
-                            self._dst.rank_logger.debug(
-                                "END: Got update:\n%s\n%s",
-                                single_update._header_str,
-                                single_update
-                            )
-                        self._inter_win.Unlock(src_peer_rank)
-                        self._dst.rank_logger.debug(
-                            "END: Unlock(rank=%s).", src_peer_rank
-                        )
+                            req = \
+                                single_update.do_rget(
+                                    self._inter_win,
+                                    src_peer_rank,
+                                    self._dst.lndarray_proxy.lndarray
+                                )
+                            req_list.append(req)
+                            if len(req_list) >= self._max_outstanding_requests_per_proc:
+                                self.wait_all(req_list)
+                                req_list = []
+                    if len(req_list) > 0:
+                        self.wait_all(req_list)
+                        del req_list
+
+                    self._inter_win.Unlock_all()
+                    self._dst.rank_logger.debug("END: Unlock_all().")
             else:
                 raise RuntimeError(
                     (

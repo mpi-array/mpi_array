@@ -312,7 +312,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
         Performs calls :meth:`mpi4py.MPI.Win.Get` method of :samp:`mpi_win`
         to perform the RMA data-transfer.
 
-        :type mpi_win: :obj:`mpi4py.MPI.Win.Get`
+        :type mpi_win: :obj:`mpi4py.MPI.Win`
         :param mpi_win: Window used to retrieve update region for array.
         :type target_src_rank: :obj:`int`
         :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
@@ -325,6 +325,27 @@ class MpiPairExtentUpdate(ExtentUpdate):
             target_src_rank,
             [0, 1, self.src_data_type]
         )
+
+    def do_rget(self, mpi_win, target_src_rank, origin_dst_buffer):
+        """
+        Performs calls :meth:`mpi4py.MPI.Win.Rget` method of :samp:`mpi_win`
+        to perform the RMA data-transfer.
+
+        :type mpi_win: :obj:`mpi4py.MPI.Win`
+        :param mpi_win: Window used to retrieve update region for array.
+        :type target_src_rank: :obj:`int`
+        :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
+        :type origin_dst_buffer: :obj:`memoryview`
+        :param origin_dst_buffer: The destination memory for the update, size of buffer
+           should correspond to the size of the :attr:`dst_extent`.
+        """
+        req = \
+            mpi_win.Rget(
+                [origin_dst_buffer, 1, self.dst_data_type],
+                target_src_rank,
+                [0, 1, self.src_data_type]
+            )
+        return req
 
     def __str__(self):
         """
@@ -400,6 +421,15 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
             origin_tmp_buffer,
             casting=self.casting
         )
+
+    def do_rget(self, mpi_win, target_src_rank, origin_dst_buffer):
+        """
+        Simply forward call to :meth:`do_get`.
+
+        See :meth:`do_get`
+        """
+        self.do_get(mpi_win, target_src_rank, origin_dst_buffer)
+        return _mpi.REQUEST_NULL
 
 
 class HaloSingleExtentUpdate(ExtentUpdate):
