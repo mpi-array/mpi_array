@@ -85,7 +85,12 @@ class LndarrayTest(_unittest.TestCase):
         v = lary[0:slary.shape[0] // 2, 0:slary.shape[1] // 2, 0:slary.shape[2] // 2]
         self.assertTrue(isinstance(v, mpi_array.locale.lndarray))
         self.assertFalse(v.flags.owndata)
-        self.assertFalse(v.flags.carray)
+        self.assertFalse(
+            ((v.size > 0) and (v.shape[0] > 1) and (v.shape[1] > 1))
+            and
+            v.flags.carray,
+            "v.size=%s, v.shape=%s, v.flags.carray=%s" % (v.size, v.shape, v.flags.carray)
+        )
         self.assertTrue(isinstance(v.base, mpi_array.locale.lndarray))
         self.assertFalse(v.base.flags.owndata)
         self.assertTrue(v.base.flags.carray)

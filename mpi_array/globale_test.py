@@ -59,11 +59,11 @@ class GndarrayTest(_unittest.TestCase):
             gshape = (50, 17, 23)
             cand = create_distribution(gshape, locale_type=LT_PROCESS, halo=halo)
             locale_comms = cand.locale_comms
-            gary = _globale_creation.zeros(gshape, comms_and_distrib=cand, dtype="int8")
+            gary = _globale_creation.zeros(gshape, comms_and_distrib=cand, dtype="int32")
             rank_val = locale_comms.peer_comm.rank + 1
             gary.rank_view_n[...] = rank_val
 
-            self.assertEqual(gary.dtype, _np.dtype("int8"))
+            self.assertEqual(gary.dtype, _np.dtype("int32"))
             self.assertSequenceEqual(list(gary.shape), list(gshape))
             self.assertTrue(gary.comms_and_distrib is not None)
             self.assertTrue(gary.lndarray_proxy is not None)
@@ -84,7 +84,7 @@ class GndarrayTest(_unittest.TestCase):
             )
             self.assertEqual(
                 _np.product(gary.rank_view_n.shape),
-                _np.sum((gary.rank_view_n == rank_val).astype("uint8"), dtype="int64")
+                _np.sum((gary.rank_view_n == rank_val).astype("uint32"), dtype="int64")
             )
             if _np.any(gary.rank_view_h.shape > gary.rank_view_n.shape):
                 cand.locale_comms.rank_logger.info("gary.rank_view_h = %s" % (gary.rank_view_h,))
