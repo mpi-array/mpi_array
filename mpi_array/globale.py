@@ -293,8 +293,9 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self._src = src
         self._casting = casting
         self._mpi_pair_extent_update_type = _MpiPairExtentUpdate
-        self._max_outstanding_requests = 64 * 128
+        self._max_outstanding_requests = 64 * 64
         self._min_outstanding_requests_per_proc = 4
+        self._max_ranks_per_inter_locale_sub_group = 32
         if self._dst.dtype != self._src.dtype:
             self._mpi_pair_extent_update_type = _MpiPairExtentUpdateDifferentDtypes
 
@@ -308,7 +309,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             _np.max(
                 (
                     self._min_outstanding_requests_per_proc,
-                    self._max_outstanding_requests // len(self._dst_updates.keys())
+                    self._max_outstanding_requests // self._max_ranks_per_inter_locale_sub_group
                 )
             )
         seed_str = str(2**31)[1:]
@@ -422,38 +423,57 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                     and
                     self._dst.locale_comms.have_valid_inter_locale_comm
                 ):
+                    inter_locale_ranks = _np.arange(0, self._dst.locale_comms.inter_locale_comm.size)
+                    if inter_locale_ranks.size > self._max_ranks_per_inter_locale_sub_group:
+                        stride = \
+                            (
+                                inter_locale_ranks.size
+                                //
+                                self._max_ranks_per_inter_locale_sub_group
+                            ) + 1
+                        inter_locale_sub_group_ranks = \
+                            [inter_locale_ranks[i::stride] for i in range(stride)]
+                    else:
+                        inter_locale_sub_group_ranks = (inter_locale_ranks,)
                     updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
                     update_dict = _collections.defaultdict(list)
                     self._dst.rank_logger.debug("BEG: Lock_all()...")
                     self._inter_win.Lock_all()
 
-                    req_list = []
-                    for single_update in updates:
-                        update_dict[single_update.src_extent.peer_rank].append(single_update)
-                    src_peer_ranks = self._random_state.permutation(tuple(update_dict.keys()))
-                    for src_peer_rank in src_peer_ranks:
-                        for single_update in update_dict[src_peer_rank]:
-                            self._dst.rank_logger.debug(
-                                "Getting update:\n%s\n%s",
-                                single_update._header_str,
-                                single_update
-                            )
-                            req = \
-                                single_update.do_rget(
-                                    self._inter_win,
-                                    src_peer_rank,
-                                    self._dst.lndarray_proxy.lndarray
+                    for inter_locale_ranks in inter_locale_sub_group_ranks:
+                        if self._dst.this_locale.inter_locale_rank in inter_locale_ranks:
+                            req_list = []
+                            for single_update in updates:
+                                update_dict[single_update.src_extent.peer_rank].append(
+                                    single_update
                                 )
-                            req_list.append(req)
-                            if len(req_list) >= self._max_outstanding_requests_per_proc:
+                            src_peer_ranks = \
+                                self._random_state.permutation(tuple(update_dict.keys()))
+                            for src_peer_rank in src_peer_ranks:
+                                for single_update in update_dict[src_peer_rank]:
+                                    self._dst.rank_logger.debug(
+                                        "Getting update:\n%s\n%s",
+                                        single_update._header_str,
+                                        single_update
+                                    )
+                                    req = \
+                                        single_update.do_rget(
+                                            self._inter_win,
+                                            src_peer_rank,
+                                            self._dst.lndarray_proxy.lndarray
+                                        )
+                                    req_list.append(req)
+                                    if len(req_list) >= self._max_outstanding_requests_per_proc:
+                                        self.wait_all(req_list)
+                                        req_list = []
+                            if len(req_list) > 0:
                                 self.wait_all(req_list)
-                                req_list = []
-                    if len(req_list) > 0:
-                        self.wait_all(req_list)
-                        del req_list
+                                del req_list
 
+                        self._dst.locale_comms.inter_locale_comm.barrier()
                     self._inter_win.Unlock_all()
                     self._dst.rank_logger.debug("END: Unlock_all().")
+
             else:
                 raise RuntimeError(
                     (
