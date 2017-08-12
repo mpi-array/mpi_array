@@ -423,7 +423,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                     and
                     self._dst.locale_comms.have_valid_inter_locale_comm
                 ):
-                    inter_locale_ranks = _np.arange(0, self._dst.locale_comms.inter_locale_comm.size)
+                    inter_locale_ranks = \
+                        _np.arange(0, self._dst.locale_comms.inter_locale_comm.size)
                     if inter_locale_ranks.size > self._max_ranks_per_inter_locale_sub_group:
                         stride = \
                             (
@@ -437,18 +438,19 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                         inter_locale_sub_group_ranks = (inter_locale_ranks,)
                     updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
                     update_dict = _collections.defaultdict(list)
+                    for single_update in updates:
+                        update_dict[single_update.src_extent.peer_rank].append(
+                            single_update
+                        )
+                    src_peer_ranks = \
+                        self._random_state.permutation(tuple(update_dict.keys()))
+
                     self._dst.rank_logger.debug("BEG: Lock_all()...")
                     self._inter_win.Lock_all()
 
                     for inter_locale_ranks in inter_locale_sub_group_ranks:
                         if self._dst.this_locale.inter_locale_rank in inter_locale_ranks:
                             req_list = []
-                            for single_update in updates:
-                                update_dict[single_update.src_extent.peer_rank].append(
-                                    single_update
-                                )
-                            src_peer_ranks = \
-                                self._random_state.permutation(tuple(update_dict.keys()))
                             for src_peer_rank in src_peer_ranks:
                                 for single_update in update_dict[src_peer_rank]:
                                     self._dst.rank_logger.debug(
@@ -469,8 +471,15 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                             if len(req_list) > 0:
                                 self.wait_all(req_list)
                                 del req_list
+                        if len(inter_locale_ranks) > 0:
+                            self._dst.rank_logger.debug(
+                                "BEG: self._dst.locale_comms.inter_locale_comm.barrier()..."
+                            )
+                            self._dst.locale_comms.inter_locale_comm.barrier()
+                            self._dst.rank_logger.debug(
+                                "END: self._dst.locale_comms.inter_locale_comm.barrier()."
+                            )
 
-                        self._dst.locale_comms.inter_locale_comm.barrier()
                     self._inter_win.Unlock_all()
                     self._dst.rank_logger.debug("END: Unlock_all().")
 
