@@ -293,8 +293,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self._src = src
         self._casting = casting
         self._mpi_pair_extent_update_type = _MpiPairExtentUpdate
-        self._max_outstanding_requests = 64 * 64
-        self._min_outstanding_requests_per_proc = 4
+        self._max_outstanding_requests = 32 * 32
+        self._min_outstanding_requests_per_proc = 2
         self._max_ranks_per_inter_locale_sub_group = 32
         if self._dst.dtype != self._src.dtype:
             self._mpi_pair_extent_update_type = _MpiPairExtentUpdateDifferentDtypes
@@ -471,13 +471,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                             if len(req_list) > 0:
                                 self.wait_all(req_list)
                                 del req_list
-                        if len(inter_locale_ranks) > 0:
+                        if len(inter_locale_sub_group_ranks) > 0:
                             self._dst.rank_logger.debug(
                                 "BEG: self._dst.locale_comms.inter_locale_comm.barrier()..."
                             )
                             self._dst.locale_comms.inter_locale_comm.barrier()
                             self._dst.rank_logger.debug(
                                 "END: self._dst.locale_comms.inter_locale_comm.barrier()."
+                            )
+                            self._dst.rank_logger.debug(
+                                "Completed RMA updates for sub-group ranks=%s.", inter_locale_ranks
                             )
 
                     self._inter_win.Unlock_all()
