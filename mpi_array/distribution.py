@@ -743,6 +743,7 @@ class SingleLocaleDistribution(Distribution):
            then :samp:`{inter_locale_rank_to_peer_rank}[inter_locale_rank] = peer_rank`.
         """
         self._halo = halo
+        self._globale_extent_type = GlobaleExtent
         globale_extent = self.create_globale_extent(globale_extent)
         sidx = _np.array(globale_extent.start_n)
         locale_extents = [HaloIndexingExtent(start=sidx, stop=sidx) for i in range(num_locales)]
@@ -754,7 +755,8 @@ class SingleLocaleDistribution(Distribution):
             globale_extent=globale_extent,
             locale_extents=locale_extents,
             halo=halo,
-            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank
+            inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
+            globale_extent_type=self._globale_extent_type
         )
 
 

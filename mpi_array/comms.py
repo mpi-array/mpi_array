@@ -224,6 +224,19 @@ class LocaleComms(object):
 
         self._inter_locale_comm = None
 
+        if (
+            (inter_locale_comm is not None)
+            and
+            (inter_locale_comm != _mpi.COMM_NULL)
+            and
+            (inter_locale_comm.size != self._num_locales)
+        ):
+            raise ValueError(
+                "Have self.num_locales=%s, but got inter_locale_comm.size=%s"
+                %
+                (self._num_locales, inter_locale_comm.size, )
+            )
+
         if (self._num_locales > 1):
             if inter_locale_comm is None:
                 color = _mpi.UNDEFINED
@@ -233,12 +246,6 @@ class LocaleComms(object):
                 inter_locale_comm = self._peer_comm.Split(color, self._peer_comm.rank)
                 rank_logger.debug("END: self.peer_comm.Split to create self.inter_locale_comm.")
             self._inter_locale_comm = inter_locale_comm
-        elif (inter_locale_comm is not None) and (inter_locale_comm != _mpi.COMM_NULL):
-            raise ValueError(
-                "Got valid inter_local_comm=%s when self.num_locales <= 1"
-                %
-                (inter_locale_comm, )
-            )
         else:
             if self.peer_comm.rank == 0:
                 self._inter_locale_comm = _mpi.COMM_SELF
@@ -713,7 +720,8 @@ def create_locale_comms(
                 %
                 (locale_type, intra_locale_comm.size)
             )
-        intra_locale_comm = _mpi.COMM_SELF
+        elif intra_locale_comm is None:
+            intra_locale_comm = _mpi.COMM_SELF
     locale_comms = \
         LocaleComms(
             peer_comm=peer_comm,
@@ -797,6 +805,7 @@ def create_single_locale_distribution(
     cloned_distrib = \
         SingleLocaleDistribution(
             globale_extent=shape,
+            num_locales=locale_comms.num_locales,
             inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
             halo=halo
         )
@@ -838,20 +847,19 @@ def create_block_distribution(
     """
     if dims is None:
         dims = _np.zeros_like(shape, dtype="int64")
-    if locale_type.lower() == LT_PROCESS:
-        if (intra_locale_comm is not None) and (intra_locale_comm.size > 1):
-            raise ValueError(
-                "Got locale_type=%s, but intra_locale_comm.size=%s"
-                %
-                (locale_type, intra_locale_comm.size)
-            )
-        intra_locale_comm = _mpi.COMM_SELF
+    locale_comms, inter_locale_rank_to_peer_rank, this_locale = \
+        create_locale_comms(
+            locale_type=locale_type,
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
     cart_locale_comms = \
         CartLocaleComms(
             dims=dims,
-            peer_comm=peer_comm,
-            intra_locale_comm=intra_locale_comm,
-            inter_locale_comm=inter_locale_comm,
+            peer_comm=locale_comms.peer_comm,
+            intra_locale_comm=locale_comms.intra_locale_comm,
+            inter_locale_comm=locale_comms.inter_locale_comm,
             cart_comm=cart_comm
         )
     cart_coord_to_cart_rank = cart_locale_comms.cart_coord_to_cart_rank_map

@@ -32,8 +32,8 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import create_distribution, LT_PROCESS, LT_NODE
-from .distribution import IndexingExtent
-
+from .distribution import IndexingExtent, LocaleExtent
+from .distribution import GlobaleExtent
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -65,8 +65,11 @@ class LndarrayTest(_unittest.TestCase):
         lshape = slary.shape
         bad_lshape = list(lshape)
         bad_lshape[-1] += 1
-        self.assertRaises(ValueError, mpi_array.locale.lndarray,
-                          shape=bad_lshape)
+        self.assertRaises(
+            ValueError,
+            mpi_array.locale.lndarray,
+            shape=lshape
+        )
 
     def test_view(self):
         """
@@ -142,6 +145,37 @@ class LndarrayProxyTest(_unittest.TestCase):
             locale_extent=None,
             dtype="int64"
         )
+
+        gshape = (10, 11, 12, 13, 5)
+        bad_lshape = gshape
+        bad_lshape = (bad_lshape[0] - 1,) + bad_lshape[1:]
+        self.assertRaises(
+            ValueError,
+            mpi_array.locale.LndarrayProxy,
+            shape=bad_lshape,
+            locale_extent=LocaleExtent(
+                peer_rank=_mpi.COMM_WORLD.rank,
+                inter_locale_rank=_mpi.COMM_WORLD.rank,
+                globale_extent=GlobaleExtent(stop=gshape),
+                start=(0, 0, 0, 0, 0),
+                stop=gshape
+            )
+        )
+
+    def test_fill(self):
+        """
+        Test for :meth:`mpi_array.locale.LndarrayProxy.fill`.
+        """
+        comms_and_distrib = create_distribution(shape=(24, 35, 14, 7))
+        lary = \
+            mpi_array.locale.empty(
+                shape=(24, 35, 14, 7),
+                comms_and_distrib=comms_and_distrib,
+                dtype="int64"
+            )
+        rank_val = comms_and_distrib.locale_comms.peer_comm.rank + 1
+        lary.fill(rank_val)
+        self.assertTrue(_np.all(lary[lary.rank_view_slice_n] == rank_val))
 
     def test_get_and_set_item(self):
         """

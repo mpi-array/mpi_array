@@ -516,7 +516,7 @@ class LndarrayProxy(object):
         :type value: scalar
         :param value: All non-ghost elements are assigned this value.
         """
-        self._lndarray.rank_view_n.fill(value)
+        self._lndarray[self._intra_partition.rank_view_slice_n].fill(value)
 
     def fill_h(self, value):
         """

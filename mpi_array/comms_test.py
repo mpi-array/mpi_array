@@ -22,7 +22,7 @@ Classes
 
    LocaleCommsTest - Tests for :obj:`mpi_array.comms.LocaleComms`.
    CartLocaleCommsTest - Tests for :obj:`mpi_array.comms.CartLocaleComms`.
-
+   CreateDistributionTest - Tests for :func:`mpi_array.comms.create_distribution`.
 
 """
 from __future__ import absolute_import
@@ -35,7 +35,10 @@ from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 
 from .comms import CartLocaleComms, LocaleComms
-
+from .comms import create_single_locale_distribution, create_locale_comms, create_distribution
+from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
+from .comms import check_locale_type, LT_NODE, LT_PROCESS
+from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -71,7 +74,14 @@ class LocaleCommsTest(_unittest.TestCase):
         i.inter_locale_comm = None
         self.assertEqual(None, i.inter_locale_comm)
 
-        self.assertRaises(ValueError, LocaleComms, _mpi.COMM_SELF, _mpi.COMM_SELF, _mpi.COMM_WORLD)
+        if _mpi.COMM_WORLD.size != _mpi.COMM_SELF.size:
+            self.assertRaises(
+                ValueError,
+                LocaleComms,
+                _mpi.COMM_SELF,
+                _mpi.COMM_SELF,
+                _mpi.COMM_WORLD
+            )
 
 
 class CartLocaleCommsTest(_unittest.TestCase):
@@ -110,18 +120,23 @@ class CartLocaleCommsTest(_unittest.TestCase):
     def test_construct_shared(self):
         lc = CartLocaleComms(ndims=1)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(1, lc.ndim)
 
         lc = CartLocaleComms(ndims=4)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(4, lc.ndim)
 
         lc = CartLocaleComms(dims=(0,))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(1, lc.ndim)
 
         lc = CartLocaleComms(dims=(0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(2, lc.ndim)
 
         lc = CartLocaleComms(dims=(0, 0, 0))
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(3, lc.ndim)
 
     def test_construct_no_shared(self):
         lc = CartLocaleComms(ndims=1, intra_locale_comm=_mpi.COMM_SELF)
@@ -141,6 +156,148 @@ class CartLocaleCommsTest(_unittest.TestCase):
         self.assertEqual(_np.dtype("uint16"), rma_window_buff.dtype)
         self.assertEqual(_np.dtype("uint16").itemsize, rma_window_buff.itemsize)
         self.assertEqual(100 * rma_window_buff.dtype.itemsize, len(rma_window_buff.buffer))
+
+
+class CreateDistributionTest(_unittest.TestCase):
+    """
+    Tests for :func:`mpi_array.comms.create_distribution`.
+    """
+
+    def test_check_distrib_type(self):
+        self.assertEqual(None, check_distrib_type(DT_SLAB))
+        self.assertEqual(None, check_distrib_type(DT_BLOCK))
+        self.assertEqual(None, check_distrib_type(DT_CLONED))
+        self.assertEqual(None, check_distrib_type(DT_SINGLE_LOCALE))
+        self.assertRaises(ValueError, check_distrib_type, "not_a_valid_distrib_type")
+
+    def test_check_locale_type(self):
+        self.assertEqual(None, check_locale_type(LT_PROCESS))
+        self.assertEqual(None, check_locale_type(LT_NODE))
+        self.assertRaises(ValueError, check_locale_type, "not_a_valid_locale_type")
+
+    def test_create_locale_comms_invalid_args(self):
+        """
+        Test that :func:`mpi_array.comms.create_locale_comms` raises exception
+        for invalid arguments.
+        """
+
+        if _mpi.COMM_WORLD.size > 1:
+            self.assertRaises(
+                ValueError,
+                create_locale_comms,
+                locale_type=LT_PROCESS,
+                peer_comm=_mpi.COMM_WORLD,
+                intra_locale_comm=_mpi.COMM_WORLD
+            )
+
+    def check_is_single_locale_distribution(self, distrib):
+        """
+        Asserts for checking that the :samp:`{distrib}` :obj:`Distribution`
+        is single-locale.
+        """
+        self.assertTrue(isinstance(distrib, _SingleLocaleDistribution))
+        gshape = tuple(distrib.globale_extent.shape_n)
+        self.assertSequenceEqual(
+            gshape,
+            tuple(distrib.locale_extents[0].shape)
+        )
+        self.assertSequenceEqual(
+            (0, 0, 0, 0),
+            tuple(distrib.locale_extents[0].start_n)
+        )
+        self.assertSequenceEqual(
+            gshape,
+            tuple(distrib.locale_extents[0].stop_n)
+        )
+        self.assertSequenceEqual(
+            (0, 0, 0, 0),
+            tuple(distrib.globale_extent.start_n)
+        )
+        self.assertSequenceEqual(
+            gshape,
+            tuple(distrib.globale_extent.stop_n)
+        )
+
+    def test_create_single_locale_distribution(self):
+        """
+        Tests for :func:`mpi_array.comms.create_single_locale_distribution`.
+        """
+        candd = \
+            create_single_locale_distribution(
+                shape=(20, 31, 17, 4),
+                locale_type=LT_PROCESS,
+                peer_comm=_mpi.COMM_WORLD
+            )
+        distrib = candd.distribution
+        self.check_is_single_locale_distribution(distrib)
+
+    def test_create_distribution_slab(self):
+        """
+        Tests for :func:`mpi_array.comms.create_distribution`.
+        """
+        candd = \
+            create_distribution(
+                shape=(20, 31, 17, 4),
+                locale_type=LT_PROCESS,
+                distrib_type=DT_SLAB,
+                peer_comm=_mpi.COMM_WORLD
+            )
+        distrib = candd.distribution
+        self.assertSequenceEqual(
+            (20, 31, 17, 4)[1:],
+            tuple(distrib.locale_extents[0].shape)[1:]
+        )
+        self.assertSequenceEqual(
+            (0, 0, 0, 0)[1:],
+            tuple(distrib.locale_extents[0].start_n)[1:]
+        )
+        self.assertSequenceEqual(
+            (20, 31, 17, 4)[1:],
+            tuple(distrib.locale_extents[0].stop_n)[1:]
+        )
+        self.assertEqual(candd.locale_comms.num_locales, distrib.num_locales)
+        if distrib.num_locales > 1:
+            for i in range(1, distrib.num_locales):
+                self.assertSequenceEqual(
+                    (20, 31, 17, 4)[1:],
+                    tuple(distrib.locale_extents[i].shape)[1:]
+                )
+                self.assertSequenceEqual(
+                    (0, 0, 0, 0)[1:],
+                    tuple(distrib.locale_extents[i].start_n)[1:]
+                )
+                self.assertSequenceEqual(
+                    (20, 31, 17, 4)[1:],
+                    tuple(distrib.locale_extents[i].stop_n)[1:]
+                )
+
+        self.assertSequenceEqual(
+            (20, 31, 17, 4),
+            tuple(distrib.globale_extent.shape)
+        )
+        self.assertSequenceEqual(
+            (0, 0, 0, 0),
+            tuple(distrib.globale_extent.start_n)
+        )
+        self.assertSequenceEqual(
+            (20, 31, 17, 4),
+            tuple(distrib.globale_extent.stop_n)
+        )
+
+    def test_create_distribution_single_locale(self):
+        """
+        Tests for :func:`mpi_array.comms.create_distribution`.
+        """
+        candd = \
+            create_distribution(
+                shape=(20, 31, 17, 4),
+                locale_type=LT_PROCESS,
+                distrib_type=DT_SINGLE_LOCALE,
+                peer_comm=_mpi.COMM_WORLD
+            )
+        distrib = candd.distribution
+        self.assertEqual(candd.locale_comms.num_locales, distrib.num_locales)
+        self.check_is_single_locale_distribution(distrib)
 
 
 _unittest.main(__name__)
