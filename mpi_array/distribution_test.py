@@ -32,13 +32,42 @@ from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 
 from .indexing import IndexingExtent
-from .distribution import BlockPartition, CartLocaleExtent, GlobaleExtent
+from .distribution import BlockPartition, Distribution
+from .distribution import CartLocaleExtent, GlobaleExtent, LocaleExtent
 
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
+
+
+class LocaleExtentTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.LocaleExtent`.
+    """
+
+    def test_repr(self):
+        """
+        Tests :meth:`mpi_array.distribution.LocaleExtent.__repr__`.
+        """
+        le = \
+            LocaleExtent(
+                start=(25, 25),
+                stop=(50, 50),
+                peer_rank=0,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(start=(0, 0), stop=(50, 50)),
+                halo=(2, 2)
+            )
+        le_repr = repr(le)
+        le_eval = eval(le_repr)
+
+        self.assertEqual(le, le_eval)
+
+        le_str = str(le)
+        self.assertEqual(le_repr, le_str)
 
 
 class CartLocaleExtentTest(_unittest.TestCase):
@@ -80,6 +109,29 @@ class CartLocaleExtentTest(_unittest.TestCase):
             )
         self.assertEqual(56, de.peer_rank)
         self.assertEqual(7, de.cart_rank)
+
+    def test_repr(self):
+        """
+        Tests :meth:`mpi_array.distribution.CartLocaleExtent.__repr__`.
+        """
+        cle = \
+            CartLocaleExtent(
+                start=(25, 25),
+                stop=(50, 50),
+                cart_coord=(3, 3),
+                cart_shape=(4, 4),
+                peer_rank=0,
+                inter_locale_rank=0,
+                globale_extent=GlobaleExtent(start=(0, 0), stop=(50, 50)),
+                halo=(2, 2)
+            )
+        cle_repr = repr(cle)
+        cle_eval = eval(cle_repr)
+
+        self.assertEqual(cle, cle_eval)
+
+        cle_str = str(cle)
+        self.assertEqual(cle_repr, cle_str)
 
     def test_extent_calcs_1d_thick_tiles(self):
         """
@@ -542,6 +594,71 @@ class CartLocaleExtentTest(_unittest.TestCase):
         self.assertEqual(
             IndexingExtent(start=(190, 400), stop=(300, 600)),
             de[8].no_halo_extent(1)
+        )
+
+
+class DistributionTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.Distribution`.
+    """
+
+    def test_invalid_args(self):
+        """
+        Tests for :meth:`mpi_array.distribution.Distribution.__init__`
+        """
+        globale_extent = IndexingExtent(start=(0, 0, 0), stop=(100, 200, 300))
+        locale_extent = IndexingExtent(start=(0, 0, 0), stop=(100, 200, 300))
+
+        self.assertRaises(
+            ValueError,
+            Distribution,
+            globale_extent=1,
+            locale_extents=[locale_extent, ]
+        )
+        self.assertRaises(
+            ValueError,
+            Distribution,
+            globale_extent=globale_extent,
+            locale_extents=[1, ]
+        )
+
+    def test_construct(self):
+        """
+        Tests for :meth:`mpi_array.distribution.Distribution.__init__`
+        """
+        globale_extent = IndexingExtent(start=(0, 0, 0), stop=(100, 200, 300))
+        locale_extent = IndexingExtent(start=(0, 0, 0), stop=(100, 200, 300))
+
+        d = \
+            Distribution(
+                globale_extent=globale_extent,
+                locale_extents=[locale_extent, ]
+            )
+        self.assertEqual(
+            GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
+            d.globale_extent
+        )
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.locale_extents[0]
+        )
+
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.get_extent_for_rank(0)
         )
 
 

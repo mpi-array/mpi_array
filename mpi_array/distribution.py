@@ -32,7 +32,6 @@ import array_split as _array_split
 import array_split.split  # noqa: F401
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 
-from . import logging as _logging
 from .indexing import IndexingExtent, HaloIndexingExtent
 
 
@@ -89,25 +88,26 @@ class HaloSubExtent(HaloIndexingExtent):
         """
         HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
         halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
-        # Calculate the locale halo, truncate if it strays outside
-        # the globale_extent halo region.
-        halo = \
-            _np.maximum(
-                _np.array((0,), dtype=halo.dtype),
-                _np.array(
-                    (
-                        _np.minimum(
-                            self.start_n - globale_extent.start_h,
-                            halo[:, self.LO]
+        if globale_extent is not None:
+            # Calculate the locale halo, truncate if it strays outside
+            # the globale_extent halo region.
+            halo = \
+                _np.maximum(
+                    _np.array((0,), dtype=halo.dtype),
+                    _np.array(
+                        (
+                            _np.minimum(
+                                self.start_n - globale_extent.start_h,
+                                halo[:, self.LO]
+                            ),
+                            _np.minimum(
+                                globale_extent.stop_h - self.stop_n,
+                                halo[:, self.HI]
+                            ),
                         ),
-                        _np.minimum(
-                            globale_extent.stop_h - self.stop_n,
-                            halo[:, self.HI]
-                        ),
-                    ),
-                    dtype=halo.dtype
-                ).T
-            )
+                        dtype=halo.dtype
+                    ).T
+                )
         self._halo = halo
 
 
@@ -256,7 +256,11 @@ class LocaleExtent(HaloSubExtent):
         return \
             (
                 (
-                    "LocaleExtent(start=%s, stop=%s, halo=%s, peer_rank=%s, inter_locale_rank=%s)"
+                    "LocaleExtent("
+                    "start=%s, stop=%s, halo=%s, peer_rank=%s, inter_locale_rank=%s"
+                    +
+                    ", globale_extent=None"
+                    ")"
                 )
                 %
                 (
@@ -383,11 +387,17 @@ class CartLocaleExtent(LocaleExtent):
         return \
             (
                 (
-                    "CartLocaleExtent(start=%s, stop=%s, halo=%s, peer_rank=%s, "
+                    "CartLocaleExtent("
+                    +
+                    "start=%s, stop=%s, halo=%s, peer_rank=%s, "
                     +
                     "inter_locale_rank=%s, "
                     +
-                    "cart_coord=%s, cart_shape=%s)"
+                    "cart_coord=%s, cart_shape=%s"
+                    +
+                    ", globale_extent=None"
+                    +
+                    ")"
                 )
                 %
                 (
@@ -539,7 +549,7 @@ class Distribution(object):
             raise ValueError(
                 "Could not construct %s instance from globale_extent=%s."
                 %
-                (self._globale_extent.__class__.__name__, globale_extent,)
+                (self._globale_extent_type.__name__, globale_extent,)
             )
 
         return globale_extent
@@ -624,7 +634,7 @@ class Distribution(object):
             raise ValueError(
                 "Could not construct %s instance from locale_extent=%s."
                 %
-                (self._locale_extent_type.__class__.__name__, locale_extent,)
+                (self._locale_extent_type.__name__, locale_extent,)
             )
 
         return locale_extent
@@ -802,24 +812,19 @@ class BlockPartition(Distribution):
         self._order = order
         self._halo_updates_dict = None
 
-        if self._num_locales > 1:
-            shape_splitter = \
-                _array_split.ShapeSplitter(
-                    array_shape=globale_extent.shape_n,
-                    array_start=globale_extent.start_n,
-                    axis=self._dims,
-                    halo=0
-                )
-            splt = shape_splitter.calculate_split()
+        shape_splitter = \
+            _array_split.ShapeSplitter(
+                array_shape=globale_extent.shape_n,
+                array_start=globale_extent.start_n,
+                axis=self._dims,
+                halo=0
+            )
+        splt = shape_splitter.calculate_split()
 
-            locale_extents = _np.empty(splt.size, dtype="object")
-            for i in range(locale_extents.size):
-                cart_coord = tuple(_np.unravel_index(i, splt.shape))
-                locale_extents[cart_coord_to_cart_rank[cart_coord]] = splt[cart_coord]
-        else:
-            locale_extents = [globale_extent, ]
-            if cart_coord_to_cart_rank is None:
-                cart_coord_to_cart_rank = {tuple(_np.zeros_like(globale_extent.shape_n)): 0}
+        locale_extents = _np.empty(splt.size, dtype="object")
+        for i in range(locale_extents.size):
+            cart_coord = tuple(_np.unravel_index(i, splt.shape))
+            locale_extents[cart_coord_to_cart_rank[cart_coord]] = splt[cart_coord]
 
         self._cart_coord_to_cart_rank = cart_coord_to_cart_rank
         self._cart_rank_to_cart_coord_map = \
@@ -866,32 +871,6 @@ class BlockPartition(Distribution):
         """
         s = [str(le) for le in self.locale_extents]
         return ", ".join(s)
-
-    @property
-    def rank_logger(self):
-        """
-        A :obj:`logging.Logger` for :attr:`peer_comm` communicator ranks.
-        """
-        if self._rank_logger is None:
-            self._rank_logger = \
-                _logging.get_rank_logger(
-                    __name__ + "." + self.__class__.__name__,
-                    comm=self.peer_comm
-                )
-        return self._rank_logger
-
-    @property
-    def root_logger(self):
-        """
-        A :obj:`logging.Logger` for *peer rank* :samp:`0` of the :attr:`peer_comm` communicator.
-        """
-        if self._root_logger is None:
-            self._root_logger = \
-                _logging.get_root_logger(
-                    __name__ + "." + self.__class__.__name__,
-                    comm=self.peer_comm
-                )
-        return self._root_logger
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
