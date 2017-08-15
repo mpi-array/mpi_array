@@ -49,6 +49,7 @@ __version__ = _version()
 
 
 class GndarrayCreationTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :func:`mpi_array.globale.gndarray` instance generation.
     """

@@ -44,6 +44,7 @@ __version__ = _version()
 
 
 class UfuncResultTypeTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`.
     """
@@ -164,6 +165,7 @@ class UfuncResultTypeTest(_unittest.TestCase):
 
 
 class BroadcastShapeTest(_unittest.TestCase):
+
     """
     :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.broadcast_shape`.
     """

@@ -312,7 +312,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                     self._max_outstanding_requests // self._max_ranks_per_inter_locale_sub_group
                 )
             )
-        seed_str = str(2**31)[1:]
+        seed_str = str(2 ** 31)[1:]
         rank_str = str(self._inter_win.group.rank + 1)
         seed_str = rank_str + seed_str[len(rank_str):]
         seed_str = seed_str[0:-len(rank_str)] + rank_str[::-1]

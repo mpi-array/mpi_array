@@ -159,6 +159,7 @@ class CartLocaleCommsTest(_unittest.TestCase):
 
 
 class CreateDistributionTest(_unittest.TestCase):
+
     """
     Tests for :func:`mpi_array.comms.create_distribution`.
     """
