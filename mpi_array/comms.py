@@ -280,13 +280,20 @@ class LocaleComms(object):
         self.rank_logger.debug("BEG: alloc_locale_buffer")
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
-        rank_shape = shape
+        locale_shape = shape
+        rank_shape = locale_shape
         if self.intra_locale_comm.rank == 0:
             num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+        else:
+            rank_shape = tuple(_np.zeros_like(rank_shape))
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
             self.rank_logger.debug(
-                "BEG: Win.Allocate_shared - allocating %12d bytes, shared-mem-usage=%s...",
+                "BEG: Win.Allocate_shared - allocating buffer of %12d bytes for shape=%s, "
+                +
+                "dtype=%s, shared-mem-usage=%s...",
                 num_rank_bytes,
+                rank_shape,
+                dtype,
                 get_shared_mem_usage_percent_string()
             )
             intra_locale_win = \
@@ -297,8 +304,12 @@ class LocaleComms(object):
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
             self.rank_logger.debug(
-                "END: Win.Allocate_shared - allocated  %12d bytes, shared-mem-usage=%s.",
+                "END: Win.Allocate_shared - allocated buffer of  %12d bytes for shape=%s, "
+                +
+                "dtype=%s, shared-mem-usage=%s...",
                 num_rank_bytes,
+                rank_shape,
+                dtype,
                 get_shared_mem_usage_percent_string()
             )
 
@@ -331,10 +342,20 @@ class LocaleComms(object):
                 peer_win_memory_nbytes
             )
         else:
-            self.rank_logger.debug("BEG: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            self.rank_logger.debug(
+                "BEG: Win.Allocate - allocating buffer of %d bytes for shape=%s, dtype=%s",
+                num_rank_bytes,
+                rank_shape,
+                dtype
+            )
             peer_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
-            self.rank_logger.debug("END: Win.Allocate - allocating %d bytes", num_rank_bytes)
+            self.rank_logger.debug(
+                "END: Win.Allocate - allocated buffer of  %d bytes for shape=%s, dtype=%s",
+                num_rank_bytes,
+                rank_shape,
+                dtype
+            )
             intra_locale_win = peer_win
             buffer = peer_win.memory
             itemsize = dtype.itemsize
@@ -358,7 +379,7 @@ class LocaleComms(object):
         return \
             RmaWindowBuffer(
                 buffer=buffer,
-                shape=rank_shape,
+                shape=locale_shape,
                 dtype=dtype,
                 itemsize=itemsize,
                 peer_win=peer_win,
