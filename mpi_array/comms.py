@@ -297,8 +297,8 @@ class LocaleComms(object):
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
             self.rank_logger.debug(
-                "END: Win.Allocate_shared - allocating %12d bytes, shared-mem-usage=%s.",
-                _np.product(buffer.shape) * buffer.itemsize,
+                "END: Win.Allocate_shared - allocated  %12d bytes, shared-mem-usage=%s.",
+                num_rank_bytes,
                 get_shared_mem_usage_percent_string()
             )
 
