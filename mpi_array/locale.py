@@ -221,6 +221,12 @@ class LndarrayProxy(object):
     views of the array for parallelism.
     """
 
+    #: The "low index" indices.
+    LO = _LocaleExtent.LO
+
+    #: The "high index" indices.
+    HI = _LocaleExtent.HI
+
     def __new__(
         cls,
         shape=None,
