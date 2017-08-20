@@ -94,7 +94,8 @@ Requires:
 
    - python-2 version `>= 2.7` or python-3 version `>= 3.3`,
    - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.4.0`,
-   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.13` (for ``__array_ufunc__`` API),
+   - `psutil <https://pypi.python.org/pypi/psutil>`_ `>= 4.3.0`
+   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.13` (require `__array_ufunc__ <https://docs.scipy.org/doc/numpy/user/basics.subclassing.html#array-ufunc-for-ufuncs>`_ API),
    - an MPI implementation which supports at least MPI-3 (such as 
      `OpenMPI <http://openmpi.org/>`_ or `MPICH <http://mpich.org/>`_)
    - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`.
@@ -103,7 +104,9 @@ Requires:
 Testing
 =======
 
-Run tests (unit-tests and doctest module docstring tests) using::
+Run tests (`unittest <https://docs.python.org/3/library/unittest.html>`_
+test-cases and `doctest <https://docs.python.org/3/library/doctest.html>`_
+docstring test-cases) using::
 
    python -m mpi_array.tests
 
