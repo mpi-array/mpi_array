@@ -54,7 +54,7 @@ class LocaleCommsTest(_unittest.TestCase):
 
     def test_get_shared_mem_usage_percent_string(self):
         """
-        Coverage for :func:`mpi_array.comms.get_shared_mem_usage_percent_string
+        Coverage for :func:`mpi_array.comms.get_shared_mem_usage_percent_string`.
         """
         p = \
             get_shared_mem_usage_percent_string(
