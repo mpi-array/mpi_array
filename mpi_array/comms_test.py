@@ -37,7 +37,7 @@ from . import logging as _logging  # noqa: E402,F401
 from .comms import CartLocaleComms, LocaleComms
 from .comms import create_single_locale_distribution, create_locale_comms, create_distribution
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
-from .comms import check_locale_type, LT_NODE, LT_PROCESS
+from .comms import check_locale_type, LT_NODE, LT_PROCESS, get_shared_mem_usage_percent_string
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
 __author__ = "Shane J. Latham"
@@ -52,6 +52,16 @@ class LocaleCommsTest(_unittest.TestCase):
     Tests for :obj:`mpi_array.comms.LocaleComms`.
     """
 
+    def test_get_shared_mem_usage_percent_string(self):
+        """
+        Coverage for :func:`mpi_array.comms.get_shared_mem_usage_percent_string
+        """
+        p = \
+            get_shared_mem_usage_percent_string(
+                shm_file_name="/probably/does/not_exist/on_file/system"
+            )
+        self.assertEqual("unknown", p)
+
     def test_construct(self):
         """
         Test :meth:`mpi_array.comms.LocaleComms.__init__`
@@ -62,6 +72,11 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertTrue(i.intra_locale_comm.size >= 1)
         self.assertTrue(i.peer_comm is not None)
         self.assertTrue(i.peer_comm.size >= 1)
+        self.assertEqual(i.num_locales, len(i.peer_ranks_per_locale))
+        self.assertEqual(
+            i.peer_comm.size,
+            _np.sum(len(i.peer_ranks_per_locale[r]) for r in range(i.num_locales))
+        )
 
         i = LocaleComms()
 
@@ -78,9 +93,17 @@ class LocaleCommsTest(_unittest.TestCase):
             self.assertRaises(
                 ValueError,
                 LocaleComms,
-                _mpi.COMM_SELF,
-                _mpi.COMM_SELF,
-                _mpi.COMM_WORLD
+                _mpi.COMM_SELF,  # peer
+                _mpi.COMM_SELF,  # intra
+                _mpi.COMM_WORLD  # inter
+            )
+        if i.intra_locale_comm.size > 1:
+            self.assertRaises(
+                ValueError,
+                LocaleComms,
+                i.peer_comm,  # peer
+                i.intra_locale_comm,  # intra
+                i.peer_comm  # inter
             )
 
 
