@@ -5,11 +5,13 @@ The :mod:`mpi_array.comms` Module
 
 MPI communicators and windows for locales.
 
+
 Classes
 =======
 
 .. autosummary::
    :toctree: generated/
+
 
    LocaleComms - Intra-locale and inter-locale communicators.
    CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
@@ -29,15 +31,28 @@ Factory Functions
    create_single_locale_distribution - Creating :obj:`SingleLocaleDistribution` instances.
    create_distribution - Factory function for creating :obj:`Distribution` instances.
 
+
+Utilities
+=========
+.. autosummary::
+   :toctree: generated/
+
+   get_shared_mem_usage_percent_string
+
+
 Attributes
 ==========
 
-.. autodata:: LT_PROCESS
-.. autodata:: LT_NODE
-.. autodata:: DT_BLOCK
-.. autodata:: DT_SLAB
-.. autodata:: DT_CLONED
-.. autodata:: DT_SINGLE_LOCALE
+.. autosummary::
+   :toctree: generated/
+
+   LT_PROCESS
+   LT_NODE
+   DT_BLOCK
+   DT_SLAB
+   DT_CLONED
+   DT_SINGLE_LOCALE
+
 
 """
 from __future__ import absolute_import
