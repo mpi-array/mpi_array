@@ -253,6 +253,9 @@ class LocaleComms(object):
                 !=
                 0
             ):
+                # Collect the inconsistent inter-locale-rank to intra-locale-rank
+                # translations so that all peer_comm ranks can raise a ValueError
+                # (i.e. avoid only raising ValueError on some inter_locale_comm ranks)
                 bad_inter_rank_to_intra_rank = \
                     (
                         (
@@ -265,7 +268,7 @@ class LocaleComms(object):
                             )[0]
                         ),
                     )
-
+            self._num_locales = inter_locale_comm.size
             self._peer_ranks_per_locale = \
                 _np.array(
                     _mpi.Group.Translate_ranks(
@@ -274,18 +277,45 @@ class LocaleComms(object):
                         self._peer_comm.group
                     ),
                     dtype="int64"
-                )
-            self._num_locales = inter_locale_comm.size
+                ).reshape((self._intra_locale_comm.size,))
+
             rank_logger.debug("BEG: inter_locale_comm.allgather for peer-ranks-per-locale...")
             all = \
                 inter_locale_comm.allgather(
                     (bad_inter_rank_to_intra_rank, self._peer_ranks_per_locale)
                 )
+            rank_logger.debug("END: inter_locale_comm.allgather for peer-ranks-per-locale.")
+
             all_bad = tuple(a[0] for a in all)
             all_prpl = tuple(a[1] for a in all)
-            self._peer_ranks_per_locale = all_prpl
+            # Assign self._peer_ranks_per_locale as 1D array of object
+            # in case self.intra_locale.comm.size is not the same on
+            # all locales.
+            self._peer_ranks_per_locale = \
+                _np.ones((len(all_prpl),), dtype="object")
+            for i in range(len(all_prpl)):
+                self._peer_ranks_per_locale[i] = all_prpl[i]
+
+            if (
+                _np.all(
+                    tuple(
+                        len(self._peer_ranks_per_locale[i]) == len(self._peer_ranks_per_locale[0])
+                        for i in range(len(self._peer_ranks_per_locale))
+                    )
+                )
+            ):
+                # If all locales have the same intra_locale_comm.size,
+                # then just use a 2D numpy.ndarray of 'int64' elements
+                # (rather than an 1D array of variable-length 'object' elements
+                num_peer_ranks_per_locale = len(self._peer_ranks_per_locale[0])
+                self._peer_ranks_per_locale = \
+                    _np.array(self._peer_ranks_per_locale.tolist(), dtype="int64")
+                self._peer_ranks_per_locale = \
+                    self._peer_ranks_per_locale.reshape(
+                        (self._num_locales, num_peer_ranks_per_locale)
+                    )
+
             bad_inter_rank_to_intra_rank = sum(all_bad, ())
-            rank_logger.debug("END: inter_locale_comm.allgather for peer-ranks-per-locale.")
             del all, all_bad, all_prpl
 
         rank_logger.debug("BEG: intra_locale_comm.bcast for peer-ranks-per-locale...")
@@ -531,10 +561,11 @@ class LocaleComms(object):
     @property
     def peer_ranks_per_locale(self):
         """
-        A :samp:`self.num_locales` length :obj:`tuple` of :obj:`numpy.ndarray` elements.
-        The :samp:`self.peer_ranks_per_locale[inter_locale_rank]` element are the :attr:`peer_comm`
-        ranks which make up locale associated with :attr:`inter_locale_comm`
-        rank :samp:`inter_locale_rank`.
+        A :obj:`numpy.ndarray` of shape :samp:`(self.num_locales, num_peer_ranks_per_locale)`
+        with :obj:`numpy.int64` elements.
+        The :samp:`self.peer_ranks_per_locale[inter_locale_rank]` sequence of elements
+        are the :attr:`peer_comm` ranks which make up locale associated
+        with :attr:`inter_locale_comm` rank :samp:`inter_locale_rank`.
         """
         return self._peer_ranks_per_locale
 
