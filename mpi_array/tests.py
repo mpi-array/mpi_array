@@ -88,6 +88,7 @@ def load_tests(loader, tests, pattern):
         loader.loadTestsFromNames(
             [
                 "mpi_array.mpi_test",
+                "mpi_array.types_test",
                 "mpi_array.comms_test",
                 "mpi_array.indexing_test",
                 "mpi_array.distribution_test",

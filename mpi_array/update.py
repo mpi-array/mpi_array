@@ -31,7 +31,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from .indexing import HaloIndexingExtent
 from .indexing import calc_intersection_split as _calc_intersection_split
-
+from . import types as _types
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -148,7 +148,7 @@ class MpiExtentAndRegion(ExtentAndRegion):
         if order == "F":
             mpi_order = _mpi.ORDER_FORTRAN
 
-        parent_mpi_data_type = _mpi._typedict[dtype.char]
+        parent_mpi_data_type = _types.to_datatype(dtype)
         mpi_data_type = \
             parent_mpi_data_type.Create_subarray(
                 self.locale_extent.shape_h,
@@ -541,7 +541,7 @@ class MpiHaloSingleExtentUpdate(ExtentUpdate):
         """
         mpi_dtype = None
         if self._dst._dtype is not None:
-            mpi_dtype = _mpi._typedict[self._dst._dtype.char].Get_name()
+            mpi_dtype = _types.to_datatype(self._dst._dtype).Get_name()
         return \
             (
                 self._str_format

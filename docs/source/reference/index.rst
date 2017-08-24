@@ -24,6 +24,8 @@
    mpi_array_logging
    mpi_array_rtd
    mpi_array_tests
+   mpi_array_types
+   mpi_array_types_test
    mpi_array_unittest
    mpi_array_update
    mpi_array_update_test
