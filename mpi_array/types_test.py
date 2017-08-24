@@ -1,12 +1,12 @@
 """
 =========================================
-The :mod:`mpi_array.indexing_test` Module
+The :mod:`mpi_array.types_test` Module
 =========================================
 
-Module defining :mod:`mpi_array.indexing` unit-tests.
+Module defining :mod:`mpi_array.types` unit-tests.
 Execute as::
 
-   python -m mpi_array.indexing_test
+   python -m mpi_array.types_test
 
 
 Classes

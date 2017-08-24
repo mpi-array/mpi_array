@@ -67,7 +67,7 @@ def create_datatype(dtyp):
     :type dtyp: :obj:`numpy.dtype`
     :param dtyp: This gets converted to a :obj:`mpi4py.MPI.Datatype`.
     :rtype: :obj:`mpi4py.MPI.Datatype`
-    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :obj:`{dtyp}`.
+    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :samp:`{dtyp}`.
     """
     dtyp = _np.dtype(dtyp)
     datatype = None
@@ -103,11 +103,15 @@ def create_datatype(dtyp):
 def find_or_create_datatype(dtyp):
     """
     Converts a :obj:`numpy.dtype` to a :obj:`mpi4py.MPI.Datatype`.
+    Uses a lookup dictionary to find the MPI data-type
+    which matches the :samp:`{dtype}` :obj:`numpy.dtype`. If
+    no match is found, a new instance of a :obj:`mpi4py.MPI.Datatype`
+    is created (and added to the lookup dictionary).
 
     :type dtyp: :obj:`numpy.dtype`
     :param dtyp: This gets converted to a :obj:`mpi4py.MPI.Datatype`.
     :rtype: :obj:`mpi4py.MPI.Datatype`
-    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :obj:`{dtyp}`.
+    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :samp:`{dtyp}`.
     """
     global _lookup
 
@@ -129,7 +133,7 @@ def to_datatype(dtyp):
     :type dtyp: :obj:`numpy.dtype`
     :param dtyp: This gets converted to a :obj:`mpi4py.MPI.Datatype`.
     :rtype: :obj:`mpi4py.MPI.Datatype`
-    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :obj:`{dtyp}`.
+    :returns: A :obj:`mpi4py.MPI.Datatype` for the given :samp:`{dtyp}`.
     """
 
     return find_or_create_datatype(_np.dtype(dtyp))
