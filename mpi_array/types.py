@@ -54,7 +54,7 @@ def create_lookup():
         for c in _mpi._typedict.keys():
             try:
                 lu[_np.dtype(c)] = _mpi._typedict[c]
-            except TypeError as e:
+            except TypeError:
                 pass
 
     return lu
