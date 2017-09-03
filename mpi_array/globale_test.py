@@ -28,7 +28,6 @@ Classes
 """
 from __future__ import absolute_import
 
-import unittest as _builtin_unittest
 import mpi_array.globale
 import mpi4py.MPI as _mpi
 import numpy as _np
