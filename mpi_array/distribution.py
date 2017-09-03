@@ -822,8 +822,6 @@ class BlockPartition(Distribution):
         globale_extent = self.create_globale_extent(globale_extent, halo)
         self._num_locales = _np.product(dims)
         self._dims = dims
-        self._rank_logger = None
-        self._root_logger = None
         self._order = order
         self._halo_updates_dict = None
 
