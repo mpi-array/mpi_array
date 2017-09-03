@@ -277,6 +277,50 @@ class PerAxisRmaHaloUpdater(CommLogger):
                         )
 
 
+class RankTranslator(object):
+
+    """
+    Translate ranks between two `mpi4py.MPI.Group` objects.
+    """
+
+    def __init__(self, dst_group, src_group):
+        """
+        """
+        object.__init__(self)
+        self._dst_group = dst_group
+        self._src_group = src_group
+
+    def dst_to_src(self, ranks):
+        """
+        Returns :samp:`mpi4py.MPI.Group.Translate_ranks(self.dst_group, ranks, self.src_group)`.
+        """
+        r = _np.array(ranks, copy=True)
+        r.ravel()[...] = _mpi.Group.Translate_ranks(self.dst_group, r.ravel(), self.src_group)
+        return r
+
+    def src_to_dst(self, ranks):
+        """
+        Returns :samp:`mpi4py.MPI.Group.Translate_ranks(self.src_group, ranks, self.dst_group)`.
+        """
+        r = _np.array(ranks, copy=True)
+        r.ravel()[...] = _mpi.Group.Translate_ranks(self.src_group, r.ravel(), self.dst_group)
+        return r
+
+    @property
+    def dst_group(self):
+        """
+        A :obj:`mpi4py.MPI.Group`.
+        """
+        return self._dst_group
+
+    @property
+    def src_group(self):
+        """
+        A :obj:`mpi4py.MPI.Group`.
+        """
+        return self._src_group
+
+
 class RmaRedistributeUpdater(_UpdatesForRedistribute):
 
     """
@@ -302,7 +346,11 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         _UpdatesForRedistribute.__init__(
             self,
             dst.comms_and_distrib.distribution,
-            src.comms_and_distrib.distribution
+            src.comms_and_distrib.distribution,
+            peer_rank_translator=RankTranslator(
+                self._dst.locale_comms.peer_comm.group,
+                self._src.locale_comms.peer_comm.group
+            )
         )
         self._inter_win = self._src.rma_window_buffer.peer_win
         self._max_outstanding_requests_per_proc = \
@@ -398,112 +446,131 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
             len(req_list)
         )
 
-    def do_locale_update(self):
+    def do_locale_cpy2_update(self):
+        """
+        Performs direct copy updates.
+        """
+        updates = self._dst_cpy2_updates[self._dst.this_locale.inter_locale_rank]
+        my_dst_peer_rank = self._dst.locale_comms.peer_comm.rank
+        my_src_peer_rank = self._src.locale_comms.peer_comm.rank
+        src_lndarray = self._src.lndarray_proxy.lndarray
+        dst_lndarray = self._dst.lndarray_proxy.lndarray
+        src_translated_peer_ranks = \
+            self._src_translated_peer_ranks[self._src.this_locale.inter_locale_rank]
+        dst_translated_peer_ranks = \
+            self._dst_translated_peer_ranks[self._dst.this_locale.inter_locale_rank]
+        for update in updates:
+            if (
+                (my_dst_peer_rank == update.dst_extent.peer_rank)
+                or
+                (my_src_peer_rank == update.src_extent.peer_rank)
+            ):
+                if my_dst_peer_rank in src_translated_peer_ranks:
+                    update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
+                elif my_src_peer_rank in dst_translated_peer_ranks:
+                    update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
+
+    def do_locale_rma_update(self):
         """
         Performs RMA to get elements from remote locales to
         update the local locale array.
         """
-        if (self._src.locale_comms.num_locales > 1) or (self._dst.locale_comms.num_locales > 1):
+        can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
+        self._dst.rank_logger.debug(
+            "%s.%s: "
+            +
+            "can_use_existing_src_peer_comm=%s",
+            self.__class__.__name__,
+            "do_locale_rma_update",
+            can_use_existing_src_peer_comm
+        )
 
-            can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
-            self._dst.rank_logger.debug(
-                "%s.%s: "
-                +
-                "can_use_existing_src_peer_comm=%s",
-                self.__class__.__name__,
-                "do_locale_update",
-                can_use_existing_src_peer_comm
-            )
-
-            if can_use_existing_src_peer_comm:
-                if (
-                    (self._inter_win is not None)
-                    and
-                    (self._inter_win != _mpi.WIN_NULL)
-                    and
-                    self._dst.locale_comms.have_valid_inter_locale_comm
-                ):
-                    inter_locale_ranks = \
-                        _np.arange(0, self._dst.locale_comms.inter_locale_comm.size)
-                    if inter_locale_ranks.size > self._max_ranks_per_inter_locale_sub_group:
-                        stride = \
-                            (
-                                inter_locale_ranks.size
-                                //
-                                self._max_ranks_per_inter_locale_sub_group
-                            ) + 1
-                        inter_locale_sub_group_ranks = \
-                            [inter_locale_ranks[i::stride] for i in range(stride)]
-                    else:
-                        inter_locale_sub_group_ranks = (inter_locale_ranks,)
-                    updates = self._dst_updates[self._dst.this_locale.inter_locale_rank]
-                    update_dict = _collections.defaultdict(list)
-                    for single_update in updates:
-                        update_dict[single_update.src_extent.peer_rank].append(
-                            single_update
-                        )
-                    src_peer_ranks = \
-                        self._random_state.permutation(tuple(update_dict.keys()))
-
-                    self._dst.rank_logger.debug("BEG: Lock_all()...")
-                    self._inter_win.Lock_all()
-
-                    for inter_locale_ranks in inter_locale_sub_group_ranks:
-                        if self._dst.this_locale.inter_locale_rank in inter_locale_ranks:
-                            req_list = []
-                            for src_peer_rank in src_peer_ranks:
-                                for single_update in update_dict[src_peer_rank]:
-                                    self._dst.rank_logger.debug(
-                                        "Getting update:\n%s\n%s",
-                                        single_update._header_str,
-                                        single_update
-                                    )
-                                    req = \
-                                        single_update.do_rget(
-                                            self._inter_win,
-                                            src_peer_rank,
-                                            self._dst.lndarray_proxy.lndarray
-                                        )
-                                    req_list.append(req)
-                                    if len(req_list) >= self._max_outstanding_requests_per_proc:
-                                        self.wait_all(req_list)
-                                        req_list = []
-                            if len(req_list) > 0:
-                                self.wait_all(req_list)
-                                del req_list
-                        if len(inter_locale_sub_group_ranks) > 0:
-                            self._dst.rank_logger.debug(
-                                "BEG: self._dst.locale_comms.inter_locale_comm.barrier()..."
-                            )
-                            self._dst.locale_comms.inter_locale_comm.barrier()
-                            self._dst.rank_logger.debug(
-                                "END: self._dst.locale_comms.inter_locale_comm.barrier()."
-                            )
-                            self._dst.rank_logger.debug(
-                                "Completed RMA updates for sub-group ranks=%s.", inter_locale_ranks
-                            )
-
-                    self._inter_win.Unlock_all()
-                    self._dst.rank_logger.debug("END: Unlock_all().")
-
-            else:
-                raise RuntimeError(
-                    (
-                        "can_use_existing_src_peer_comm=%s: "
-                        +
-                        "incompatible dst inter_locale_comma and src peer_comm."
+        if can_use_existing_src_peer_comm:
+            if (
+                (self._inter_win is not None)
+                and
+                (self._inter_win != _mpi.WIN_NULL)
+                and
+                self._dst.locale_comms.have_valid_inter_locale_comm
+            ):
+                inter_locale_ranks = \
+                    _np.arange(0, self._dst.locale_comms.inter_locale_comm.size)
+                if inter_locale_ranks.size > self._max_ranks_per_inter_locale_sub_group:
+                    stride = \
+                        (
+                            inter_locale_ranks.size
+                            //
+                            self._max_ranks_per_inter_locale_sub_group
+                        ) + 1
+                    inter_locale_sub_group_ranks = \
+                        [inter_locale_ranks[i::stride] for i in range(stride)]
+                else:
+                    inter_locale_sub_group_ranks = (inter_locale_ranks,)
+                updates = self._dst_rget_updates[self._dst.this_locale.inter_locale_rank]
+                update_dict = _collections.defaultdict(list)
+                for single_update in updates:
+                    update_dict[single_update.src_extent.peer_rank].append(
+                        single_update
                     )
-                    %
-                    (can_use_existing_src_peer_comm,)
-                )
-            self._dst.locale_comms.intra_locale_comm.barrier()
-        else:
+                src_peer_ranks = \
+                    self._random_state.permutation(tuple(update_dict.keys()))
 
-            _np.copyto(
-                self._dst.rank_view_n,
-                self._src.rank_view_n,
-                casting=self._casting
+                self._dst.rank_logger.debug("BEG: Lock_all()...")
+                self._inter_win.Lock_all()
+
+                for inter_locale_ranks in inter_locale_sub_group_ranks:
+                    if self._dst.this_locale.inter_locale_rank in inter_locale_ranks:
+                        req_list = []
+                        for src_peer_rank in src_peer_ranks:
+                            for single_update in update_dict[src_peer_rank]:
+                                self._dst.rank_logger.debug(
+                                    "Getting update:\n%s\n%s",
+                                    single_update._header_str,
+                                    single_update
+                                )
+                                req = \
+                                    single_update.do_rget(
+                                        self._inter_win,
+                                        src_peer_rank,
+                                        self._dst.lndarray_proxy.lndarray
+                                    )
+                                req_list.append(req)
+                                if len(req_list) >= self._max_outstanding_requests_per_proc:
+                                    self.wait_all(req_list)
+                                    req_list = []
+                        if len(req_list) > 0:
+                            self.wait_all(req_list)
+                            del req_list
+                    if len(inter_locale_sub_group_ranks) > 0:
+                        self._dst.rank_logger.debug(
+                            "BEG: self._dst.locale_comms.inter_locale_comm.barrier()..."
+                        )
+                        self._dst.locale_comms.inter_locale_comm.barrier()
+                        self._dst.rank_logger.debug(
+                            "END: self._dst.locale_comms.inter_locale_comm.barrier()."
+                        )
+                        self._dst.rank_logger.debug(
+                            "Completed RMA updates for sub-group ranks=%s.", inter_locale_ranks
+                        )
+
+                self._inter_win.Unlock_all()
+                self._dst.rank_logger.debug("END: Unlock_all().")
+
+        else:
+            raise RuntimeError(
+                (
+                    "can_use_existing_src_peer_comm=%s: "
+                    +
+                    "incompatible dst inter_locale_comma and src peer_comm."
+                )
+                %
+                (can_use_existing_src_peer_comm,)
             )
+        self._dst.locale_comms.intra_locale_comm.barrier()
+
+    def do_locale_update(self):
+        self.do_locale_cpy2_update()
+        self.do_locale_rma_update()
 
     def barrier(self):
         """
@@ -719,9 +786,9 @@ class gndarray(_NDArrayOperatorsMixin):
         self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
         self.rank_logger.debug("END: redistribute_updater.barrier().")
-        self.rank_logger.debug("BEG: redistribute_updater.do_locale_update()...")
+        self.rank_logger.debug("BEG: redistribute_updater.do_locale_rma_update()...")
         redistribute_updater.do_locale_update()
-        self.rank_logger.debug("END: redistribute_updater.do_locale_update().")
+        self.rank_logger.debug("END: redistribute_updater.do_locale_rma_update().")
         self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
         redistribute_updater.barrier()
         self.rank_logger.debug("END: redistribute_updater.barrier().")

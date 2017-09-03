@@ -3,7 +3,8 @@
 The :mod:`mpi_array.update` Module
 ==================================
 
-Helper classes for defining sub-extents to peform RMA array element updates.
+Helper classes for calculating sub-extent intersections in order
+to perform remote array element copying/updates.
 
 Classes and Functions
 =====================
@@ -26,6 +27,7 @@ from __future__ import absolute_import
 
 import mpi4py.MPI as _mpi
 import collections as _collections
+import copy as _copy
 import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
@@ -97,6 +99,26 @@ class ExtentUpdate(object):
         return self._src.locale_extent
 
 
+def pair_extent_update_copyto(peu, dst_array, src_array, casting):
+    """
+    Copies the :samp:`{peu}.src_update_extent` region from :samp:`{src_array}`
+    to the :samp:`{peu}.dst_update_extent` region of :samp:`{dst_array}`
+
+    :type peu: :obj:`PairExtentUpdate`
+    :param peu: Object describing extent of :samp:`dst_array` and :samp:`src_array`
+       and the source and destination regions.
+    :type dst_array: :obj:`numpy.ndarray`
+    :param dst_array: Destination for copy.
+    :type src_array: :obj:`numpy.ndarray`
+    :param src_array: Source for copy.
+    :type casting: :obj:`str`
+    :param casting: Indicates casting regime, see :func:`numpy.casting`.
+    """
+    src_slice = peu.src_extent.globale_to_locale_extent_h(peu.src_update_extent).to_slice()
+    dst_slice = peu.dst_extent.globale_to_locale_extent_h(peu.dst_update_extent).to_slice()
+    _np.copyto(dst_array[dst_slice], src_array[src_slice], casting=casting)
+
+
 class PairExtentUpdate(ExtentUpdate):
 
     """
@@ -109,6 +131,13 @@ class PairExtentUpdate(ExtentUpdate):
             ExtentAndRegion(dst_extent, dst_update_extent),
             ExtentAndRegion(src_extent, src_update_extent)
         )
+
+    def copyto(self, dst_array, src_array, casting):
+        """
+        Copies the :attr:`src_update_extent` region from :samp:`{src_array}`
+        to the :attr:`dst_update_extent` region of :samp:`{dst_array}`
+        """
+        pair_extent_update_copyto(self, dst_array, src_array, casting)
 
     @property
     def dst_update_extent(self):
@@ -244,6 +273,13 @@ class MpiPairExtentUpdate(ExtentUpdate):
         """
         self._dst.initialise_mpi_data_type(dst_dtype, dst_order)
         self._src.initialise_mpi_data_type(src_dtype, src_order)
+
+    def copyto(self, dst_array, src_array, casting):
+        """
+        Copies the :attr:`src_update_extent` region from :samp:`{src_array}`
+        to the :attr:`dst_update_extent` region of :samp:`{dst_array}`
+        """
+        pair_extent_update_copyto(self, dst_array, src_array, casting)
 
     @property
     def dst_update_extent(self):
@@ -737,17 +773,56 @@ class UpdatesForRedistribute(object):
 
     """
     Collection of update extents for re-distribution of array
-    elements from one decomposition to another.
+    elements from one distribution to another.
     """
 
-    def __init__(self, dst_distrib, src_distrib):
+    def __init__(
+        self,
+        dst_distrib,
+        src_distrib,
+        peer_rank_translator=None
+    ):
         """
         """
+        object.__init__(self)
+
         self._dst_distrib = dst_distrib
         self._src_distrib = src_distrib
 
         self._updates_dict = None
+        self._dst_extent_queue = None
+        self._dst_cpy2_updates = None
+        self._dst_rget_updates = None
+
         self.update_dst_halo = False
+
+        self._dst_translated_peer_ranks = None
+        self._dst_peer_ranks = None
+        self._src_translated_peer_ranks = None
+        self._src_peer_ranks = None
+        if peer_rank_translator is not None:
+            if dst_distrib.peer_ranks_per_locale.ndim == 2:
+                self._dst_peer_ranks = _np.sort(dst_distrib.peer_ranks_per_locale)
+                self._dst_translated_peer_ranks = \
+                    _np.sort(peer_rank_translator.dst_to_src(self._dst_peer_ranks))
+            else:
+                self._dst_peer_ranks = _copy.deepcopy(dst_distrib.peer_ranks_per_locale)
+                self._dst_translated_peer_ranks = _copy.deepcopy(dst_distrib.peer_ranks_per_locale)
+                for r in range(len(self._dst_peer_ranks)):
+                    self._dst_peer_ranks[r] = _np.sort(self._dst_peer_ranks[r])
+                    self._dst_translated_peer_ranks[r] = \
+                        _np.sort(peer_rank_translator.dst_to_src(self._dst_peer_ranks[r]))
+            if src_distrib.peer_ranks_per_locale.ndim == 2:
+                self._src_peer_ranks = _np.sort(src_distrib.peer_ranks_per_locale)
+                self._src_translated_peer_ranks = \
+                    _np.sort(peer_rank_translator.src_to_dst(self._src_peer_ranks))
+            else:
+                self._src_peer_ranks = _copy.deepcopy(src_distrib.peer_ranks_per_locale)
+                self._src_translated_peer_ranks = _copy.deepcopy(src_distrib.peer_ranks_per_locale)
+                for r in range(len(self._src_peer_ranks)):
+                    self._src_peer_ranks[r] = _np.sort(self._src_peer_ranks[r])
+                    self._src_translated_peer_ranks[r] = \
+                        _np.sort(peer_rank_translator.src_to_dst(self._src_peer_ranks[r]))
 
         self.initialise()
 
@@ -757,6 +832,20 @@ class UpdatesForRedistribute(object):
         src_extent,
         intersection_extent
     ):
+        """
+        Factory method for creating :obj:`PairExtentUpdate` objects.
+
+        :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param dst_extent: Destination extent.
+        :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param src_extent: Source extent.
+        :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
+        :param src_extent: The intersection of :samp:`{src_extent}`
+           and :samp:`{dst_extent}` which defines the region of array elements which
+           are to be transferred from source to destination.
+        :rtype: :obj:`PairExtentUpdate`
+        :return: Object Defining the source sub-array and destination sub-array.
+        """
         peu = \
             PairExtentUpdate(
                 self._dst_distrib.locale_extents[dst_extent.inter_locale_rank],
@@ -773,7 +862,7 @@ class UpdatesForRedistribute(object):
         Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
         are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
         The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
-        are returned as a :obj:`list` of *update* :obj:`MpiPairExtentUpdate` elements.
+        are returned as a :obj:`list` of *update* :obj:`PairExtentUpdate` elements.
         Returns :obj:`tuple` pair :samp:`(leftovers, updates)`
 
         :type dst_extent: :obj:`HaloIndexingExtent`
@@ -793,7 +882,47 @@ class UpdatesForRedistribute(object):
                 self.update_dst_halo
             )
 
-    def initialise_updates(self):
+    def get_cpy2_src_extents(self, dst_inter_locale_rank):
+        """
+        """
+        dst_translated_peer_ranks = self._dst_translated_peer_ranks[dst_inter_locale_rank]
+        src_locale_extents = self._src_distrib.locale_extents
+        src_extents = \
+            self._src_distrib.locale_extents[
+                _np.array(
+                    tuple(
+                        src_inter_locale_rank
+                        for src_inter_locale_rank in range(0, len(src_locale_extents))
+                        if _np.intersect1d(
+                            dst_translated_peer_ranks,
+                            self._src_peer_ranks[src_inter_locale_rank]
+                        ).size > 0
+                    )
+                )
+            ]
+        return src_extents
+
+    def initialise_cpy2_updates(self):
+        """
+        """
+        if (self._dst_translated_peer_ranks is not None) and (self._src_peer_ranks is not None):
+            all_dst_leftovers = []
+            for dst_extent_idx in range(len(self._dst_extent_queue)):
+                dst_extent = self._dst_extent_queue.pop()
+                dst_inter_locale_rank = dst_extent.inter_locale_rank
+                src_extents = self.get_cpy2_src_extents(dst_inter_locale_rank)
+                if (src_extents is not None) and (len(src_extents) > 0):
+                    for src_extent in src_extents:
+                        dst_leftovers, dst_updates = \
+                            self.calc_intersection_split(dst_extent, src_extent)
+                        self._dst_cpy2_updates[dst_inter_locale_rank] += dst_updates
+                        all_dst_leftovers += dst_leftovers
+                else:
+                    all_dst_leftovers.append(dst_extent)
+
+            self._dst_extent_queue.extend(all_dst_leftovers)
+
+    def initialise_rget_updates(self):
         """
         """
         for src_rank in range(len(self._src_distrib.locale_extents)):
@@ -804,7 +933,7 @@ class UpdatesForRedistribute(object):
                 dst_rank = dst_extent.inter_locale_rank
                 dst_leftovers, dst_updates = \
                     self.calc_intersection_split(dst_extent, src_extent)
-                self._dst_updates[dst_rank] += dst_updates
+                self._dst_rget_updates[dst_rank] += dst_updates
                 all_dst_leftovers += dst_leftovers
             self._dst_extent_queue.extend(all_dst_leftovers)
         if len(self._dst_extent_queue) > 0:
@@ -813,12 +942,19 @@ class UpdatesForRedistribute(object):
                 self._dst_extent_queue
             )
 
+    def initialise_updates(self):
+        """
+        """
+        self.initialise_cpy2_updates()
+        self.initialise_rget_updates()
+
     def initialise(self):
         """
         """
         self._dst_extent_queue = _collections.deque()
         self._dst_extent_queue.extend(self._dst_distrib.locale_extents)
-        self._dst_updates = _collections.defaultdict(list)
+        self._dst_cpy2_updates = _collections.defaultdict(list)
+        self._dst_rget_updates = _collections.defaultdict(list)
         self.initialise_updates()
 
 
