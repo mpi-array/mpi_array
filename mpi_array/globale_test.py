@@ -401,7 +401,6 @@ class GndarrayTest(_unittest.TestCase):
             _np.all(gary_proc_blok.rank_view_n[...] == gary_proc_blok0.rank_view_n[...])
         )
 
-    @_builtin_unittest.skipIf(_mpi.COMM_WORLD.size > 512, 'RMA slooooow for LT_PROCESS')
     def test_copyto_diff_locale_types_no_halo_same_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
@@ -412,7 +411,6 @@ class GndarrayTest(_unittest.TestCase):
             proc_blok_dtype="int32"
         )
 
-    @_builtin_unittest.skipIf(_mpi.COMM_WORLD.size > 512, 'RMA slooooow for LT_PROCESS')
     def test_copyto_diff_locale_types_wt_halo_same_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
@@ -423,7 +421,6 @@ class GndarrayTest(_unittest.TestCase):
             proc_blok_dtype="int32"
         )
 
-    @_builtin_unittest.skipIf(_mpi.COMM_WORLD.size > 512, 'RMA slooooow for LT_PROCESS')
     def test_copyto_diff_locale_types_no_halo_diff_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
@@ -434,7 +431,6 @@ class GndarrayTest(_unittest.TestCase):
             proc_blok_dtype="int64"
         )
 
-    @_builtin_unittest.skipIf(_mpi.COMM_WORLD.size > 512, 'RMA slooooow for LT_PROCESS')
     def test_copyto_diff_locale_types_wt_halo_diff_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
