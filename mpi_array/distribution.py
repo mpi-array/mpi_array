@@ -468,6 +468,7 @@ class Distribution(object):
            Provide example here.
 
         """
+        self._peer_ranks_per_locale = None
         self._locale_extent_type = locale_extent_type
         self._globale_extent_type = globale_extent_type
         self._inter_locale_rank_to_peer_rank = inter_locale_rank_to_peer_rank
@@ -682,6 +683,20 @@ class Distribution(object):
         An :obj:`int` specifying the number of locales in this distribution.
         """
         return len(self._locale_extents)
+
+    @property
+    def peer_ranks_per_locale(self):
+        """
+        A :obj:`numpy.ndarray` of length :attr:`num_locales`. Each element
+        of the array is a sequence of :obj:`int` such that :samp:`self.peer_ranks_per_locale[r]`
+        are the ranks of :samp:`peer_comm` which belong to the locale associated
+        with :samp:`self.locale_extents[r]`.
+        """
+        return self._peer_ranks_per_locale
+
+    @peer_ranks_per_locale.setter
+    def peer_ranks_per_locale(self, prpl):
+        self._peer_ranks_per_locale = prpl
 
 
 class ClonedDistribution(Distribution):

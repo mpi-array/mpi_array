@@ -907,6 +907,8 @@ def create_cloned_distribution(
             num_locales=locale_comms.num_locales,
             halo=halo
         )
+    cloned_distrib.peer_ranks_per_locale = locale_comms.peer_ranks_per_locale
+
     return CommsAndDistribution(locale_comms, cloned_distrib, this_locale)
 
 
@@ -933,14 +935,16 @@ def create_single_locale_distribution(
             inter_locale_comm=inter_locale_comm
         )
 
-    cloned_distrib = \
+    single_locale_distrib = \
         SingleLocaleDistribution(
             globale_extent=shape,
             num_locales=locale_comms.num_locales,
             inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
             halo=halo
         )
-    return CommsAndDistribution(locale_comms, cloned_distrib, this_locale)
+    single_locale_distrib.peer_ranks_per_locale = locale_comms.peer_ranks_per_locale
+
+    return CommsAndDistribution(locale_comms, single_locale_distrib, this_locale)
 
 
 def create_block_distribution(
@@ -1014,6 +1018,8 @@ def create_block_distribution(
             inter_locale_rank_to_peer_rank=cart_rank_to_peer_rank,
             halo=halo
         )
+    block_distrib.peer_ranks_per_locale = cart_locale_comms.peer_ranks_per_locale
+
     return CommsAndDistribution(cart_locale_comms, block_distrib, this_locale)
 
 
