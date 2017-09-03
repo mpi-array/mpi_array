@@ -54,25 +54,37 @@ class TypesTest(_unittest.TestCase):
         to MPI data types.
         """
 
-        type_pairs = [
-            [_mpi.BOOL, "bool"],
-            [_mpi.UNSIGNED_CHAR, "uint8"],
-            [_mpi.SIGNED_CHAR, "int8"],
-            [_mpi.UNSIGNED_SHORT, "uint16"],
-            [_mpi.SIGNED_SHORT, "int16"],
-            [_mpi.UNSIGNED_INT, "uint32"],
-            [_mpi.SIGNED_INT, "int32"],
-            [_mpi.UNSIGNED_LONG_LONG, "uint64"],
-            [_mpi.AINT, "int64"],
-            [_mpi.FLOAT, "float32"],
-            [_mpi.DOUBLE, "float64"],
+        type_tuples = [
+            ["bool", _mpi.BOOL, ],
+            ["uint8", _mpi.UNSIGNED_CHAR, ],
+            ["int8", _mpi.SIGNED_CHAR, ],
+            ["uint16", _mpi.UNSIGNED_SHORT, ],
+            ["int16", _mpi.SIGNED_SHORT, ],
+            ["uint32", _mpi.UNSIGNED_INT, ],
+            ["int32", _mpi.SIGNED_INT, _mpi.INT],
+            ["uint64", _mpi.UNSIGNED_LONG_LONG, _mpi.UNSIGNED_LONG],
+            ["int64", _mpi.AINT, _mpi.LONG, _mpi.LONG_INT, _mpi.SIGNED_LONG_LONG, _mpi.SIGNED_LONG],
+            ["float32", _mpi.FLOAT, ],
+            ["float64", _mpi.DOUBLE, ],
         ]
-        for (mpi_dt, np_dt) in type_pairs:
+        for tup in type_tuples:
+            np_dt = tup[0]
             mpi_dt_from_np_dt = _types.to_datatype(np_dt)
-            self.assertEqual(
-                mpi_dt,
-                mpi_dt_from_np_dt,
-                "str(%s) != str(%s)" % (mpi_dt.Get_name(), mpi_dt_from_np_dt.Get_name())
+            matches =\
+                _np.any(
+                    tuple(
+                        mpi_dt_from_np_dt == mpi_dt for mpi_dt in tup[1:]
+                    )
+                )
+            self.assertTrue(
+                matches,
+                "%s converted to %s is not equal to any of %s"
+                %
+                (
+                    np_dt,
+                    mpi_dt_from_np_dt.Get_name(),
+                    tuple(mpi_dt.Get_name() for mpi_dt in tup[1:])
+                )
             )
 
     def test_contiguous(self):
