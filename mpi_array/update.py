@@ -383,6 +383,11 @@ class MpiPairExtentUpdate(ExtentUpdate):
             )
         return req
 
+    def conclude(self):
+        """
+        """
+        pass
+
     def __str__(self):
         """
         Stringify.
@@ -426,6 +431,19 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
     subsequent casting when source and destination arrays have different :obj:`numpy.dtype`.
     """
 
+    def __init__(self, dst_extent, src_extent, dst_update_extent, src_update_extent):
+        """
+        """
+        MpiPairExtentUpdate.__init__(
+            self,
+            dst_extent,
+            src_extent,
+            dst_update_extent,
+            src_update_extent
+        )
+        self._buffer = None
+        self._dst_buffer = None
+
     def do_get(self, mpi_win, target_src_rank, origin_dst_buffer):
         """
         Performs calls :meth:`mpi4py.MPI.Win.Get` method of :samp:`mpi_win`
@@ -441,31 +459,43 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         :param origin_dst_buffer: The destination memory for the update, size of buffer
            should correspond to the size of the :attr:`dst_extent`.
         """
-        origin_tmp_buffer = _np.zeros(shape=self._src.region_extent.shape, dtype=self._src._dtype)
+        self._buffer = _np.empty(shape=self._src.region_extent.shape, dtype=self._src._dtype)
+        self._dst_buffer = origin_dst_buffer
 
-        r = mpi_win.Rget(
-            [origin_tmp_buffer, _np.product(origin_tmp_buffer.shape),
+        mpi_win.Get(
+            [self._buffer, _np.product(self._buffer.shape),
              self._src._parent_mpi_data_type],
             target_src_rank,
             [0, 1, self.src_data_type]
         )
-        origin_dst_buffer_slice = \
-            self._dst.locale_extent.globale_to_locale_extent_h(self._dst.region_extent).to_slice()
-        r.wait()
-        _np.copyto(
-            origin_dst_buffer[origin_dst_buffer_slice][...],
-            origin_tmp_buffer,
-            casting=self.casting
-        )
 
     def do_rget(self, mpi_win, target_src_rank, origin_dst_buffer):
         """
-        Simply forward call to :meth:`do_get`.
-
-        See :meth:`do_get`
         """
-        self.do_get(mpi_win, target_src_rank, origin_dst_buffer)
-        return _mpi.REQUEST_NULL
+        self._buffer = _np.empty(shape=self._src.region_extent.shape, dtype=self._src._dtype)
+        self._dst_buffer = origin_dst_buffer
+
+        r = mpi_win.Rget(
+            [self._buffer, _np.product(self._buffer.shape),
+             self._src._parent_mpi_data_type],
+            target_src_rank,
+            [0, 1, self.src_data_type]
+        )
+
+        return r
+
+    def conclude(self):
+        """
+        """
+        origin_dst_buffer_slice = \
+            self._dst.locale_extent.globale_to_locale_extent_h(self._dst.region_extent).to_slice()
+        _np.copyto(
+            self._dst_buffer[origin_dst_buffer_slice],
+            self._buffer,
+            casting=self.casting
+        )
+        self._buffer = None
+        self._dst_buffer = None
 
 
 class HaloSingleExtentUpdate(ExtentUpdate):
