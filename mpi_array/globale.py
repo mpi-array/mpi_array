@@ -510,10 +510,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                         )
                 else:
                     src_peer_rank_sub_groups = (src_peer_ranks,)
+                group_idx = 1
                 for src_peer_ranks in src_peer_rank_sub_groups:
+                    self._dst.rank_logger.debug(
+                        "BEG: Getting updates from src_peer_ranks group %4d of %4d ranks: %s",
+                        group_idx,
+                        len(src_peer_rank_sub_groups),
+                        src_peer_ranks
+                    )
                     for src_peer_rank in src_peer_ranks:
                         self._inter_win.Lock(src_peer_rank, _mpi.LOCK_SHARED)
-                    for src_peer_rank in src_peer_ranks:
                         for single_update in update_dict[src_peer_rank]:
                             self._dst.rank_logger.debug(
                                 "Getting update:\n%s\n%s",
@@ -530,6 +536,13 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                         self._inter_win.Unlock(src_peer_rank)
                         for single_update in update_dict[src_peer_rank]:
                             single_update.conclude()
+                    self._dst.rank_logger.debug(
+                        "END: Getting updates from src_peer_ranks group %4d of %4d ranks: %s",
+                        group_idx,
+                        len(src_peer_rank_sub_groups),
+                        src_peer_ranks
+                    )
+                    group_idx += 1
         else:
             raise RuntimeError(
                 (
@@ -543,19 +556,42 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self._dst.locale_comms.intra_locale_comm.barrier()
 
     def do_locale_update(self):
-        self.do_locale_cpy2_update()
         self.do_locale_rma_update()
+        self.do_locale_cpy2_update()
+
+    def do_update(self):
+        self.barrier()
+
+        self._dst.locale_comms.rank_logger.debug(
+            "%s: BEG: do_locale_cpy2_update()...", self.__class__.__name__
+        )
+        self.do_locale_cpy2_update()
+        self._dst.locale_comms.rank_logger.debug(
+            "%s: END: do_locale_cpy2_update().", self.__class__.__name__
+        )
+
+        self.barrier()
+
+        self._dst.locale_comms.rank_logger.debug(
+            "%s: BEG: do_locale_rma_update()...", self.__class__.__name__
+        )
+        self.do_locale_rma_update()
+        self._dst.locale_comms.rank_logger.debug(
+            "%s: END: do_locale_rma_update().", self.__class__.__name__
+        )
+
+        self.barrier()
 
     def barrier(self):
         """
         MPI barrier.
         """
         self._dst.locale_comms.rank_logger.debug(
-            "BEG: self._src.locale_comms.peer_comm.barrier()..."
+            "%s: BEG: self._src.locale_comms.peer_comm.barrier()...", self.__class__.__name__
         )
         self._src.locale_comms.peer_comm.barrier()
         self._dst.locale_comms.rank_logger.debug(
-            "END: self._src.locale_comms.peer_comm.barrier()."
+            "%s: END: self._src.locale_comms.peer_comm.barrier().", self.__class__.__name__
         )
 
 
@@ -665,6 +701,14 @@ class gndarray(_NDArrayOperatorsMixin):
         return self._lndarray_proxy.md.order
 
     @property
+    def view_n(self):
+        return self._lndarray_proxy.view_n
+
+    @property
+    def view_h(self):
+        return self._lndarray_proxy.view_h
+
+    @property
     def rank_view_n(self):
         return self._lndarray_proxy.rank_view_n
 
@@ -757,15 +801,7 @@ class gndarray(_NDArrayOperatorsMixin):
             )
 
         redistribute_updater = self.calculate_copyfrom_updates(src, casting)
-        self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
-        redistribute_updater.barrier()
-        self.rank_logger.debug("END: redistribute_updater.barrier().")
-        self.rank_logger.debug("BEG: redistribute_updater.do_locale_rma_update()...")
-        redistribute_updater.do_locale_update()
-        self.rank_logger.debug("END: redistribute_updater.do_locale_rma_update().")
-        self.rank_logger.debug("BEG: redistribute_updater.barrier()...")
-        redistribute_updater.barrier()
-        self.rank_logger.debug("END: redistribute_updater.barrier().")
+        redistribute_updater.do_update()
 
     def all(self, **unused_kwargs):
         return \
