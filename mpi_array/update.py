@@ -941,14 +941,17 @@ class UpdatesForRedistribute(object):
                 dst_extent = self._dst_extent_queue.pop()
                 dst_inter_locale_rank = dst_extent.inter_locale_rank
                 src_extents = self.get_cpy2_src_extents(dst_inter_locale_rank)
+                dst_extent_leftovers = [dst_extent, ]
                 if (src_extents is not None) and (len(src_extents) > 0):
                     for src_extent in src_extents:
-                        dst_leftovers, dst_updates = \
-                            self.calc_intersection_split(dst_extent, src_extent)
-                        self._dst_cpy2_updates[dst_inter_locale_rank] += dst_updates
-                        all_dst_leftovers += dst_leftovers
-                else:
-                    all_dst_leftovers.append(dst_extent)
+                        new_dst_extent_leftovers = []
+                        for dst_extent in dst_extent_leftovers:
+                            dst_leftovers, dst_updates = \
+                                self.calc_intersection_split(dst_extent, src_extent)
+                            self._dst_cpy2_updates[dst_inter_locale_rank] += dst_updates
+                            new_dst_extent_leftovers += dst_leftovers
+                        dst_extent_leftovers = new_dst_extent_leftovers
+                all_dst_leftovers += dst_extent_leftovers
 
             self._dst_extent_queue.extend(all_dst_leftovers)
 
@@ -971,6 +974,63 @@ class UpdatesForRedistribute(object):
                 "Non-empty leftover queue=%s",
                 self._dst_extent_queue
             )
+
+    def check_updates(self):
+        """
+        Runs consistency checks on the calculated updates, assumes that
+        the :attr:`dst_distrib` and :attr:`src_distrib` distributed
+        as a partitioning (no locale extent overlaps except for halo).
+
+        :raises RuntimeError: If update inconsistency discovered.
+        """
+        import itertools
+        msg = ""
+
+        all_updates = \
+            tuple(self._dst_cpy2_updates.values()) + tuple(self._dst_rget_updates.values())
+        all_updates = tuple(i for i in itertools.chain(*all_updates))
+        total_dst_update_elems = 0
+        total_src_update_elems = 0
+        for i in range(len(all_updates)):
+            u0 = all_updates[i]
+            total_dst_update_elems += _np.product(u0.dst_update_extent.shape)
+            total_src_update_elems += _np.product(u0.src_update_extent.shape)
+            for j in range(0, i):
+                u1 = all_updates[j]
+                isect = u0.dst_update_extent.calc_intersection(u1.dst_update_extent)
+                if isect is not None:
+                    msg += \
+                        (
+                            "Got intersecting updates, intersection=%s, updates:\n%s\n%s\n\n"
+                            (isect, u0, u1)
+                        )
+
+        globale_intersect = \
+            self._dst_distrib.globale_extent.calc_intersection(self._src_distrib.globale_extent)
+        total_intersect_elems = _np.product(globale_intersect.shape)
+
+        if total_intersect_elems != total_dst_update_elems:
+            msg += \
+                (
+                    "total_intersect_elems=%s != total_dst_update_elems=%s\n"
+                    %
+                    (total_intersect_elems, total_dst_update_elems)
+                )
+        if total_intersect_elems != total_src_update_elems:
+            msg += \
+                (
+                    "total_intersect_elems=%s != total_src_update_elems=%s\n"
+                    %
+                    (total_intersect_elems, total_src_update_elems)
+                )
+
+        if (len(msg) > 0):
+            raise \
+                RuntimeError(
+                    "%s.check_updates failed checks:\n%s"
+                    %
+                    (self.__class__.__name__, msg)
+                )
 
     def initialise_updates(self):
         """

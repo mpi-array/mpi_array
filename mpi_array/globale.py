@@ -455,20 +455,34 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         my_src_peer_rank = self._src.locale_comms.peer_comm.rank
         src_lndarray = self._src.lndarray_proxy.lndarray
         dst_lndarray = self._dst.lndarray_proxy.lndarray
-        src_translated_peer_ranks = \
-            self._src_translated_peer_ranks[self._src.this_locale.inter_locale_rank]
-        dst_translated_peer_ranks = \
-            self._dst_translated_peer_ranks[self._dst.this_locale.inter_locale_rank]
         for update in updates:
+            src_translated_peer_ranks = \
+                self._src_translated_peer_ranks[update.src_extent.inter_locale_rank]
+            dst_translated_peer_ranks = \
+                self._dst_translated_peer_ranks[update.dst_extent.inter_locale_rank]
             if (
-                (my_dst_peer_rank == update.dst_extent.peer_rank)
+                (
+                    (my_src_peer_rank == update.src_extent.peer_rank)
+                    and
+                    (update.src_extent.peer_rank in dst_translated_peer_ranks)
+                )
                 or
-                (my_src_peer_rank == update.src_extent.peer_rank)
+                (
+                    (my_dst_peer_rank == update.dst_extent.peer_rank)
+                    and
+                    (update.dst_extent.peer_rank in src_translated_peer_ranks)
+                )
             ):
-                if my_dst_peer_rank in src_translated_peer_ranks:
-                    update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
-                elif my_src_peer_rank in dst_translated_peer_ranks:
-                    update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
+                self._dst.rank_logger.debug(
+                    "Copying update: mdpr=%s, mspr=%s\nsrc_t_ranks=%s\ndst_t_ranks=%s\n%s\n%s",
+                    my_dst_peer_rank,
+                    my_src_peer_rank,
+                    src_translated_peer_ranks,
+                    dst_translated_peer_ranks,
+                    update._header_str,
+                    update
+                )
+                update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
 
     def do_locale_rma_update(self):
         """
