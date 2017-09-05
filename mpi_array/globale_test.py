@@ -28,11 +28,12 @@ Classes
 """
 from __future__ import absolute_import
 
-import mpi_array.globale
 import mpi4py.MPI as _mpi
 import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
+from . import globale as _globale
+from . import locale as _locale
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
@@ -67,7 +68,7 @@ class GndarrayTest(_unittest.TestCase):
             self.assertSequenceEqual(list(gary.shape), list(gshape))
             self.assertTrue(gary.comms_and_distrib is not None)
             self.assertTrue(gary.lndarray_proxy is not None)
-            self.assertTrue(isinstance(gary.lndarray_proxy, mpi_array.locale.LndarrayProxy))
+            self.assertTrue(isinstance(gary.lndarray_proxy, _locale.LndarrayProxy))
             self.assertEqual("C", gary.order)
             self.assertTrue(gary.rank_logger is not None)
             self.assertTrue(isinstance(gary.rank_logger, _logging.Logger))
@@ -266,9 +267,9 @@ class GndarrayTest(_unittest.TestCase):
                 )
             )
 
-        mpi_array.globale.copyto(gary_slb_ax1, gary_slb_ax0)
-        gary_slb_ax0_0 = mpi_array.zeros_like(gary_slb_ax0)
-        mpi_array.globale.copyto(gary_slb_ax0_0, gary_slb_ax1)
+        _globale.copyto(gary_slb_ax1, gary_slb_ax0)
+        gary_slb_ax0_0 = _globale_creation.zeros_like(gary_slb_ax0)
+        _globale.copyto(gary_slb_ax0_0, gary_slb_ax1)
 
         gary_slb_ax0.locale_comms.rank_logger.info(
             "num diffs = %s",
@@ -289,9 +290,9 @@ class GndarrayTest(_unittest.TestCase):
         rank_val = gary_slb_ax1.comms_and_distrib.this_locale.inter_locale_rank + 1
         gary_slb_ax1.rank_view_n[...] = rank_val
 
-        mpi_array.globale.copyto(gary_slb_ax0, gary_slb_ax1)
-        gary_slb_ax1_1 = mpi_array.zeros_like(gary_slb_ax1)
-        mpi_array.globale.copyto(gary_slb_ax1_1, gary_slb_ax0)
+        _globale.copyto(gary_slb_ax0, gary_slb_ax1)
+        gary_slb_ax1_1 = _globale_creation.zeros_like(gary_slb_ax1)
+        _globale.copyto(gary_slb_ax1_1, gary_slb_ax0)
 
         gary_slb_ax1.locale_comms.rank_logger.info(
             "num diffs = %s",
@@ -353,9 +354,10 @@ class GndarrayTest(_unittest.TestCase):
         gary_proc_blok = \
             _globale_creation.zeros(comms_and_distrib=cand_proc_blok, dtype=proc_blok_dtype)
 
-        mpi_array.globale.copyto(gary_proc_blok, gary_node_slab, casting="unsafe")
+        _globale.copyto(gary_proc_blok, gary_node_slab, casting="unsafe")
         gary_node_slab0 = _globale_creation.zeros_like(gary_node_slab)
-        mpi_array.globale.copyto(gary_node_slab0, gary_proc_blok, casting="unsafe")
+        gary_proc_blok.rank_logger.debug('*' * 60)
+        _globale.copyto(gary_node_slab0, gary_proc_blok, casting="unsafe")
 
         # gary_node_slab0.update()
 
@@ -399,19 +401,39 @@ class GndarrayTest(_unittest.TestCase):
         gary_proc_blok.rank_view_n[...] = rank_val
         # gary_proc_blok.update()
 
-        mpi_array.globale.copyto(gary_node_slab, gary_proc_blok, casting="unsafe")
+        _globale.copyto(gary_node_slab, gary_proc_blok, casting="unsafe")
         gary_proc_blok0 = _globale_creation.zeros_like(gary_proc_blok)
-        mpi_array.globale.copyto(gary_proc_blok0, gary_node_slab, casting="unsafe")
+        _globale.copyto(gary_proc_blok0, gary_node_slab, casting="unsafe")
 
         # gary_proc_blok0.update()
 
+        diff_msk = gary_proc_blok.view_n[...] != gary_proc_blok0.view_n[...]
+        num_diffs = int(_np.sum(diff_msk, dtype="int64"))
+        if num_diffs > 0:
+            max_elem_at_diffs = _np.max(gary_proc_blok0.view_n[diff_msk])
+            min_elem_at_diffs = _np.min(gary_proc_blok0.view_n[diff_msk])
+        else:
+            max_elem_at_diffs = None
+            min_elem_at_diffs = None
         gary_proc_blok.locale_comms.rank_logger.info(
-            "num diffs = %s",
-            _np.sum(
-                gary_proc_blok.rank_view_n[...] != gary_proc_blok0.rank_view_n[...],
-                dtype="int64"
+            "num diffs = %s", num_diffs
+        )
+        self.assertEqual(
+            0,
+            num_diffs,
+            msg=(
+                (
+                    "gary_proc_blok.view_n[...] != gary_proc_blok0.view_n[...], "
+                    +
+                    "num different elements = %s, gary_proc_blok.view_n[...].shape=%s"
+                    +
+                    ", min_elem_at_diffs=%s, max_elem_at_diffs=%s"
+                )
+                %
+                (num_diffs, gary_proc_blok.view_n[...].shape, min_elem_at_diffs, max_elem_at_diffs)
             )
         )
+
         self.assertTrue(
             _np.all(gary_proc_blok.rank_view_n[...] == gary_proc_blok0.rank_view_n[...])
         )
@@ -462,9 +484,9 @@ class GndarrayTest(_unittest.TestCase):
         """
         gary = _globale_creation.zeros(shape=(10, 10, 10), dtype="uint64")
 
-        self.assertRaises(ValueError, mpi_array.globale.copyto, gary, [1, ])
-        self.assertRaises(ValueError, mpi_array.globale.copyto, [1, ], gary)
-        self.assertRaises(ValueError, mpi_array.globale.copyto, [1, ], [1, ])
+        self.assertRaises(ValueError, _globale.copyto, gary, [1, ])
+        self.assertRaises(ValueError, _globale.copyto, [1, ], gary)
+        self.assertRaises(ValueError, _globale.copyto, [1, ], [1, ])
 
 
 _unittest.main(__name__)
