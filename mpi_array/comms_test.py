@@ -78,8 +78,7 @@ class LocaleCommsTest(_unittest.TestCase):
             _np.sum(len(i.peer_ranks_per_locale[r]) for r in range(i.num_locales))
         )
         prpl_ranks = \
-            list(sum((tuple(i.peer_ranks_per_locale[r]) for r in range(i.num_locales)), ()))
-        prpl_ranks.sort()
+            sorted(sum((tuple(i.peer_ranks_per_locale[r]) for r in range(i.num_locales)), ()))
         self.assertSequenceEqual(
             list(range(0, i.peer_comm.size)),
             prpl_ranks
