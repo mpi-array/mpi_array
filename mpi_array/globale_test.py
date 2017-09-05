@@ -359,15 +359,31 @@ class GndarrayTest(_unittest.TestCase):
 
         # gary_node_slab0.update()
 
+        diff_msk = gary_node_slab.view_n[...] != gary_node_slab0.view_n[...]
+        num_diffs = int(_np.sum(diff_msk, dtype="int64"))
+        if num_diffs > 0:
+            max_elem_at_diffs = _np.max(gary_node_slab0.view_n[diff_msk])
+            min_elem_at_diffs = _np.min(gary_node_slab0.view_n[diff_msk])
+        else:
+            max_elem_at_diffs = None
+            min_elem_at_diffs = None
         gary_proc_blok.locale_comms.rank_logger.info(
-            "num diffs = %s",
-            _np.sum(
-                gary_node_slab.rank_view_n[...] != gary_node_slab0.rank_view_n[...],
-                dtype="int64"
-            )
+            "num diffs = %s", (num_diffs,)
         )
-        self.assertTrue(
-            _np.all(gary_node_slab.rank_view_n[...] == gary_node_slab0.rank_view_n[...])
+        self.assertEqual(
+            0,
+            num_diffs,
+            msg=(
+                (
+                    "gary_node_slab.view_n[...] != gary_node_slab0.view_n[...], "
+                    +
+                    "num different elements = %s, gary_node_slab.view_n[...].shape=%s"
+                    +
+                    ", min_elem_at_diffs=%s, max_elem_at_diffs=%s"
+                )
+                %
+                (num_diffs, gary_node_slab.view_n[...].shape, min_elem_at_diffs, max_elem_at_diffs)
+            )
         )
         del gary_node_slab0, gary_node_slab, gary_proc_blok
 
