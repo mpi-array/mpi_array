@@ -64,7 +64,7 @@ or in parallel (using 8 processes) as::
 Related Work
 ============
 
-Related distributed array implementations with python API:
+Related distributed array (PGAS) implementations with python API:
 
 - `Global Arrays <http://hpc.pnl.gov/globalarrays/>`_
   (`ga at github <https://github.com/GlobalArrays/ga>`_) with
@@ -78,6 +78,12 @@ Related distributed array implementations with python API:
 - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
 - `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
 - `bolt <http://bolt-project.org/>`_
+
+Related parallel array implementations (not PGAS) with python API:
+
+- `Bohrium <http://bohrium.readthedocs.io/>`_
+- `Intel Distribution for Python <https://software.intel.com/en-us/distribution-for-python>`_
+
 
 Installation
 ============
