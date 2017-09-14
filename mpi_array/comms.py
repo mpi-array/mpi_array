@@ -824,7 +824,7 @@ def reshape_comms_distribution(comms_distrib, new_globale_shape):
                             this_locale
                         )
                 else:
-                    idx = [_np.nonzero(new_globale_shape[0] == globale_shape[i])[0][0], ]
+                    idx = [_np.nonzero(new_globale_shape[0] == globale_shape)[0][0], ]
                     for i in range(1, new_globale_shape.size):
                         idx.append(
                             _np.nonzero(new_globale_shape[i] == globale_shape[idx[-1]:])[0][0]
