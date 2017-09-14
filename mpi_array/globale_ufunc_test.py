@@ -33,9 +33,11 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
+from . import comms as _comms
 from .globale_ufunc import broadcast_shape, ufunc_result_type
 from .globale import gndarray as _gndarray
-from .globale_creation import zeros as _zeros, ones as _ones
+from .globale_creation import ones as _ones
+# from .globale_creation import zeros as _zeros
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -233,13 +235,16 @@ class GndarrayUfuncTest(_unittest.TestCase):
     def test_add(self):
         """
         """
-        a = _zeros((32, 48), dtype="int32")
-        b = _ones((32, 48), dtype="int32")
+        a = _ones((32, 48), dtype="int32", locale_type=_comms.LT_PROCESS)
+        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
 
         c = a + b
 
         self.assertTrue(isinstance(c, _gndarray))
-        self.assertTrue((c == b).all())
+        self.assertTrue((c == 2).all())
+
+        c *= 2
+        self.assertTrue((c == 4).all())
 
 
 _unittest.main(__name__)

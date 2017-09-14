@@ -21,6 +21,7 @@ Functions
 
    ufunc_result_type - Like :func:`numpy.result_type`.
    broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
+   shape_extend_dims - Prepend ones to 1D *shape* sequence to make it a specified dimension.
    gndarray_array_ufunc - A :obj:`numpy.ndarray` like distributed array.
 
 
@@ -34,6 +35,7 @@ import copy as _copy
 from .license import license as _license, copyright as _copyright, version as _version
 from . import logging as _logging  # noqa: E402,F401
 from . import globale_creation as _globale_creation
+from . import comms as _comms
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -45,7 +47,7 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
     """
     Like :obj:`numpy.result_type`, but
     handles :obj:`mpi_array.globale.gndarray` in the :samp:`{inputs}`
-    and handles multuple :samp:`{outputs}`.
+    and handles multiple :samp:`{outputs}` cases.
 
     :type ufunc_types: sequence of `str`
     :param ufunc_types: The :attr:`numpy.ufunc.types` attribute,
@@ -234,9 +236,37 @@ def broadcast_shape(*shape_args):
     return bcast_shape
 
 
+def shape_extend_dims(ndim, shape):
+    """
+    Returns :obj:`shape` pre-prepended with ones so returned 1D array has length :samp:`{ndim}`.
+
+    :type ndim: :obj:`int`
+    :param ndim: Length of returned 1D sequence.
+    :type shape: sequence of :obj:`object`
+    :param shape: Length of returned 1D sequence.
+    :rtype: :obj:`tuple`
+    :return: Sequence pre-pended with one elements so that sequence length equals :samp:`{ndim}`.
+
+    Example::
+
+       >>> shape_extend_dims(5, (3, 1, 5))
+       (1, 1, 3, 1, 5)
+       >>> shape_extend_dims(3, (3, 1, 5))
+       (3, 1, 5)
+       >>> shape_extend_dims(1, (3, 1, 5))
+       (3, 1, 5)
+
+    """
+    return (1,) * (ndim - len(shape)) + tuple(shape)
+
+
 class GndarrayArrayUfuncExecutor(object):
 
     """
+    Instances execute a ufunc for a :obj:`mpi_array.globale.gndarray`.
+    Takes care of creating outputs, fetching required parts of inputs
+    and forwarding call to :obj:`numpy.ufunc` instance to perform
+    the computation.
     """
 
     def __init__(self, array_like_obj, ufunc, method, *inputs, **kwargs):
@@ -253,6 +283,8 @@ class GndarrayArrayUfuncExecutor(object):
         self._casting = None
         if "casting" in self._kwargs.keys():
             self._casting = self._kwargs["casting"]
+        else:
+            self._casting = "safe"
 
     @property
     def peer_comm(self):
@@ -309,54 +341,113 @@ class GndarrayArrayUfuncExecutor(object):
             tuple(
                 input.shape
                 if hasattr(input, "shape") else
-                _np.asarray(
-                    input,
-                    peer_comm=self.peer_comm,
-                    intra_locale_comm=self.intra_locale_comm,
-                    inter_locale_comm=self.inter_locale_comm
-                ).shape
+                _np.asarray(input).shape
                 for input in self._inputs
             )
 
     def get_best_match_input(self, result_shape):
         """
         """
-        return None
+        best_input = None
+        result_shape = _np.array(result_shape, dtype="int64")
+        input_shapes = self.get_inputs_shapes()
+        are_same_shape = \
+            _np.array(
+                tuple(
+                    (len(result_shape) == len(in_shape)) and _np.all(result_shape == in_shape)
+                    for in_shape in input_shapes
+                )
+            )
+        if _np.any(are_same_shape):
+            best_input = self._inputs[_np.where(are_same_shape)[0][0]]
+        else:
+            input_shapes = \
+                _np.array(
+                    tuple(
+                        _np.array(shape_extend_dims(len(result_shape), in_shape))
+                        for in_shape in input_shapes
+                    ),
+                    dtype="int64"
+                )
+            d = input_shapes - result_shape
+            d *= d
+            d = d.sum(axis=1)
+            best_input = self._inputs(_np.argmin(d))
+
+        return best_input
+
+    def create_outputs(self, outputs, result_shape, result_types):
+        """
+        Returns list of output :obj:`mpi_array.globale.gndarray` instances.
+
+        :type outputs: :samp:`None` or :obj:`tuple` of :obj:`mpi_array.globale.gndarray`
+        :param outputs: Output arrays passed in as the :samp:`out` argument
+           of the :obj:`numpy.ufunc`.
+        :type result_shape: sequence of :obj:`int`
+        :param result_shape: The shape of all output arrays.
+        :type result_types: sequence of :samp:`numpy.dtype`
+        :param result_types: The :samp:`dtype` of each output array. Note
+            that this is the list for all outputs including any
+            in the :samp:`outputs` argument. This determines the
+            number of output arrays.
+        :rtype: :obj:`list` of :obj:`mpi_array.globale.gndarray`
+        :return: A list of length :samp:`len(result_types)` elements,
+           each element is a :obj:`mpi_array.globale.gndarray`.
+        """
+
+        template_output_gary = None
+        if (outputs is not None) and (len(outputs) > 0):
+            template_output_gary = outputs[-1]
+        else:
+            best_match_input = self.get_best_match_input(result_shape)
+            if best_match_input is not None:
+                comms_distrib = \
+                    _comms.reshape_comms_distribution(
+                        best_match_input.comms_and_distrib,
+                        result_shape
+                    )
+                template_output_gary = \
+                    _globale_creation.empty(
+                        result_shape,
+                        comms_and_distrib=comms_distrib,
+                        dtype=result_types[0]
+                    )
+            else:
+                template_output_gary = \
+                    _globale_creation.empty(
+                        result_shape,
+                        dtype=result_types[0],
+                        peer_comm=self._array_like_obj.locale_comms.peer_comm,
+                        intra_locale_comm=self._array_like_obj.locale_comms.intra_locale_comm,
+                        inter_locale_comm=self._array_like_obj.locale_comms.inter_locale_comm
+                    )
+            outputs = (template_output_gary,)
+        outputs = \
+            (
+                outputs
+                +
+                tuple(
+                    _globale_creation.empty_like(template_output_gary, dtype=result_types[i])
+                    for i in range(len(outputs), len(result_types))
+                )
+            )
+
+        return outputs
 
     def execute___call__(self):
         """
         """
         result_shape = broadcast_shape(*(self.get_inputs_shapes()))
         result_types = ufunc_result_type(self.ufunc.types, self.inputs, self.outputs, self.casting)
-        outputs = self.outputs
 
-        best_match_input = self.get_best_match_input(result_shape)
-        if outputs is None:
-            outputs = ()
-
-        if best_match_input is not None:
-            outputs = \
-                (
-                    outputs
-                    +
-                    tuple(
-                        _globale_creation.empty_like(best_match_input, dtype=result_types[i])
-                        for i in range(len(outputs), len(result_types))
-                    )
-                )
-        else:
-            outputs = \
-                (
-                    outputs
-                    +
-                    tuple(
-                        _globale_creation.empty(result_shape, dtype=result_types[i])
-                        for i in range(len(outputs), len(result_types))
-                    )
-                )
+        outputs = self.create_outputs(self.outputs, result_shape, result_types)
 
         kwargs = _copy.copy(self._kwargs)
-        inputs = tuple(input.lndarray_proxy.lndarray for input in self.inputs)
+        inputs = \
+            tuple(
+                input.lndarray_proxy.lndarray if hasattr(input, "lndarray_proxy") else input
+                for input in self.inputs
+            )
         kwargs["out"] = tuple(output.lndarray_proxy.lndarray for output in outputs)
 
         self.ufunc.__call__(*(inputs), **kwargs)
@@ -396,6 +487,7 @@ class GndarrayArrayUfuncExecutor(object):
         return getattr(self, "execute_" + self.method)()
 
 
+#: Factory for generating instance of :obj:`GndarrayArrayUfuncExecutor`.
 gndarray_ufunc_executor_factory = GndarrayArrayUfuncExecutor
 
 

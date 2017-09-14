@@ -59,6 +59,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
 import sys as _sys
+import copy as _copy
 import psutil as _psutil
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -773,6 +774,70 @@ class CartLocaleComms(LocaleComms):
         Overrides :attr:`LocaleComms.inter_locale_comm` to return :attr:`cart_comm`.
         """
         return self.cart_comm
+
+
+def shape_squeeze(shape):
+    """
+    Returns sequence with the the :samp:`1` elements removed.
+    """
+    return _np.asarray(shape)[_np.where(shape == 1)]
+
+
+def reshape_comms_distribution(comms_distrib, new_globale_shape):
+    """
+    """
+    reshaped_comms_distrib = None
+
+    locale_comms = comms_distrib.locale_comms
+    distrib = comms_distrib.distribution
+    this_locale = comms_distrib.this_locale
+    globale_shape = _np.array(distrib.globale_extent.shape)
+
+    new_globale_shape = _np.array(globale_shape)
+
+    if (
+        (new_globale_shape.size == globale_shape.size)
+        and
+        _np.all(new_globale_shape == globale_shape)
+    ):
+        reshaped_comms_distrib = \
+            CommsAndDistribution(locale_comms, _copy.deepcopy(distrib), this_locale)
+    else:
+        new_squeeze_shape = shape_squeeze(new_globale_shape)
+        org_squeeze_shape = shape_squeeze(globale_shape)
+        if len(new_squeeze_shape) == len(org_squeeze_shape):
+            if _np.all(_np.sort(org_squeeze_shape) == _np.sort(org_squeeze_shape)):
+                _np.all(new_squeeze_shape == org_squeeze_shape)
+                if new_globale_shape.size >= globale_shape.size:
+                    idx = \
+                        [
+                            _np.nonzero(new_globale_shape == globale_shape[i])[0][0]
+                            for i in range(len(globale_shape))
+                        ]
+                    reshaped_comms_distrib = \
+                        CommsAndDistribution(
+                            locale_comms.expand_dims(
+                                ndim=new_globale_shape.size,
+                                orig_axis_new_pos=idx
+                            ),
+                            distrib.expand_dims(ndim=new_globale_shape.size, orig_axis_new_pos=idx),
+                            this_locale
+                        )
+                else:
+                    idx = [_np.nonzero(new_globale_shape[0] == globale_shape[i])[0][0], ]
+                    for i in range(1, new_globale_shape.size):
+                        idx.append(
+                            _np.nonzero(new_globale_shape[i] == globale_shape[idx[-1]:])[0][0]
+                        )
+                    idx = _np.setdiff1d(idx, _np.arange(0, new_globale_shape.size))
+                    reshaped_comms_distrib = \
+                        CommsAndDistribution(
+                            locale_comms.squeeze(axis=idx),
+                            distrib.squeeze(axis=idx),
+                            this_locale
+                        )
+
+    return reshaped_comms_distrib
 
 
 #: Hyper-block partition distribution type
