@@ -46,6 +46,8 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
 
+_builtin_slice = slice
+
 
 class CommLogger:
 
@@ -853,6 +855,42 @@ class gndarray(_NDArrayOperatorsMixin):
         self.intra_locale_barrier()
 
         return ary_out
+
+    def locale_get(self, slice=None, start=None, stop=None):
+        """
+        Collective over :samp:`{self}.comms.intra_locale_comm` to
+        get a portion of the globale array. Returns a view from the
+        locale extent of the array if possible, otherwise allocates
+        shared memory and performs one-sided RMA to fetch data from
+        remote locales.
+        """
+        if slice is not None:
+            self.rank_logger.debug("slice=%s", slice)
+            tmp = _np.array(list([s.start, s.stop] for s in slice))
+            start = tmp[:, 0]
+            stop = tmp[:, 1]
+
+        locale_extent = self.lndarray_proxy.locale_extent
+        ary = None
+        if _np.all(
+            _np.logical_and(
+                start >= locale_extent.start_n,
+                stop <= locale_extent.stop_n
+            )
+        ):
+            shape = stop - start
+            lstart = locale_extent.globale_to_locale_h(start)
+            lstop = lstart + shape
+            slc = tuple(_builtin_slice(lstart[a], lstop[a]) for a in range(locale_extent.ndim))
+            ary = self.lndarray_proxy.lndarray[slc]
+        else:
+            raise NotImplementedError(
+                "Remote one-sided fetch for %s.locale_get not implemented."
+                %
+                self.__class__.__name__
+            )
+
+        return ary
 
 
 def copyto(dst, src, casting="same_kind", **kwargs):

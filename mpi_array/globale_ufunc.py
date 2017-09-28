@@ -30,12 +30,12 @@ Functions
 from __future__ import absolute_import
 
 import numpy as _np
-import copy as _copy
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import logging as _logging  # noqa: E402,F401
 from . import globale_creation as _globale_creation
 from . import comms as _comms
+from .distribution import ScalarLocaleExtent, ScalarGlobaleExtent, LocaleExtent, GlobaleExtent
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -260,6 +260,109 @@ def shape_extend_dims(ndim, shape):
     return (1,) * (ndim - len(shape)) + tuple(shape)
 
 
+def get_extents(input, locale_info):
+    """
+    Returns a :obj:`LocaleExtent` for the given input.
+    """
+    locale_extent = None
+    globale_extent = None
+    if hasattr(input, "lndarray_proxy"):
+        locale_extent = input.lndarray_proxy.locale_extent
+        globale_extent = input.distribution.globale_extent
+    elif hasattr(input, "shape"):
+        start = (0,) * len(input.shape)
+        globale_extent = GlobaleExtent(start=start, stop=input.shape)
+        locale_extent = \
+            LocaleExtent(
+                peer_rank=locale_info.peer_rank,
+                inter_locale_rank=locale_info.inter_locale_rank,
+                globale_extent=globale_extent,
+                start=start,
+                stop=input.shape
+            )
+    else:
+        locale_extent = \
+            ScalarLocaleExtent(
+                peer_rank=locale_info.peer_rank,
+                inter_locale_rank=locale_info.inter_locale_rank
+            )
+        globale_extent = ScalarGlobaleExtent()
+
+    return (locale_extent, globale_extent)
+
+
+def calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_locale_extents):
+    """
+    Returns :obj:`tuple` of :obj:`slice` (one tuple for each pair-element
+    in :samp:`{inp_locale_extents}`). The returned *slices* indicate the
+    portion of the input which matches the specified locale
+    extent :samp:`{out_locale_extent}` for broadcasting.
+
+    Assumes :samp:`{out_locale_extent}.ndim >= {inp_locale_extents}[i].ndim`
+    for :samp:`i in range(0, len({inp_locale_extents})`.
+    """
+    slice_list = []
+    out_loc_start = out_locale_extent.start
+    out_loc_shape = out_locale_extent.shape
+    for inp_loc, inp_glb in inp_locale_extents:
+        slc_tuple = None
+        if inp_glb.ndim >= 1:
+            inp_glb_shape = inp_glb.shape
+            inp_loc_start = inp_loc.start
+            inp_loc_shape = inp_loc.shape
+            inp_slc_start = _np.zeros_like(inp_loc_start)
+            inp_slc_shape = inp_loc_shape.copy()
+
+            slc_tuple = []
+            for a in range(-1, -(len(inp_loc_shape) + 1), -1):
+                if inp_glb_shape[a] == 1:
+                    inp_slc_start[a] = 0
+                    inp_slc_shape[a] = 1
+                else:
+                    inp_slc_start[a] = out_loc_start[a]
+                    inp_slc_shape[a] = out_loc_shape[a]
+                slc = slice(inp_slc_start[a], inp_slc_start[a] + inp_slc_shape[a])
+                slc_tuple.insert(0, slc)
+            slc_tuple = tuple(slc_tuple)
+        slice_list.append(slc_tuple)
+
+    return tuple(slice_list)
+
+
+def calc_matching_peer_rank_slices(out_slice, inp_arys):
+    """
+    Returns :obj:`tuple` of :obj:`slice` (one tuple for each array/scalar element
+    in :samp:`{inp_arys}`). The returned *slices* indicate the
+    portion of the input which matches the specified :samp:`{out_slice}`
+    for broadcasting.
+
+    Assumes :samp:`len({out_slice}) >= {inp_arys}[i].ndim`
+    for :samp:`i in range(0, len({inp_arys})`.
+    """
+    slice_list = []
+    for inp_ary in inp_arys:
+        slc_tuple = None
+        if hasattr(inp_ary, "ndim") and (inp_ary.ndim >= 1):
+            inp_shape = _np.array(inp_ary.shape)
+            inp_slc_start = _np.zeros_like(inp_shape)
+            inp_slc_stop = inp_slc_start + inp_shape
+
+            slc_tuple = []
+            for a in range(-1, -(len(inp_shape) + 1), -1):
+                if inp_shape[a] == 1:
+                    inp_slc_start[a] = 0
+                    inp_slc_stop[a] = 1
+                else:
+                    inp_slc_start[a] = out_slice[a].start
+                    inp_slc_stop[a] = out_slice[a].stop
+                slc = slice(inp_slc_start[a], inp_slc_stop[a])
+                slc_tuple.insert(0, slc)
+            slc_tuple = tuple(slc_tuple)
+        slice_list.append(slc_tuple)
+
+    return tuple(slice_list)
+
+
 class GndarrayArrayUfuncExecutor(object):
 
     """
@@ -434,26 +537,94 @@ class GndarrayArrayUfuncExecutor(object):
 
         return outputs
 
+    def get_input_extents(self, locale_info):
+        """
+        """
+        return \
+            tuple(
+                get_extents(inp, locale_info) for inp in self.inputs
+            )
+
+    def get_numpy_ufunc_peer_rank_inputs_outputs(self, gndarray_outputs):
+        """
+        """
+        # First fetch/slice the parts of the input required for the locale extent
+        out_gndarray = gndarray_outputs[0]
+        out_globale_extent = out_gndarray.distribution.globale_extent
+        out_locale_extent = out_gndarray.lndarray_proxy.locale_extent
+        inp_locale_extents = \
+            self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
+        inp_locale_slices = \
+            calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_locale_extents)
+
+        inp_locale_arys = [None, ] * len(self.inputs)
+        for i in range(len(self.inputs)):
+            input = self.inputs[i]
+            slice_tuple = inp_locale_slices[i]
+            if slice_tuple is not None:
+                if hasattr(input, "locale_get"):
+                    # is a gndarray
+                    inp_locale_arys[i] = input.locale_get(slice_tuple)
+                else:
+                    # is a numpy array (or similar)
+                    inp_locale_arys[i] = input[slice_tuple]
+            else:
+                # is a scalar
+                inp_locale_arys[i] = input
+
+        # Now slice the locale input arrays to match the peer-rank portions of the output.
+        out_peer_rank_slice = out_gndarray.lndarray_proxy.intra_partition.rank_view_slice_n
+        out_peer_rank_slice = out_locale_extent.locale_to_globale_slice_h(out_peer_rank_slice)
+        out_peer_rank_slice = out_locale_extent.globale_to_locale_slice_n(out_peer_rank_slice)
+
+        inp_peer_rank_slices = calc_matching_peer_rank_slices(out_peer_rank_slice, inp_locale_arys)
+
+        inp_peer_rank_arys = [None, ] * len(inp_locale_arys)
+        for i in range(len(inp_locale_arys)):
+            input = inp_locale_arys[i]
+            slice_tuple = inp_peer_rank_slices[i]
+            if slice_tuple is not None:
+                # is a numpy array (or similar)
+                inp_peer_rank_arys[i] = input[slice_tuple]
+            else:
+                # is a scalar
+                inp_peer_rank_arys[i] = input
+
+        return \
+            (
+                tuple(inp_peer_rank_arys),
+                tuple(
+                    out_gndarray.view_n[out_peer_rank_slice]
+                    for out_gndarray in gndarray_outputs
+                )
+            )
+
     def execute___call__(self):
         """
         """
+        # Calculate the shape of the output arrays.
         result_shape = broadcast_shape(*(self.get_inputs_shapes()))
+
+        # Calculate the result dtype for each output array
         result_types = ufunc_result_type(self.ufunc.types, self.inputs, self.outputs, self.casting)
 
-        outputs = self.create_outputs(self.outputs, result_shape, result_types)
+        # Create the output gndarray instances
+        gndarray_outputs = self.create_outputs(self.outputs, result_shape, result_types)
 
-        kwargs = _copy.copy(self._kwargs)
-        inputs = \
-            tuple(
-                input.lndarray_proxy.lndarray if hasattr(input, "lndarray_proxy") else input
-                for input in self.inputs
-            )
-        kwargs["out"] = tuple(output.lndarray_proxy.lndarray for output in outputs)
+        # Fetch the peer-rank sub-arrays of the input arrays needed
+        # to calculate the corresponding sub-array of the outputs.
+        np_ufunc_inputs, np_ufunc_outputs = \
+            self.get_numpy_ufunc_peer_rank_inputs_outputs(gndarray_outputs)
+        kwargs = dict()
+        kwargs.update(self._kwargs)
+        kwargs["out"] = np_ufunc_outputs
 
-        self.ufunc.__call__(*(inputs), **kwargs)
-        if len(outputs) == 1:
-            return outputs[0]
-        return outputs
+        gndarray_outputs[0].rank_logger.debug("np_ufunc_inputs=%s", np_ufunc_inputs)
+        gndarray_outputs[0].rank_logger.debug("np_ufunc_outputs=%s", np_ufunc_outputs)
+        self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+        if len(gndarray_outputs) == 1:
+            return gndarray_outputs[0]
+        return gndarray_outputs
 
     def execute_accumulate(self):
         """

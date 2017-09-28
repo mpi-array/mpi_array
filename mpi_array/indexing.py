@@ -493,6 +493,36 @@ class HaloIndexingExtent(IndexingExtent):
 
         return slc
 
+    def globale_to_locale_slice_n(self, gslice):
+        """
+        Return :samp:`gslice` converted to locale slice.
+        """
+        slc = \
+            tuple(
+                slice(
+                    gslice[i].start - self._beg[i],
+                    gslice[i].stop - self._beg[i],
+                )
+                for i in range(len(gslice))
+            )
+
+        return slc
+
+    def locale_to_globale_slice_n(self, lslice):
+        """
+        Return :samp:`lslice` converted to globale slice.
+        """
+        slc = \
+            tuple(
+                slice(
+                    lslice[i].start + self._beg[i],
+                    lslice[i].stop + self._beg[i],
+                )
+                for i in range(len(lslice))
+            )
+
+        return slc
+
     def to_slice(self):
         """
         Same as :meth:`to_slice_n`.

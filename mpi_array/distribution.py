@@ -50,6 +50,16 @@ class GlobaleExtent(HaloIndexingExtent):
     pass
 
 
+class ScalarGlobaleExtent(GlobaleExtent):
+
+    """
+    Indexing extent for a scalar.
+    """
+
+    def __init__(self):
+        GlobaleExtent.__init__(self, start=(), stop=(), halo=0)
+
+
 class HaloSubExtent(HaloIndexingExtent):
 
     """
@@ -276,6 +286,27 @@ class LocaleExtent(HaloSubExtent):
         """
         """
         return self.__repr__()
+
+
+class ScalarLocaleExtent(LocaleExtent):
+
+    """
+    Indexing extent for a scalar.
+    """
+
+    def __init__(
+        self,
+        peer_rank,
+        inter_locale_rank
+    ):
+        LocaleExtent.__init__(
+            self,
+            peer_rank=peer_rank,
+            inter_locale_rank=inter_locale_rank,
+            globale_extent=ScalarGlobaleExtent(),
+            start=(),
+            stop=()
+        )
 
 
 class CartLocaleExtent(LocaleExtent):
