@@ -19,6 +19,7 @@ Functions
 .. autosummary::
    :toctree: generated/
 
+   get_dtype_and_ndim - Return :obj:`numpy.dtype` and :samp:`ndim` properties for an object.
    ufunc_result_type - Like :func:`numpy.result_type`.
    broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
    shape_extend_dims - Prepend ones to 1D *shape* sequence to make it a specified dimension.
@@ -41,6 +42,37 @@ __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
+
+
+def get_dtype_and_ndim(array_like):
+    """
+    Returns :samp:`(dtype, ndim)` pair for the given :samp:`{array_like}` argument.
+    If the :samp:`{array_like}` has *both* :samp:`"dtype"` and :samp:`"ndim"`
+    attributes, then the return tuple is :samp:`({array_like}.dtype, {array_like}.ndim)`.
+    Otherwise,
+    returns :samp:`(numpy.asanyarray({array_like}).dtype, numpy.asanyarray({array_like}).ndim)`.
+
+    :type array_like: castable to :obj:`numpy.ndarray`
+    :param array_like: Returns dtype and ndim for this object.
+    :rtype: two element :obj:`tuple`
+    :return: The :obj:`numpy.dtype` and integer :samp:`ndim` properties for :samp:`{array_like}`.
+
+    Example::
+
+       >>> get_dtype_and_ndim(1.0)
+       (dtype('float64'), 0)
+       >>> get_dtype_and_ndim((1, 2, 3, 4))
+       (dtype('int64'), 1)
+       >>> get_dtype_and_ndim([(1, 2, 3, 4), (5, 6, 7, 8)])
+       (dtype('int64'), 2)
+    """
+    dt, nd = None, None
+    if not ((hasattr(array_like, "dtype") and hasattr(array_like, "ndim"))):
+        array_like = _np.asanyarray(array_like)
+
+    dt, nd = array_like.dtype, array_like.ndim
+
+    return dt, nd
 
 
 def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
@@ -83,6 +115,7 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
        (dtype('float64'), dtype('uint16'))
     """
+    logger = _logging.get_rank_logger(__name__)
     result_dtypes = None
     ufunc_in_types = tuple(in2out_str.split("->")[0] for in2out_str in ufunc_types)
     ufunc_in_dtypes = \
@@ -101,14 +134,17 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
             )
         )
 
-    in_dtypes = \
-        _np.asarray(
-            tuple(
-                input.dtype
-                if hasattr(input, "dtype") else _np.asarray(input).dtype
-                for input in inputs
-            )
-        )
+    in_dtypes_and_ndims = \
+        _np.asarray(tuple(get_dtype_and_ndim(input) for input in inputs))
+
+    in_dtypes = in_dtypes_and_ndims[:, 0]
+    in_ndims = in_dtypes_and_ndims[:, 1]
+
+    logger.debug("inputs=%s", inputs)
+    logger.debug("in_dtypes=%s", in_dtypes)
+    logger.debug("in_ndims=%s", in_ndims)
+    logger.debug("ufunc_in_dtypes=%s", ufunc_in_dtypes)
+
     out_dtypes = None
     if (outputs is not None) and (len(outputs) > 0):
         out_dtypes = \
@@ -127,10 +163,10 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
 
     if idx is None:
         in_scalars_and_dtypes = \
-            _np.where(
-                _np.asarray(tuple(dt.ndim <= 0 for dt in in_dtypes)),
-                inputs,
-                in_dtypes
+            tuple(
+                inputs[i]
+                if in_ndims[i] <= 0 else in_dtypes[i]
+                for i in range(len(inputs))
             )
         idxs = \
             _np.where(
@@ -387,7 +423,7 @@ class GndarrayArrayUfuncExecutor(object):
         if "casting" in self._kwargs.keys():
             self._casting = self._kwargs["casting"]
         else:
-            self._casting = "safe"
+            self._casting = "same_kind"
 
     @property
     def peer_comm(self):

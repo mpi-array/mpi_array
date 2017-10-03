@@ -101,6 +101,22 @@ class UfuncResultTypeTest(_unittest.TestCase):
             ufunc_result_type, uft, inputs, outputs
         )
 
+    def test_tuple_input(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
+        with single output array.
+        """
+
+        rank_logger = _logging.get_rank_logger(self.id())
+
+        uft = ['ff->f', 'll->l', 'cc->c', 'fl->b', 'dd->d']
+
+        inputs = (_np.array((1, 2, 3, 4), dtype='int32'), (1, 2, 3, 4))
+        outputs = None
+        dtypes = ufunc_result_type(uft, inputs, outputs)
+        rank_logger.debug("dtypes=%s", dtypes)
+        self.assertSequenceEqual((_np.dtype('l'),), dtypes)
+
     def test_multiple_output(self):
         """
         :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
@@ -232,7 +248,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.globale_ufunc`.
     """
 
-    def test_add(self):
+    def test_umath(self):
         """
         """
         a = _ones((32, 48), dtype="int32", locale_type=_comms.LT_PROCESS)
@@ -244,6 +260,40 @@ class GndarrayUfuncTest(_unittest.TestCase):
         self.assertTrue((c == 2).all())
 
         c *= 2
+        self.assertTrue((c == 4).all())
+
+    def test_umath_broadcast(self):
+        """
+        """
+        a = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
+        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
+
+        c = a + b
+
+        c *= (2, 2, 2, 2)
+        self.assertTrue((c == 4).all())
+
+        a = _ones((8, 64, 24), dtype="int32", locale_type=_comms.LT_PROCESS)
+        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
+
+        c = a + b
+
+        self.assertTrue(isinstance(c, _gndarray))
+        self.assertTrue((c == 2).all())
+
+        c *= (_np.ones(tuple(c.shape[1:]), dtype=c.dtype) * 2)
+        self.assertTrue((c == 4).all())
+
+    def do_not_test_umath_distributed_broadcast(self):
+        a = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
+        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
+
+        c = a + b
+
+        twos = _ones(tuple(a.shape[1:]), dtype=c.dtype, locale_type=_comms.LT_PROCESS, dims=(0, 1))
+        twos.fill_h(2)
+
+        c *= twos
         self.assertTrue((c == 4).all())
 
 
