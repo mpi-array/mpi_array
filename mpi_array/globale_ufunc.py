@@ -302,11 +302,13 @@ def get_extents(input, locale_info):
     """
     locale_extent = None
     globale_extent = None
+    if not (hasattr(input, "shape") and hasattr(input, "ndim")):
+        input = _np.asanyarray(input)
     if hasattr(input, "lndarray_proxy"):
         locale_extent = input.lndarray_proxy.locale_extent
         globale_extent = input.distribution.globale_extent
-    elif hasattr(input, "shape"):
-        start = (0,) * len(input.shape)
+    elif input.ndim > 0:
+        start = (0,) * input.ndim
         globale_extent = GlobaleExtent(start=start, stop=input.shape)
         locale_extent = \
             LocaleExtent(
@@ -399,6 +401,41 @@ def calc_matching_peer_rank_slices(out_slice, inp_arys):
     return tuple(slice_list)
 
 
+def convert_to_array_like(inputs):
+    """
+    Uses :obj:`numpy.asanyarray` to convert input ufunc arguments
+    to array-like objects.
+
+    :type inputs: sequence of :obj:`object`
+    :param inputs: Elements of this sequence which to not have both :samp:`"shape"`
+       and :samp:`"ndim"` attributes are converted to a new object
+       using :obj:`numpy.asanyarray`.
+    :rtype: sequence of :obj:`object`
+    :return: Sequence where elements of :samp:`{inputs}` have been converted to array-like objects.
+
+    Example::
+       >>> import numpy as np
+       >>> inputs = (np.array([1, 2, 3, 4], dtype="uint8"), 32.0, [[1, 2], [3, 4], [5, 6]])
+       >>> convert_to_array_like(inputs)
+       (array([1, 2, 3, 4], dtype=uint8), array(32.0), array([[1, 2],
+              [3, 4],
+              [5, 6]]))
+       >>> converted = convert_to_array_like(inputs)
+       >>> converted[0] is inputs[0]
+       True
+       >>> converted[1] is inputs[1]
+       False
+       >>> converted[2] is inputs[2]
+       False
+    """
+    return \
+        tuple(
+            input
+            if hasattr(input, "shape") and hasattr(input, "ndim") else _np.asanyarray(input)
+            for input in inputs
+        )
+
+
 class GndarrayArrayUfuncExecutor(object):
 
     """
@@ -414,7 +451,7 @@ class GndarrayArrayUfuncExecutor(object):
         self._array_like_obj = array_like_obj
         self._ufunc = ufunc
         self._method = method
-        self._inputs = inputs
+        self._inputs = convert_to_array_like(inputs)
         self._kwargs = kwargs
         self._outputs = None
         if "out" in self._kwargs.keys():
