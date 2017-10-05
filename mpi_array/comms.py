@@ -952,6 +952,7 @@ def create_single_locale_distribution(
     shape,
     locale_type=None,
     halo=0,
+    inter_locale_rank=0,
     peer_comm=None,
     intra_locale_comm=None,
     inter_locale_comm=None
@@ -975,6 +976,7 @@ def create_single_locale_distribution(
         SingleLocaleDistribution(
             globale_extent=shape,
             num_locales=locale_comms.num_locales,
+            inter_locale_rank=inter_locale_rank,
             inter_locale_rank_to_peer_rank=inter_locale_rank_to_peer_rank,
             halo=halo
         )
