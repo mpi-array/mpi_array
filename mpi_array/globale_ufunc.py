@@ -635,52 +635,57 @@ class GndarrayArrayUfuncExecutor(object):
         out_gndarray = gndarray_outputs[0]
         out_globale_extent = out_gndarray.distribution.globale_extent
         out_locale_extent = out_gndarray.lndarray_proxy.locale_extent
-        inp_locale_extents = \
-            self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
-        inp_locale_slices = \
-            calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_locale_extents)
+        ret = None
+        if _np.product(out_locale_extent.shape_n) > 0:
+            inp_locale_extents = \
+                self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
+            inp_locale_slices = \
+                calc_matching_locale_slices(
+                    out_locale_extent, out_globale_extent, inp_locale_extents)
 
-        inp_locale_arys = [None, ] * len(self.inputs)
-        for i in range(len(self.inputs)):
-            input = self.inputs[i]
-            slice_tuple = inp_locale_slices[i]
-            if slice_tuple is not None:
-                if hasattr(input, "locale_get"):
-                    # is a gndarray
-                    inp_locale_arys[i] = input.locale_get(slice_tuple)
+            inp_locale_arys = [None, ] * len(self.inputs)
+            for i in range(len(self.inputs)):
+                input = self.inputs[i]
+                slice_tuple = inp_locale_slices[i]
+                if slice_tuple is not None:
+                    if hasattr(input, "locale_get"):
+                        # is a gndarray
+                        inp_locale_arys[i] = input.locale_get(slice_tuple)
+                    else:
+                        # is a numpy array (or similar)
+                        inp_locale_arys[i] = input[slice_tuple]
                 else:
+                    # is a scalar
+                    inp_locale_arys[i] = input
+
+            # Now slice the locale input arrays to match the peer-rank portions of the output.
+            out_peer_rank_slice = out_gndarray.lndarray_proxy.intra_partition.rank_view_slice_n
+            out_peer_rank_slice = out_locale_extent.locale_to_globale_slice_h(out_peer_rank_slice)
+            out_peer_rank_slice = out_locale_extent.globale_to_locale_slice_n(out_peer_rank_slice)
+
+            inp_peer_rank_slices = calc_matching_peer_rank_slices(
+                out_peer_rank_slice, inp_locale_arys)
+
+            inp_peer_rank_arys = [None, ] * len(inp_locale_arys)
+            for i in range(len(inp_locale_arys)):
+                input = inp_locale_arys[i]
+                slice_tuple = inp_peer_rank_slices[i]
+                if slice_tuple is not None:
                     # is a numpy array (or similar)
-                    inp_locale_arys[i] = input[slice_tuple]
-            else:
-                # is a scalar
-                inp_locale_arys[i] = input
+                    inp_peer_rank_arys[i] = input[slice_tuple]
+                else:
+                    # is a scalar
+                    inp_peer_rank_arys[i] = input
 
-        # Now slice the locale input arrays to match the peer-rank portions of the output.
-        out_peer_rank_slice = out_gndarray.lndarray_proxy.intra_partition.rank_view_slice_n
-        out_peer_rank_slice = out_locale_extent.locale_to_globale_slice_h(out_peer_rank_slice)
-        out_peer_rank_slice = out_locale_extent.globale_to_locale_slice_n(out_peer_rank_slice)
-
-        inp_peer_rank_slices = calc_matching_peer_rank_slices(out_peer_rank_slice, inp_locale_arys)
-
-        inp_peer_rank_arys = [None, ] * len(inp_locale_arys)
-        for i in range(len(inp_locale_arys)):
-            input = inp_locale_arys[i]
-            slice_tuple = inp_peer_rank_slices[i]
-            if slice_tuple is not None:
-                # is a numpy array (or similar)
-                inp_peer_rank_arys[i] = input[slice_tuple]
-            else:
-                # is a scalar
-                inp_peer_rank_arys[i] = input
-
-        return \
-            (
-                tuple(inp_peer_rank_arys),
-                tuple(
-                    out_gndarray.view_n[out_peer_rank_slice]
-                    for out_gndarray in gndarray_outputs
+            ret = \
+                (
+                    tuple(inp_peer_rank_arys),
+                    tuple(
+                        out_gndarray.view_n[out_peer_rank_slice]
+                        for out_gndarray in gndarray_outputs
+                    )
                 )
-            )
+        return ret
 
     def execute___call__(self):
         """
@@ -701,19 +706,19 @@ class GndarrayArrayUfuncExecutor(object):
 
         # Fetch the peer-rank sub-arrays of the input arrays needed
         # to calculate the corresponding sub-array of the outputs.
-        np_ufunc_inputs, np_ufunc_outputs = \
+        np_ufunc_inputs_and_outputs = \
             self.get_numpy_ufunc_peer_rank_inputs_outputs(gndarray_outputs)
 
-        # Call the self.ufunc.__call__ method to perform the computation
-        # in the sub-arrays
-        kwargs = dict()
-        kwargs.update(self._kwargs)
-        kwargs["out"] = np_ufunc_outputs
+        if np_ufunc_inputs_and_outputs is not None:
+            np_ufunc_inputs, np_ufunc_outputs = np_ufunc_inputs_and_outputs
 
-        gndarray_outputs[0].rank_logger.debug("np_ufunc_inputs=%s", np_ufunc_inputs)
-        gndarray_outputs[0].rank_logger.debug("np_ufunc_outputs=%s", np_ufunc_outputs)
-        self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
-        gndarray_outputs[0].intra_locale_barrier()
+            # Call the self.ufunc.__call__ method to perform the computation
+            # in the sub-arrays
+            kwargs = dict()
+            kwargs.update(self._kwargs)
+            kwargs["out"] = np_ufunc_outputs
+            self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+            gndarray_outputs[0].intra_locale_barrier()
 
         # return the outputs
         if len(gndarray_outputs) == 1:
