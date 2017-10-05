@@ -163,7 +163,7 @@ class win_lndarray(_np.ndarray):
                 win = \
                     _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=comm)
                 buffer = win.memory
-
+        buffer = _np.array(buffer, dtype='B', copy=False)
         self = \
             _np.ndarray.__new__(
                 cls,
