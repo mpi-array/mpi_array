@@ -653,20 +653,6 @@ class gndarray(_NDArrayOperatorsMixin):
         """
         self.rank_logger.debug("__setitem__: i=%s, v=%s", i, v)
 
-    def __eq__(self, other):
-        """
-        """
-        from . import globale_creation as _globale_creation
-        ret = _globale_creation.empty_like(self, dtype='bool')
-        if isinstance(other, gndarray):
-            ret.lndarray_proxy.rank_view_n[...] = \
-                (self.lndarray_proxy.rank_view_n[...] == other.lndarray_proxy.rank_view_n[...])
-        else:
-            ret.lndarray_proxy.rank_view_n[...] = \
-                (self.lndarray_proxy.rank_view_n[...] == other)
-
-        return ret
-
     def __array_ufunc__(self, *args, **kwargs):
         """
         """
@@ -757,6 +743,18 @@ class gndarray(_NDArrayOperatorsMixin):
         self.rank_logger.debug(
             "END: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()."
         )
+
+    def inter_locale_barrier(self):
+        """
+        """
+        if self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm:
+            self.rank_logger.debug(
+                "BEG: self.comms_and_distrib.locale_comms.inter_locale_comm.barrier()..."
+            )
+            self.comms_and_distrib.locale_comms.inter_locale_comm.barrier()
+            self.rank_logger.debug(
+                "END: self.comms_and_distrib.locale_comms.inter_locale_comm.barrier()."
+            )
 
     @property
     def halo_updater(self):
