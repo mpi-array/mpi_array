@@ -97,6 +97,18 @@ class GndarrayTest(_unittest.TestCase):
                     )
                 )
 
+    def test_construct_with_structured_array_dtype(self):
+        """
+        Construct a
+        a :obj:`mpi_array.globale.gndarray`
+        `structured array <https://docs.scipy.org/doc/numpy/user/basics.rec.html>`_.
+        """
+        gshape = (15, 20, 11, 7)
+        dt = _np.dtype([('float64', 'f8'), ('u32str', 'U32'), ('int32', 'i4'), ('u1', 'u1')])
+        gary = _globale_creation.empty(shape=gshape, dtype=dt)
+        self.assertEqual(dt, gary.dtype)
+        self.assertSequenceEqual(gshape, tuple(gary.shape))
+
     def test_get_item_and_set_item(self):
         """
         Test the :meth:`mpi_array.globale.gndarray.__getitem__`
@@ -110,7 +122,8 @@ class GndarrayTest(_unittest.TestCase):
 
     def test_update(self):
         """
-        Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D distribution.
+        Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D shaped data
+        with 1D distribution.
         """
 
         halo = 4
@@ -208,6 +221,52 @@ class GndarrayTest(_unittest.TestCase):
                                 )
                             )
                 gary.locale_comms.intra_locale_comm.barrier()
+
+    def test_update_block(self):
+        """
+        Test for :meth:`mpi_array.globale.gndarray.update`, block 2D distribution.
+        """
+
+        halo = (2, 0, 4)
+        lshape = (10, 12, 8)
+        gshape = \
+            (
+                _mpi.COMM_WORLD.size * lshape[0],
+                _mpi.COMM_WORLD.size * lshape[1],
+                _mpi.COMM_WORLD.size * lshape[2],
+            )
+        cand_lt_process = \
+            create_distribution(
+                shape=gshape,
+                distrib_type=DT_BLOCK,
+                locale_type=LT_PROCESS,
+                halo=halo
+            )
+        gary = _globale_creation.zeros(comms_and_distrib=cand_lt_process, dtype="int32")
+        if gary.locale_comms.have_valid_inter_locale_comm:
+            inter_locale_rank_val = gary.locale_comms.inter_locale_comm.rank + 1
+            gary.lndarray_proxy.view_n[...] = inter_locale_rank_val
+        gary.locale_comms.peer_comm.barrier()
+
+        gary.update()
+
+        LO = gary.lndarray_proxy.LO
+        HI = gary.lndarray_proxy.HI
+        lhalo = gary.lndarray_proxy.locale_extent.halo
+        for axis in range(gary.ndim):
+            for dir in [LO, HI]:
+                halo_slab = gary.lndarray_proxy.locale_extent.halo_slab_extent(axis, dir)
+                halo_slab_num_elems = _np.product(halo_slab.shape)
+                self.assertTrue((lhalo[axis, dir] == 0) or (halo_slab_num_elems > 0))
+                halo_slab = gary.lndarray_proxy.locale_extent.globale_to_locale_extent_h(halo_slab)
+                self.assertTrue(
+                    _np.all(
+                        _np.logical_and(
+                            gary.lndarray_proxy[halo_slab.to_slice()] != inter_locale_rank_val,
+                            gary.lndarray_proxy[halo_slab.to_slice()] != 0
+                        )
+                    )
+                )
 
     def test_all(self):
         """
