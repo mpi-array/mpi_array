@@ -693,6 +693,10 @@ class GndarrayArrayUfuncExecutor(object):
 
         # Create the output gndarray instances
         gndarray_outputs = self.create_outputs(self.outputs, result_shape, result_types)
+
+        # TODO: Should really check whether remote fetch of data is needed
+        # for any locale before calling this barrier. If all locales
+        # have local data then this barrier shouldn't be necessary.
         gndarray_outputs[0].inter_locale_barrier()
 
         # Fetch the peer-rank sub-arrays of the input arrays needed
