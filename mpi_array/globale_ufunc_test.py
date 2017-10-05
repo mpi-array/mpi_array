@@ -33,11 +33,12 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
+from .comms import LT_NODE, LT_PROCESS, DT_CLONED, DT_SINGLE_LOCALE  # , DT_BLOCK, DT_SLAB
 from . import comms as _comms
 from .globale_ufunc import broadcast_shape, ufunc_result_type
 from .globale import gndarray as _gndarray
-from .globale_creation import ones as _ones
-# from .globale_creation import zeros as _zeros
+from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
+from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -247,6 +248,98 @@ class GndarrayUfuncTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.globale_ufunc`.
     """
+
+    def setUp(self):
+        """
+        Initialise :func:`numpy.random.seed`.
+        """
+        _np.random.seed(1531796312)
+        self.rank_logger = _logging.get_rank_logger(self.id())
+
+    def compare_results(self, npy_result_ary, mpi_result_ary):
+        """
+        """
+        mpi_cln_npy_result_ary = _asarray(npy_result_ary)
+        mpi_cln_mpi_result_ary = \
+            _zeros(
+                shape=mpi_result_ary.shape,
+                dtype=mpi_result_ary.dtype,
+                locale_type=LT_NODE,
+                distrib_type=DT_CLONED
+            )
+        _copyto(dst=mpi_cln_mpi_result_ary, src=mpi_result_ary)
+        self.assertTrue(
+            _np.all(
+                mpi_cln_npy_result_ary.lndarray_proxy.lndarray
+                ==
+                mpi_cln_mpi_result_ary.lndarray_proxy.lndarray
+            )
+        )
+
+    def convert_func_args_to_gndarrays(self, converter, func_args):
+        """
+        """
+        return [converter(arg) if isinstance(arg, _np.ndarray) else arg for arg in func_args]
+
+    def do_cloned_distribution_test(self, func, *func_args):
+        """
+        """
+        def converter(np_ary):
+            return _asarray(np_ary, locale_type=LT_PROCESS)
+
+        mpi_func_args = self.convert_func_args_to_gndarrays(converter, func_args)
+        mpi_result_ary = func(*mpi_func_args)
+        npy_result_ary = func(*func_args)
+        self.compare_results(npy_result_ary, mpi_result_ary)
+
+    def do_single_locale_distribution_test(self, func, *func_args):
+        """
+        """
+        class Converter:
+
+            def __init__(self, inter_locale_rank=0):
+                self.inter_locale_rank = inter_locale_rank
+
+            def __call__(self, np_ary):
+                gndary = \
+                    _asarray(
+                        np_ary,
+                        locale_type=LT_PROCESS,
+                        distrib_type=DT_SINGLE_LOCALE,
+                        inter_locale_rank=self.inter_locale_rank
+                    )
+                num_locales = gndary.locale_comms.num_locales
+                self.inter_locale_rank = ((self.inter_locale_rank + 1) % num_locales)
+                return gndary
+
+        mpi_func_args = self.convert_func_args_to_gndarrays(Converter(), func_args)
+        mpi_result_ary = func(*mpi_func_args)
+        npy_result_ary = func(*func_args)
+        self.compare_results(npy_result_ary, mpi_result_ary)
+
+    def do_block_distribution_test(self, func, *func_args):
+        """
+        """
+        pass
+
+    def do_multi_distribution_tests(self, func, *func_args):
+        """
+        """
+        self.do_cloned_distribution_test(func, *func_args)
+        self.do_single_locale_distribution_test(func, *func_args)
+        self.do_block_distribution_test(func, *func_args)
+
+    def test_umath_multiply(self):
+        gshape = (99, 99, 5)
+        npy_ary = _np.random.uniform(low=0.5, high=1.75, size=gshape)
+        cln_ary = _asarray(npy_ary)
+
+        self.assertTrue(_np.all(npy_ary == cln_ary.lndarray_proxy.lndarray))
+
+        def multiply(a, b):
+            return a * b
+
+        self.do_multi_distribution_tests(multiply, npy_ary, 1.0 / 3.0)
 
     def test_umath(self):
         """
