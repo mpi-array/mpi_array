@@ -693,6 +693,7 @@ class GndarrayArrayUfuncExecutor(object):
 
         # Create the output gndarray instances
         gndarray_outputs = self.create_outputs(self.outputs, result_shape, result_types)
+        gndarray_outputs[0].inter_locale_barrier()
 
         # Fetch the peer-rank sub-arrays of the input arrays needed
         # to calculate the corresponding sub-array of the outputs.
@@ -708,10 +709,11 @@ class GndarrayArrayUfuncExecutor(object):
         gndarray_outputs[0].rank_logger.debug("np_ufunc_inputs=%s", np_ufunc_inputs)
         gndarray_outputs[0].rank_logger.debug("np_ufunc_outputs=%s", np_ufunc_outputs)
         self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+        gndarray_outputs[0].intra_locale_barrier()
 
         # return the outputs
         if len(gndarray_outputs) == 1:
-            return gndarray_outputs[0]
+            gndarray_outputs = gndarray_outputs[0]
         return gndarray_outputs
 
     def execute_accumulate(self):
