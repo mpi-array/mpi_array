@@ -65,6 +65,9 @@ from .comms import create_distribution
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
+from .utils import log_shared_memory_alloc as _log_shared_memory_alloc
+from .utils import log_memory_alloc as _log_memory_alloc
+from . import logging as _logging
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -114,7 +117,7 @@ class win_lndarray(_np.ndarray):
         offset=0,
         strides=None,
         order=None,
-        comm=_mpi.COMM_SELF,
+        comm=None,
         root_rank=0
     ):
         """
@@ -142,6 +145,12 @@ class win_lndarray(_np.ndarray):
         :param root_rank: Rank of root process which allocates the shared memory.
         """
         dtype = _np.dtype(dtype)
+        if comm is None:
+            raise ValueError("Got comm is None, require comm to be a valid mpi4py.MPI.Comm object")
+        if comm is _mpi.COMM_NULL:
+            raise ValueError(
+                "Got comm is COMM_NULL, require comm to be a valid mpi4py.MPI.Comm object"
+            )
         if buffer is None:
             num_rank_bytes = 0
             rank_shape = shape
@@ -150,18 +159,31 @@ class win_lndarray(_np.ndarray):
             else:
                 rank_shape = tuple(_np.zeros_like(rank_shape))
 
+            logger = _logging.get_rank_logger(__name__ + "." + cls.__name__)
+
             if (_mpi.VERSION >= 3) and (comm.size > 1):
+                _log_shared_memory_alloc(
+                    logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
+                )
                 win = \
                     _mpi.Win.Allocate_shared(
                         num_rank_bytes,
                         dtype.itemsize,
                         comm=comm
                     )
+                _log_shared_memory_alloc(
+                    logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
+                )
                 buf_isize_pair = win.Shared_query(0)
                 buffer = buf_isize_pair[0]
             else:
-                win = \
-                    _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=comm)
+                _log_memory_alloc(
+                    logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
+                )
+                win = _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=comm)
+                _log_memory_alloc(
+                    logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
+                )
                 buffer = win.memory
         buffer = _np.array(buffer, dtype='B', copy=False)
         self = \

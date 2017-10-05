@@ -32,14 +32,6 @@ Factory Functions
    create_distribution - Factory function for creating :obj:`Distribution` instances.
 
 
-Utilities
-=========
-.. autosummary::
-   :toctree: generated/
-
-   get_shared_mem_usage_percent_string
-
-
 Attributes
 ==========
 
@@ -60,7 +52,6 @@ from .license import license as _license, copyright as _copyright, version as _v
 
 import sys as _sys
 import copy as _copy
-import psutil as _psutil
 import mpi4py.MPI as _mpi
 import numpy as _np
 import collections as _collections
@@ -69,6 +60,8 @@ import array_split as _array_split
 
 from . import logging as _logging
 from .distribution import BlockPartition, ClonedDistribution, SingleLocaleDistribution
+from .utils import log_shared_memory_alloc as _log_shared_memory_alloc
+from .utils import log_memory_alloc as _log_memory_alloc
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -154,16 +147,6 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         The :obj:`mpi4py.MPI.Win` created from the :samp:`inter_locale_comm` communicator
         which exposes :attr:`buffer` for inter-locale RMA access.
         """
-
-
-def get_shared_mem_usage_percent_string(shm_file_name="/dev/shm"):
-    usage_percent = "unknown"
-    try:
-        usage_percent_float = _psutil.disk_usage(shm_file_name).percent
-        usage_percent = "%5.2f%%" % usage_percent_float
-    except Exception:
-        pass
-    return usage_percent
 
 
 class LocaleComms(object):
@@ -387,14 +370,8 @@ class LocaleComms(object):
         else:
             rank_shape = tuple(_np.zeros_like(rank_shape))
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
-            self.rank_logger.debug(
-                "BEG: Win.Allocate_shared - allocating buffer of %12d bytes for shape=%s, "
-                +
-                "dtype=%s, shared-mem-usage=%s...",
-                num_rank_bytes,
-                rank_shape,
-                dtype,
-                get_shared_mem_usage_percent_string()
+            _log_shared_memory_alloc(
+                self.rank_logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
             )
             intra_locale_win = \
                 _mpi.Win.Allocate_shared(
@@ -403,14 +380,8 @@ class LocaleComms(object):
                     comm=self.intra_locale_comm
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
-            self.rank_logger.debug(
-                "END: Win.Allocate_shared - allocated buffer of  %12d bytes for shape=%s, "
-                +
-                "dtype=%s, shared-mem-usage=%s...",
-                num_rank_bytes,
-                rank_shape,
-                dtype,
-                get_shared_mem_usage_percent_string()
+            _log_shared_memory_alloc(
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
             )
 
             if num_rank_bytes > 0:
@@ -423,7 +394,7 @@ class LocaleComms(object):
                 peer_buffer_nbytes = peer_buffer.nbytes
             else:
                 peer_buffer_nbytes = \
-                    _np.product(peer_buffer) * peer_buffer.itemsize
+                    _np.product(peer_buffer.shape) * peer_buffer.itemsize
 
             self.rank_logger.debug(
                 "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
@@ -448,13 +419,13 @@ class LocaleComms(object):
                 rank_shape,
                 dtype
             )
+            _log_memory_alloc(
+                self.rank_logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
+            )
             peer_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
-            self.rank_logger.debug(
-                "END: Win.Allocate - allocated buffer of  %d bytes for shape=%s, dtype=%s",
-                num_rank_bytes,
-                rank_shape,
-                dtype
+            _log_memory_alloc(
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
             )
             intra_locale_win = peer_win
             buffer = peer_win.memory

@@ -16,6 +16,7 @@ Classes
    :toctree: generated/
    :template: autosummary/inherits_TestCase_class.rst
 
+   WinLndarrayTest - Tests for :obj:`mpi_array.locale.win_lndarray`.
    LndarrayTest - Tests for :obj:`mpi_array.locale.lndarray`.
    LndarrayProxyTest - Tests for :obj:`mpi_array.locale.LndarrayProxy`.
 
@@ -26,7 +27,7 @@ from __future__ import absolute_import
 from array_split.split import shape_factors as _shape_factors
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
-import mpi_array.locale
+from . import locale as _locale
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
@@ -41,6 +42,45 @@ __copyright__ = _copyright()
 __version__ = _version()
 
 
+class WinLndarrayTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.locale.win_lndarray`.
+    """
+
+    def test_construct_with_invalid_comm(self):
+        """
+        Tests that ValueError is raised for invalid communicator argument
+        passed to :obj:`mpi_array.locale.win_lndarray` constructor.
+        """
+        comm = None
+        self.assertRaises(ValueError, _locale.win_lndarray, shape=(100,), comm=comm)
+
+        comm = _mpi.COMM_NULL
+        self.assertRaises(ValueError, _locale.win_lndarray, shape=(100,), comm=comm)
+
+    def test_construct(self):
+        """
+        Tests for :obj:`mpi_array.locale.win_lndarray` construction.
+        """
+        comm = _mpi.COMM_SELF
+        ary = _locale.win_lndarray(shape=(10, 10, 10), dtype="int32", comm=comm)
+        self.assertTrue(ary.comm is comm)
+        self.assertTrue(ary.win is not None)
+
+        comm = _mpi.COMM_WORLD
+        if (_mpi.VERSION >= 3) and (comm.size > 1):
+            comm = comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank)
+            if comm.size > 1:
+                ary = _locale.win_lndarray(shape=(comm.size, 10, 10), dtype="int32", comm=comm)
+                self.assertTrue(ary.comm is comm)
+                self.assertTrue(ary.win is not None)
+                ary[comm.rank] = comm.rank + 1
+                comm.barrier()
+                for r in range(0, comm.size):
+                    self.assertTrue(_np.all(ary[r] == (r + 1)))
+
+
 class LndarrayTest(_unittest.TestCase):
 
     """
@@ -52,7 +92,7 @@ class LndarrayTest(_unittest.TestCase):
         Tests :meth:`mpi_array.locale.lndarray.__new__`.
         """
         gshape = (11, 13, 51)
-        lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
+        lary = _locale.ones(shape=gshape, dtype="int16")
 
         slary = lary.lndarray
 
@@ -67,7 +107,7 @@ class LndarrayTest(_unittest.TestCase):
         bad_lshape[-1] += 1
         self.assertRaises(
             ValueError,
-            mpi_array.locale.lndarray,
+            _locale.lndarray,
             shape=lshape
         )
 
@@ -76,7 +116,7 @@ class LndarrayTest(_unittest.TestCase):
         Tests :meth:`mpi_array.locale.lndarray.__getitem__`.
         """
         gshape = (11, 13, 51)
-        lary = mpi_array.locale.ones(shape=gshape, dtype="int16")
+        lary = _locale.ones(shape=gshape, dtype="int16")
         slary = lary.lndarray
 
         # MPI windows own buffer data
@@ -86,7 +126,7 @@ class LndarrayTest(_unittest.TestCase):
         self.assertTrue(slary.base.flags.carray)
 
         v = lary[0:slary.shape[0] // 2, 0:slary.shape[1] // 2, 0:slary.shape[2] // 2]
-        self.assertTrue(isinstance(v, mpi_array.locale.lndarray))
+        self.assertTrue(isinstance(v, _locale.lndarray))
         self.assertFalse(v.flags.owndata)
         self.assertFalse(
             ((v.size > 0) and (v.shape[0] > 1) and (v.shape[1] > 1))
@@ -94,10 +134,10 @@ class LndarrayTest(_unittest.TestCase):
             v.flags.carray,
             "v.size=%s, v.shape=%s, v.flags.carray=%s" % (v.size, v.shape, v.flags.carray)
         )
-        self.assertTrue(isinstance(v.base, mpi_array.locale.lndarray))
+        self.assertTrue(isinstance(v.base, _locale.lndarray))
         self.assertFalse(v.base.flags.owndata)
         self.assertTrue(v.base.flags.carray)
-        self.assertFalse(isinstance(v.base.base, mpi_array.locale.lndarray))
+        self.assertFalse(isinstance(v.base.base, _locale.lndarray))
         self.assertTrue(isinstance(v.base.base, _np.ndarray))
         self.assertFalse(v.base.base.flags.owndata)
         self.assertTrue(v.base.base.flags.carray)
@@ -110,7 +150,7 @@ class LndarrayTest(_unittest.TestCase):
         gshape = (50, 50, 50)
         comms_and_distrib = create_distribution(gshape)
         lary = \
-            mpi_array.locale.ones(shape=gshape, comms_and_distrib=comms_and_distrib, dtype="int32")
+            _locale.ones(shape=gshape, comms_and_distrib=comms_and_distrib, dtype="int32")
 
         slary = lary.lndarray
         l_sum = _np.sum(lary.rank_view_n)
@@ -140,7 +180,7 @@ class LndarrayProxyTest(_unittest.TestCase):
         """
         self.assertRaises(
             ValueError,
-            mpi_array.locale.LndarrayProxy,
+            _locale.LndarrayProxy,
             shape=None,
             locale_extent=None,
             dtype="int64"
@@ -151,7 +191,7 @@ class LndarrayProxyTest(_unittest.TestCase):
         bad_lshape = (bad_lshape[0] - 1,) + bad_lshape[1:]
         self.assertRaises(
             ValueError,
-            mpi_array.locale.LndarrayProxy,
+            _locale.LndarrayProxy,
             shape=bad_lshape,
             locale_extent=LocaleExtent(
                 peer_rank=_mpi.COMM_WORLD.rank,
@@ -168,7 +208,7 @@ class LndarrayProxyTest(_unittest.TestCase):
         """
         comms_and_distrib = create_distribution(shape=(24, 35, 14, 7))
         lary = \
-            mpi_array.locale.empty(
+            _locale.empty(
                 shape=(24, 35, 14, 7),
                 comms_and_distrib=comms_and_distrib,
                 dtype="int64"
@@ -182,7 +222,7 @@ class LndarrayProxyTest(_unittest.TestCase):
         """
         comms_and_distrib = create_distribution(shape=(24, 35, 14, 7))
         lary = \
-            mpi_array.locale.empty(
+            _locale.empty(
                 shape=(24, 35, 14, 7),
                 comms_and_distrib=comms_and_distrib,
                 dtype="int64"
@@ -203,14 +243,14 @@ class LndarrayProxyTest(_unittest.TestCase):
 
     def test_empty_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.empty` and :func:`mpi_array.locale.empty_like`.
+        Test for :func:`_locale.empty` and :func:`_locale.empty_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape)
 
-        lary = mpi_array.locale.empty(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.empty(comms_and_distrib=cand, dtype="int64")
 
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         self.assertSequenceEqual(
@@ -218,14 +258,14 @@ class LndarrayProxyTest(_unittest.TestCase):
             list(IndexingExtent(lary.intra_partition.rank_view_slice_n).shape)
         )
 
-        lary1 = mpi_array.locale.empty_like(lary)
+        lary1 = _locale.empty_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         self.assertSequenceEqual(
             list(lshape),
             list(IndexingExtent(lary1.intra_partition.rank_view_slice_n).shape)
         )
 
-        ary = mpi_array.locale.empty_like(_np.zeros(lshape, dtype="int64"))
+        ary = _locale.empty_like(_np.zeros(lshape, dtype="int64"))
         self.assertEqual(_np.dtype("int64"), ary.dtype)
         self.assertSequenceEqual(
             list(lshape),
@@ -234,14 +274,14 @@ class LndarrayProxyTest(_unittest.TestCase):
 
     def test_empty_non_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.empty` and :func:`mpi_array.locale.empty_like`.
+        Test for :func:`_locale.empty` and :func:`_locale.empty_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
 
-        lary = mpi_array.locale.empty(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.empty(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         self.assertSequenceEqual(list(lshape), list(lary.shape))
         self.assertSequenceEqual(
@@ -249,7 +289,7 @@ class LndarrayProxyTest(_unittest.TestCase):
             list(IndexingExtent(lary.intra_partition.rank_view_slice_n).shape)
         )
 
-        lary1 = mpi_array.locale.empty_like(lary)
+        lary1 = _locale.empty_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         self.assertSequenceEqual(list(lshape), list(lary1.shape))
         self.assertSequenceEqual(
@@ -259,112 +299,112 @@ class LndarrayProxyTest(_unittest.TestCase):
 
     def test_zeros_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.zeros` and :func:`mpi_array.locale.zeros_like`.
+        Test for :func:`_locale.zeros` and :func:`_locale.zeros_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape)
 
-        lary = mpi_array.locale.zeros(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 0))
 
-        lary1 = mpi_array.locale.zeros_like(lary)
+        lary1 = _locale.zeros_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 0))
 
     def test_zeros_non_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.zeros` and :func:`mpi_array.locale.zeros_like`.
+        Test for :func:`_locale.zeros` and :func:`_locale.zeros_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
 
-        lary = mpi_array.locale.zeros(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.zeros(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 0))
 
-        lary1 = mpi_array.locale.zeros_like(lary)
+        lary1 = _locale.zeros_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 0))
 
     def test_ones_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.ones` and :func:`mpi_array.locale.ones_like`.
+        Test for :func:`_locale.ones` and :func:`_locale.ones_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape)
 
-        lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 1))
 
-        lary1 = mpi_array.locale.ones_like(lary)
+        lary1 = _locale.ones_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 1))
 
     def test_ones_non_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.ones` and :func:`mpi_array.locale.ones_like`.
+        Test for :func:`_locale.ones` and :func:`_locale.ones_like`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
 
-        lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary == 1))
 
-        lary1 = mpi_array.locale.ones_like(lary)
+        lary1 = _locale.ones_like(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == 1))
 
     def test_copy_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.copy`.
+        Test for :func:`_locale.copy`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape)
 
-        lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         lary.rank_view_n[...] = cand.locale_comms.peer_comm.rank
 
-        lary1 = mpi_array.locale.copy(lary)
+        lary1 = _locale.copy(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == lary))
 
     def test_copy_non_shared_1d(self):
         """
-        Test for :func:`mpi_array.locale.copy`.
+        Test for :func:`_locale.copy`.
         """
 
         lshape = (10,)
         gshape = (_mpi.COMM_WORLD.size * lshape[0],)
         cand = create_distribution(shape=gshape, locale_type=LT_PROCESS)
 
-        lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
+        lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
         self.assertEqual(_np.dtype("int64"), lary.dtype)
         lary.rank_view_n[...] = cand.locale_comms.peer_comm.rank
 
-        lary1 = mpi_array.locale.copy(lary)
+        lary1 = _locale.copy(lary)
         self.assertEqual(_np.dtype("int64"), lary1.dtype)
         cand.locale_comms.peer_comm.barrier()
         self.assertTrue(_np.all(lary1 == lary))
@@ -384,7 +424,7 @@ class LndarrayProxyTest(_unittest.TestCase):
                 create_distribution(shape=gshape, locale_type=LT_PROCESS, halo=halo)
             ]
         for cand in cands:
-            lary = mpi_array.locale.ones(comms_and_distrib=cand, dtype="int64")
+            lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
             self.assertEqual(_np.dtype("int64"), lary.dtype)
             rank_logger = _logging.get_rank_logger(self.id(), comm=cand.locale_comms.peer_comm)
             rank_logger.info(

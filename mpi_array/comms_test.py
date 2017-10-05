@@ -37,7 +37,8 @@ from . import logging as _logging  # noqa: E402,F401
 from .comms import CartLocaleComms, LocaleComms
 from .comms import create_single_locale_distribution, create_locale_comms, create_distribution
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
-from .comms import check_locale_type, LT_NODE, LT_PROCESS, get_shared_mem_usage_percent_string
+from .comms import check_locale_type, LT_NODE, LT_PROCESS
+from .utils import get_shared_mem_usage_percent_string
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
 __author__ = "Shane J. Latham"
