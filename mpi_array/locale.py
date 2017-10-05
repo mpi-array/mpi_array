@@ -55,6 +55,7 @@ from __future__ import absolute_import
 
 import sys as _sys
 import numpy as _np
+import mpi4py.MPI as _mpi
 import array_split as _array_split
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 import collections as _collections
@@ -96,6 +97,117 @@ class NdarrayMetaData(object):
     @property
     def order(self):
         return self._order
+
+
+class win_lndarray(_np.ndarray):
+
+    """
+    Sub-class of :obj:`numpy.ndarray` which allocates buffer using
+    MPI window allocated memory.
+    """
+
+    def __new__(
+        cls,
+        shape,
+        dtype=_np.dtype("float64"),
+        buffer=None,
+        offset=0,
+        strides=None,
+        order=None,
+        comm=_mpi.COMM_SELF,
+        root_rank=0
+    ):
+        """
+        Construct. Allocates shared-memory (:func:`mpi4py.MPI.Win.Allocated_shared`)
+        buffer when :samp:`{comm}.size > 1`. Uses :func:`mpi4py.MPI.Win.Allocate`
+        to allocate buffer when :samp:`{comm}.size == 1`.
+
+        :type shape: :samp:`None` or sequence of :obj:`int`
+        :param shape: **Local** shape of the array, this parameter is ignored.
+        :type dtype: :obj:`numpy.dtype`
+        :param dtype: Data type for elements of the array.
+        :type buffer: :obj:`buffer`
+        :param buffer: The sequence of bytes providing array element storage.
+           Raises :obj:`ValueError` if :samp:`{buffer} is None`.
+        :type offset: :samp:`None` or :obj:`int`
+        :param offset: Offset of array data in buffer, i.e where array begins in buffer
+           (in buffer bytes).
+        :type strides: :samp:`None` or sequence of :obj:`int`
+        :param strides: Strides of data in memory.
+        :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
+        :param order: Row-major (C-style) or column-major (Fortran-style) order.
+        :type comm: :obj:`mpi4py.Comm`
+        :param comm: Communicator used for allocating MPI window memory.
+        :type root_rank: :obj:`int`
+        :param root_rank: Rank of root process which allocates the shared memory.
+        """
+        dtype = _np.dtype(dtype)
+        if buffer is None:
+            num_rank_bytes = 0
+            rank_shape = shape
+            if comm.rank == root_rank:
+                num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+            else:
+                rank_shape = tuple(_np.zeros_like(rank_shape))
+
+            if (_mpi.VERSION >= 3) and (comm.size > 1):
+                win = \
+                    _mpi.Win.Allocate_shared(
+                        num_rank_bytes,
+                        dtype.itemsize,
+                        comm=comm
+                    )
+                buf_isize_pair = win.Shared_query(0)
+                buffer = buf_isize_pair[0]
+            else:
+                win = \
+                    _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=comm)
+                buffer = win.memory
+
+        self = \
+            _np.ndarray.__new__(
+                cls,
+                shape,
+                dtype,
+                buffer,
+                offset,
+                strides,
+                order
+            )
+        self._comm = comm
+        self._win = win
+
+        return self
+
+    def __array_finalize__(self, obj):
+        """
+        Sets :attr:`md` attribute for :samp:`{self}`
+        from :samp:`{obj}` if required.
+
+        :type obj: :obj:`object` or :samp:`None`
+        :param obj: Object from which attributes are set.
+        """
+        if obj is None:
+            return
+
+        self._comm = getattr(obj, '_comm', None)
+        self._win = getattr(obj, '_win', None)
+
+    @property
+    def comm(self):
+        """
+        The :obj:`mpi4py.MPI.Comm` communicator which was collectively used to allocate
+        the buffer (memory) for this array.
+        """
+        return self._comm
+
+    @property
+    def win(self):
+        """
+        The :obj:`mpi4py.MPI.Win` window which was created when allocating
+        the buffer (memory) for this array.
+        """
+        return self._win
 
 
 class lndarray(_np.ndarray):
