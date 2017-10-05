@@ -27,7 +27,7 @@ env:
     - MPI=mpich-3.2
     - MPI=openmpi-1.10.7
     - MPI=openmpi-2.0.3
-    - MPI=openmpi-2.1.1
+    - MPI=openmpi-2.1.2
 
 before_install:
   - mkdir -p $INSTALL_PREFIX
