@@ -819,7 +819,6 @@ class UpdatesForRedistribute(object):
         self._dst_distrib = dst_distrib
         self._src_distrib = src_distrib
 
-        self._updates_dict = None
         self._dst_extent_queue = None
         self._dst_cpy2_updates = None
         self._dst_rget_updates = None
@@ -969,6 +968,9 @@ class UpdatesForRedistribute(object):
                 self._dst_rget_updates[dst_rank] += dst_updates
                 all_dst_leftovers += dst_leftovers
             self._dst_extent_queue.extend(all_dst_leftovers)
+            if len(self._dst_extent_queue) <= 0:
+                break
+
         if len(self._dst_extent_queue) > 0:
             self._dst_cad.rank_logger.warning(
                 "Non-empty leftover queue=%s",
@@ -1046,6 +1048,221 @@ class UpdatesForRedistribute(object):
         self._dst_cpy2_updates = _collections.defaultdict(list)
         self._dst_rget_updates = _collections.defaultdict(list)
         self.initialise_updates()
+
+
+class UpdatesForGet(object):
+
+    """
+    Collection of update extents for fetching an arbitrary sub-extent
+    from the globale array.
+    """
+
+    def __init__(
+        self,
+        dst_extent,
+        src_distrib,
+        update_dst_halo=False
+    ):
+        """
+        """
+        object.__init__(self)
+        self._dst_extent = dst_extent
+        self._src_distrib = src_distrib
+
+        self._dst_extent_queue = None
+        self._dst_cpy2_updates = None
+        self._dst_rget_updates = None
+
+        self._update_dst_halo = update_dst_halo
+
+        self.initialise()
+
+    def create_pair_extent_update(
+        self,
+        dst_extent,
+        src_extent,
+        intersection_extent
+    ):
+        """
+        Factory method for creating :obj:`PairExtentUpdate` objects.
+
+        :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param dst_extent: Destination extent.
+        :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param src_extent: Source extent.
+        :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
+        :param src_extent: The intersection of :samp:`{src_extent}`
+           and :samp:`{dst_extent}` which defines the region of array elements which
+           are to be transferred from source to destination.
+        :rtype: :obj:`PairExtentUpdate`
+        :return: Object Defining the source sub-array and destination sub-array.
+        """
+        peu = \
+            PairExtentUpdate(
+                self._dst_extent,
+                self._src_distrib.locale_extents[src_extent.inter_locale_rank],
+                intersection_extent,
+                intersection_extent
+            )
+
+        return [peu, ]
+
+    def calc_intersection_split(self, dst_extent, src_extent):
+        """
+        Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+        Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
+        are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
+        The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
+        are returned as a :obj:`list` of *update* :obj:`PairExtentUpdate` elements.
+        Returns :obj:`tuple` pair :samp:`(leftovers, updates)`
+
+        :type dst_extent: :obj:`HaloIndexingExtent`
+        :param dst_extent: Extent which is to receive update from intersection
+           with :samp:`{src_extent}`.
+        :type src_extent: :obj:`HaloIndexingExtent`
+        :param src_extent: Extent which is to provide update for the intersecting
+           region of :samp:`{dst_extent}`.
+        :rtype: :obj:`tuple`
+        :return: Returns :obj:`tuple` pair of :samp:`(leftovers, updates)`.
+        """
+        return \
+            _calc_intersection_split(
+                dst_extent,
+                src_extent,
+                self.create_pair_extent_update,
+                self._update_dst_halo
+            )
+
+    def get_cpy2_src_extents(self, dst_inter_locale_rank):
+        """
+        """
+        src_extents = (self._src_distrib.locale_extents[dst_inter_locale_rank],)
+        return src_extents
+
+    def initialise_cpy2_updates(self):
+        """
+        """
+        all_dst_leftovers = []
+        for dst_extent_idx in range(len(self._dst_extent_queue)):
+            dst_extent = self._dst_extent_queue.pop()
+            dst_inter_locale_rank = dst_extent.inter_locale_rank
+            src_extents = self.get_cpy2_src_extents(dst_inter_locale_rank)
+            dst_extent_leftovers = [dst_extent, ]
+            if (src_extents is not None) and (len(src_extents) > 0):
+                for src_extent in src_extents:
+                    new_dst_extent_leftovers = []
+                    for dst_extent in dst_extent_leftovers:
+                        dst_leftovers, dst_updates = \
+                            self.calc_intersection_split(dst_extent, src_extent)
+                        self._dst_cpy2_updates[dst_inter_locale_rank] += dst_updates
+                        new_dst_extent_leftovers += dst_leftovers
+                    dst_extent_leftovers = new_dst_extent_leftovers
+            all_dst_leftovers += dst_extent_leftovers
+
+        self._dst_extent_queue.extend(all_dst_leftovers)
+
+    def initialise_rget_updates(self):
+        """
+        """
+        for src_rank in range(len(self._src_distrib.locale_extents)):
+            src_extent = self._src_distrib.locale_extents[src_rank]
+            all_dst_leftovers = []
+            while len(self._dst_extent_queue) > 0:
+                dst_extent = self._dst_extent_queue.pop()
+                dst_rank = dst_extent.inter_locale_rank
+                dst_leftovers, dst_updates = \
+                    self.calc_intersection_split(dst_extent, src_extent)
+                self._dst_rget_updates[dst_rank] += dst_updates
+                all_dst_leftovers += dst_leftovers
+            self._dst_extent_queue.extend(all_dst_leftovers)
+            if len(self._dst_extent_queue) <= 0:
+                break
+        if len(self._dst_extent_queue) > 0:
+            self._dst_cad.rank_logger.warning(
+                "Non-empty leftover queue=%s",
+                self._dst_extent_queue
+            )
+
+    def initialise_updates(self):
+        """
+        """
+        self.initialise_cpy2_updates()
+        self.initialise_rget_updates()
+
+    def initialise(self):
+        self._dst_extent_queue = _collections.deque()
+        self._dst_extent_queue.extend((self._dst_extent,))
+        self._dst_cpy2_updates = _collections.defaultdict(list)
+        self._dst_rget_updates = _collections.defaultdict(list)
+
+        self.initialise_updates()
+
+
+class MpiUpdatesForGet(UpdatesForGet):
+
+    """
+    Extends :obj:`UpdatesForGet` by over-riding :meth:`create_pair_extent_update`
+    to generate :obj:`MpiPairExtentUpdate` objects.
+    """
+
+    def __init__(
+        self,
+        dst_extent,
+        src_distrib,
+        dtype,
+        order,
+        update_dst_halo=False,
+    ):
+        """
+        """
+        self.dtype = _np.dtype(dtype)
+        self.order = order
+        UpdatesForGet.__init__(
+            self,
+            dst_extent=dst_extent,
+            src_distrib=src_distrib,
+            update_dst_halo=update_dst_halo
+        )
+
+    def create_pair_extent_update(
+        self,
+        dst_extent,
+        src_extent,
+        intersection_extent
+    ):
+        """
+        Factory method for creating :obj:`PairExtentUpdate` objects.
+
+        :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param dst_extent: Destination extent.
+        :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param src_extent: Source extent.
+        :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
+        :param src_extent: The intersection of :samp:`{src_extent}`
+           and :samp:`{dst_extent}` which defines the region of array elements which
+           are to be transferred from source to destination.
+        :rtype: :obj:`PairExtentUpdate`
+        :return: Object Defining the source sub-array and destination sub-array.
+        """
+        peu = \
+            MpiPairExtentUpdate(
+                self._dst_extent,
+                self._src_distrib.locale_extents[src_extent.inter_locale_rank],
+                intersection_extent,
+                intersection_extent
+            )
+
+        peu_list = [peu, ]
+
+        for peu in peu_list:
+            peu.initialise_data_types(
+                dst_dtype=self.dtype,
+                src_dtype=self.dtype,
+                dst_order=self.order,
+                src_order=self.order
+            )
+
+        return peu_list
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

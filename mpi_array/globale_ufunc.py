@@ -463,6 +463,14 @@ class GndarrayArrayUfuncExecutor(object):
             self._casting = "same_kind"
 
     @property
+    def array_like_obj(self):
+        """
+        The :obj:`mpi_array.globale.gndarray` object which triggered the
+        construction of this :obj:`GndarrayArrayUfuncExecutor` object.
+        """
+        return self._array_like_obj
+
+    @property
     def peer_comm(self):
         """
         """
@@ -593,9 +601,9 @@ class GndarrayArrayUfuncExecutor(object):
                     _globale_creation.empty(
                         result_shape,
                         dtype=result_types[0],
-                        peer_comm=self._array_like_obj.locale_comms.peer_comm,
-                        intra_locale_comm=self._array_like_obj.locale_comms.intra_locale_comm,
-                        inter_locale_comm=self._array_like_obj.locale_comms.inter_locale_comm
+                        peer_comm=self.peer_comm,
+                        intra_locale_comm=self.intra_locale_comm,
+                        inter_locale_comm=self.inter_locale_comm
                     )
             outputs = (template_output_gary,)
         outputs = \
@@ -620,6 +628,8 @@ class GndarrayArrayUfuncExecutor(object):
 
     def get_numpy_ufunc_peer_rank_inputs_outputs(self, gndarray_outputs):
         """
+        Returns two element tuple of :samp:`(input_arrays, output_arrays)` which
+        are to be passed to the :obj:`numpy.ufunc` object :attr:`ufunc`.
         """
         # First fetch/slice the parts of the input required for the locale extent
         out_gndarray = gndarray_outputs[0]
@@ -688,6 +698,9 @@ class GndarrayArrayUfuncExecutor(object):
         # to calculate the corresponding sub-array of the outputs.
         np_ufunc_inputs, np_ufunc_outputs = \
             self.get_numpy_ufunc_peer_rank_inputs_outputs(gndarray_outputs)
+
+        # Call the self.ufunc.__call__ method to perform the computation
+        # in the sub-arrays
         kwargs = dict()
         kwargs.update(self._kwargs)
         kwargs["out"] = np_ufunc_outputs
@@ -695,6 +708,8 @@ class GndarrayArrayUfuncExecutor(object):
         gndarray_outputs[0].rank_logger.debug("np_ufunc_inputs=%s", np_ufunc_inputs)
         gndarray_outputs[0].rank_logger.debug("np_ufunc_outputs=%s", np_ufunc_outputs)
         self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+
+        # return the outputs
         if len(gndarray_outputs) == 1:
             return gndarray_outputs[0]
         return gndarray_outputs
@@ -702,31 +717,33 @@ class GndarrayArrayUfuncExecutor(object):
     def execute_accumulate(self):
         """
         """
-        return NotImplemented()
+        return NotImplemented
 
     def execute_reduce(self):
         """
         """
-        return NotImplemented()
+        return NotImplemented
 
     def execute_reduceat(self):
         """
         """
-        return NotImplemented()
+        return NotImplemented
 
     def execute_at(self):
         """
         """
-        return NotImplemented()
+        return NotImplemented
 
     def execute_outer(self):
         """
         """
-        return NotImplemented()
+        return NotImplemented
 
     def execute(self):
         """
-        Perform the ufunc operation.
+        Perform the ufunc operation. Call is forwarded to one
+        of: :meth:`execute___call__`, :meth:`execute_accumulate`, :meth:`execute_at`
+        , :meth:`execute_outer`, :meth:`execute_reduce` or :meth:`execute_reduceat`.
         """
         return getattr(self, "execute_" + self.method)()
 

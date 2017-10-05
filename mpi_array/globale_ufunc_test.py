@@ -284,7 +284,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
         c *= (_np.ones(tuple(c.shape[1:]), dtype=c.dtype) * 2)
         self.assertTrue((c == 4).all())
 
-    def do_not_test_umath_distributed_broadcast(self):
+    def test_umath_distributed_broadcast(self):
         a = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
         b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
 
