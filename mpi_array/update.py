@@ -916,19 +916,16 @@ class UpdatesForRedistribute(object):
         """
         dst_translated_peer_ranks = self._dst_translated_peer_ranks[dst_inter_locale_rank]
         src_locale_extents = self._src_distrib.locale_extents
-        src_extents = \
-            self._src_distrib.locale_extents[
-                _np.array(
-                    tuple(
-                        src_inter_locale_rank
-                        for src_inter_locale_rank in range(0, len(src_locale_extents))
-                        if _np.intersect1d(
-                            dst_translated_peer_ranks,
-                            self._src_peer_ranks[src_inter_locale_rank]
-                        ).size > 0
-                    )
-                )
-            ]
+        src_extent_indices = \
+            tuple(
+                src_inter_locale_rank
+                for src_inter_locale_rank in range(0, len(src_locale_extents))
+                if _np.intersect1d(
+                    dst_translated_peer_ranks,
+                    self._src_peer_ranks[src_inter_locale_rank]
+                ).size > 0
+            )
+        src_extents = tuple(src_locale_extents[e] for e in src_extent_indices)
         return src_extents
 
     def initialise_cpy2_updates(self):
