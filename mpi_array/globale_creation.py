@@ -232,13 +232,13 @@ def asarray(a, dtype=None, order=None, **kwargs):
             ret_ary.lndarray_proxy.lndarray[...] = np_ary
         else:
             locale_rank_view_slice_n = ret_ary.lndarray_proxy.rank_view_slice_n
-            globale_rank_view_slice_n = \
-                ret_ary.lndarray_proxy.locale_extent.locale_to_globale_slice_h(
-                    locale_rank_view_slice_n
-                )
-
-            ret_ary.lndarray_proxy.lndarray[locale_rank_view_slice_n] =\
-                np_ary[globale_rank_view_slice_n]
+            if len(locale_rank_view_slice_n) > 0:
+                globale_rank_view_slice_n = \
+                    ret_ary.lndarray_proxy.locale_extent.locale_to_globale_slice_h(
+                        locale_rank_view_slice_n
+                    )
+                ret_ary.lndarray_proxy.lndarray[locale_rank_view_slice_n] =\
+                    np_ary[globale_rank_view_slice_n]
 
         ret_ary.intra_locale_barrier()
 
