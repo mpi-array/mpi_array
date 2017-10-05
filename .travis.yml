@@ -13,7 +13,7 @@ os: linux
 
 cache:
   directories:
-    - $HOME/local
+    - $HOME/local/$TRAVIS_OS_NAME
 
 addons:
   apt:
@@ -21,8 +21,8 @@ addons:
 
 env:
   global:
-    - INSTALL_PREFIX=$HOME/local
-    - BUILD_PREFIX=$HOME/src/builds
+    - INSTALL_PREFIX=$HOME/local/$TRAVIS_OS_NAME
+    - BUILD_PREFIX=$HOME/src/builds/$TRAVIS_OS_NAME
   matrix:
     - MPI=mpich-3.2
     - MPI=openmpi-1.10.7
