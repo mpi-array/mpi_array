@@ -281,15 +281,19 @@ class GndarrayTest(_unittest.TestCase):
         gary1 = _globale_creation.ones(comms_and_distrib=cand, dtype="int64")
         self.assertFalse((gary0 == gary1).all())
 
-    def do_test_copyto_same_locale_types(self, halo=0, dst_dtype="int32", src_dtype="int32"):
+    def do_test_copyto_same_locale_types(
+        self,
+        halo=0,
+        dst_dtype="int32",
+        src_dtype="int32",
+        locale_type=LT_PROCESS
+    ):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
         lshape = (16, 16)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
-        locale_type = LT_PROCESS
-        if _mpi.COMM_WORLD.size >= 128:
-            locale_type = LT_NODE
+        gshape = (2048, 2048)
         cand_slab_ax0 = \
             create_distribution(
                 shape=gshape,
@@ -314,7 +318,7 @@ class GndarrayTest(_unittest.TestCase):
         gary_slb_ax1 = _globale_creation.zeros(comms_and_distrib=cand_slb_ax1, dtype=dst_dtype)
         self.assertTrue(_np.all(gary_slb_ax1.lndarray_proxy.lndarray[...] == 0))
 
-        if gary_slb_ax0.locale_comms.peer_comm.size <= 1:
+        if gary_slb_ax0.locale_comms.num_locales <= 1:
             self.assertSequenceEqual(
                 gary_slb_ax0.lndarray_proxy.shape, gary_slb_ax1.lndarray_proxy.shape
             )
@@ -365,17 +369,29 @@ class GndarrayTest(_unittest.TestCase):
             _np.all(gary_slb_ax1.rank_view_n[...] == gary_slb_ax1_1.rank_view_n[...])
         )
 
-    def test_copyto_same_locale_types_no_halo_same_dtype(self):
+    def test_copyto_same_node_locale_types_no_halo_same_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        self.do_test_copyto_same_locale_types(halo=0)
+        self.do_test_copyto_same_locale_types(halo=0, locale_type=LT_NODE)
 
-    def test_copyto_same_locale_types_wt_halo_same_dtype(self):
+    def test_copyto_same_node_locale_types_wt_halo_same_dtype(self):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
-        self.do_test_copyto_same_locale_types(halo=4)
+        self.do_test_copyto_same_locale_types(halo=4, locale_type=LT_NODE)
+
+    def test_copyto_same_process_locale_types_no_halo_same_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_same_locale_types(halo=0, locale_type=LT_PROCESS)
+
+    def test_copyto_same_process_locale_types_wt_halo_same_dtype(self):
+        """
+        Tests for :func:`mpi_array.globale.copyto`.
+        """
+        self.do_test_copyto_same_locale_types(halo=4, locale_type=LT_PROCESS)
 
     def do_test_copyto_diff_locale_types(
         self,
