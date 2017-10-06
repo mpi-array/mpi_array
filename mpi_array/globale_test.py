@@ -229,11 +229,12 @@ class GndarrayTest(_unittest.TestCase):
 
         halo = (2, 0, 4)
         lshape = (10, 12, 8)
+        shape_factor = max([1, int(_np.floor(_np.power(_mpi.COMM_WORLD.size, 1.0/3.0)))])
         gshape = \
             (
-                _mpi.COMM_WORLD.size * lshape[0],
-                _mpi.COMM_WORLD.size * lshape[1],
-                _mpi.COMM_WORLD.size * lshape[2],
+                shape_factor * lshape[0],
+                shape_factor * lshape[1],
+                shape_factor * lshape[2],
             )
         cand_lt_process = \
             create_distribution(
