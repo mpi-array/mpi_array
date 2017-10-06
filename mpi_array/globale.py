@@ -857,7 +857,7 @@ class gndarray(_NDArrayOperatorsMixin):
 
         return ary_out
 
-    def locale_get(self, slice=None, start=None, stop=None):
+    def locale_get(self, slice=None, start=None, stop=None, halo=0):
         """
         Collective over :samp:`{self}.comms.intra_locale_comm` to
         get a portion of the globale array. Returns a view from the
@@ -866,40 +866,39 @@ class gndarray(_NDArrayOperatorsMixin):
         remote locales.
         """
         if slice is not None:
-            self.rank_logger.debug("slice=%s", slice)
             tmp = _np.array(list([s.start, s.stop] for s in slice))
             start = tmp[:, 0]
             stop = tmp[:, 1]
 
+        # Create an extent object equivalent to the argument slice.
         locale_extent = self.lndarray_proxy.locale_extent
+        dst_extent =\
+            _LocaleExtent(
+                peer_rank=locale_extent.peer_rank,
+                inter_locale_rank=locale_extent.inter_locale_rank,
+                start=start,
+                stop=stop,
+                slice=slice,
+                globale_extent=self.distribution.globale_extent,
+                halo=halo,
+            )
+
         locale_ary = None
         if _np.all(
             _np.logical_and(
-                start >= locale_extent.start_n,
-                stop <= locale_extent.stop_n
+                dst_extent.start_h >= locale_extent.start_n,
+                dst_extent.stop_h <= locale_extent.stop_n
             )
         ):
             # Can return a view of the locale array data
-            shape = stop - start
-            lstart = locale_extent.globale_to_locale_h(start)
+            shape = dst_extent.shape_h
+            lstart = locale_extent.globale_to_locale_h(dst_extent.start_h)
             lstop = lstart + shape
             slc = tuple(_builtin_slice(lstart[a], lstop[a]) for a in range(locale_extent.ndim))
             locale_ary = self.lndarray_proxy.lndarray[slc]
         else:
             # Need to fetch remote data
 
-            # Create an extent object equivalent to the argument slice.
-            locale_extent = self.lndarray_proxy.locale_extent
-            dst_extent =\
-                _LocaleExtent(
-                    peer_rank=locale_extent.peer_rank,
-                    inter_locale_rank=locale_extent.inter_locale_rank,
-                    start=start,
-                    stop=stop,
-                    slice=slice,
-                    globale_extent=self.distribution.globale_extent,
-                    halo=self.distribution.halo,
-                )
             # Allocate (shared) memory for the data to be returned.
             locale_ary = \
                 _win_lndarray(
@@ -915,7 +914,8 @@ class gndarray(_NDArrayOperatorsMixin):
                         dst_extent=dst_extent,
                         src_distrib=self.distribution,
                         dtype=self.dtype,
-                        order=self.order
+                        order=self.order,
+                        update_dst_halo=True
                     )
                 # Perform the updates, copy locale array data to locale_ary first.
                 updates = update_calculator._dst_cpy2_updates[locale_extent.inter_locale_rank]
