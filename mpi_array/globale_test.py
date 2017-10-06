@@ -229,7 +229,7 @@ class GndarrayTest(_unittest.TestCase):
 
         halo = (2, 0, 4)
         lshape = (10, 12, 8)
-        shape_factor = max([1, int(_np.floor(_np.power(_mpi.COMM_WORLD.size, 1.0/3.0)))])
+        shape_factor = max([1, int(_np.floor(_np.power(_mpi.COMM_WORLD.size, 1.0 / 3.0)))])
         gshape = \
             (
                 shape_factor * lshape[0],
