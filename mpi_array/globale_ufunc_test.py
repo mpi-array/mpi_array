@@ -268,7 +268,13 @@ class ToGndarrayConverter(object):
         :rtype: :obj:`mpi_array.globale.gndarray`
         :return: The :samp:`{npy_ary}` converted to a :obj:`mpi_array.globale.gndarray` instance.
         """
-        return _asarray(npy_ary, **self.kwargs)
+        if "halo" not in self.kwargs.keys():
+            halo = _np.random.randint(low=1, high=4, size=(npy_ary.ndim, 2))
+            gnd_ary = _asarray(npy_ary, halo=halo, **self.kwargs)
+        else:
+            gnd_ary = _asarray(npy_ary, **self.kwargs)
+
+        return gnd_ary
 
 
 class GndarrayUfuncTest(_unittest.TestCase):
@@ -314,9 +320,9 @@ class GndarrayUfuncTest(_unittest.TestCase):
         _copyto(dst=mpi_cln_mpi_result_ary, src=mpi_result_ary)
         self.assertTrue(
             _np.all(
-                mpi_cln_npy_result_ary.lndarray_proxy.lndarray
+                mpi_cln_npy_result_ary.lndarray_proxy.view_n
                 ==
-                mpi_cln_mpi_result_ary.lndarray_proxy.lndarray
+                mpi_cln_mpi_result_ary.lndarray_proxy.view_n
             )
         )
 
