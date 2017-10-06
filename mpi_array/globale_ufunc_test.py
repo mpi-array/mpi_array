@@ -25,6 +25,7 @@ Classes
    UfuncResultTypeTest - Tests for :func:`mpi_array.globale_ufunc.ufunc_result_type` function.
    BroadcastShapeTest - Tests for :func:`mpi_array.globale_ufunc.broadcast_shape` function.
    GndarrayUfuncTest - Tests for :func:`mpi_array.globale_ufunc.gndarray_array_ufunc` function.
+   ToGndarrayConverter - Base class for :obj:`numpy.ndarray` to :obj:`mpi_array.globale.gndarray`.
 """
 from __future__ import absolute_import
 
@@ -33,7 +34,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .comms import LT_NODE, LT_PROCESS, DT_CLONED, DT_SINGLE_LOCALE  # , DT_BLOCK, DT_SLAB
+from .comms import LT_NODE, LT_PROCESS, DT_CLONED, DT_SINGLE_LOCALE, DT_BLOCK  # , DT_SLAB
 from . import comms as _comms
 from .globale_ufunc import broadcast_shape, ufunc_result_type
 from .globale import gndarray as _gndarray
@@ -243,6 +244,33 @@ class BroadcastShapeTest(_unittest.TestCase):
         self.assertSequenceEqual((4, 5), broadcast_shape((5, ), (1, 5), (4, 1)))
 
 
+class ToGndarrayConverter(object):
+
+    """
+    Base class for converting :obj:`numpy.ndarray` objects
+    to :obj:`mpi_array.globale.gndarray` objects.
+    """
+
+    def __init__(self, **kwargs):
+        """
+        The :samp:`kwargs` are passed directly to the :func:`mpi_array.globale_creation.asarray`
+        function in :meth:`__call__`.
+        """
+        self.kwargs = kwargs
+
+    def __call__(self, npy_ary):
+        """
+        Converts the :samp:`{npy_ary}` to a :obj:`mpi_array.globale.gndarray` instance.
+
+        :type npy_ary: :obj:`numpy.ndarray`
+        :param npy_ary: Array converted to :obj:`mpi_array.globale.gndarray`.
+           This array is assumed to be identical on all peer-rank MPI processes.
+        :rtype: :obj:`mpi_array.globale.gndarray`
+        :return: The :samp:`{npy_ary}` converted to a :obj:`mpi_array.globale.gndarray` instance.
+        """
+        return _asarray(npy_ary, **self.kwargs)
+
+
 class GndarrayUfuncTest(_unittest.TestCase):
 
     """
@@ -254,10 +282,26 @@ class GndarrayUfuncTest(_unittest.TestCase):
         Initialise :func:`numpy.random.seed`.
         """
         _np.random.seed(1531796312)
-        self.rank_logger = _logging.get_rank_logger(self.id())
+        self._rank_logger = _logging.get_rank_logger(self.id())
+        self.num_node_locales = _asarray(_np.zeros((100,))).locale_comms.num_locales
+
+    @property
+    def rank_logger(self):
+        """
+        A :obj:`logging.Logger` object.
+        """
+        return self._rank_logger
 
     def compare_results(self, npy_result_ary, mpi_result_ary):
         """
+        Asserts that all elements of the :obj:`numpy.ndarray` :samp:`{npy_result_ary}`
+        equal all elements of the  :obj:`mpi_array.globale.gndarray` :samp:`{mpi_result_ary}`.
+
+        :type npy_result_ary: :obj:`numpy.ndarray`
+        :param npy_result_ary: The result array from :obj:`numpy.ufunc` execution.
+        :type mpi_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_result_ary: The result array
+           from :meth:`mpi_array.globale.gndarray.__array_ufunc__` execution.
         """
         mpi_cln_npy_result_ary = _asarray(npy_result_ary)
         mpi_cln_mpi_result_ary = \
@@ -278,110 +322,230 @@ class GndarrayUfuncTest(_unittest.TestCase):
 
     def convert_func_args_to_gndarrays(self, converter, func_args):
         """
+
+        :type converter: :obj:`ToGndarrayConverter`
+        :param converter: Used to convert the :obj:`numpy.ndarray` instances
+           of :samp:`{func_args}` to :obj:`mpi_array.globale.gndarray` instances.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: Sequence of array-like objects.
+           Can be comprised of misture of :obj:`numpy.ndarray` instances, scalars
+           or (broadcastable) sequences (e.g. tuple of scalars) elements.
+        :rtype: :obj:`list`
+        :return: The :samp:`{func_args}` list with :obj:`numpy.ndarray` instances
+           converted to :obj:`mpi_array.globale.gndarray` instances.
         """
         return [converter(arg) if isinstance(arg, _np.ndarray) else arg for arg in func_args]
 
-    def do_cloned_distribution_test(self, func, *func_args):
+    def do_convert_execute_and_compare(self, npy_result_ary, converter, func, *func_args):
         """
-        """
-        def converter(np_ary):
-            return _asarray(np_ary, locale_type=LT_PROCESS)
+        Calls :samp:`{func}` with :samp:`{func_args}` arguments and compares
+        the result with :samp:`{func}` called
+        with :samp:`self.convert_func_args_to_gndarrays({converter}, {func_args})`
+        converted arguments.
 
+        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
+        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
+            If :samp:`None` then it is computed.
+        :type converter: :obj:`ToGndarrayConverter`
+        :param converter: Used to convert the :obj:`numpy.ndarray` instances
+           of :samp:`{func_args}` to :samp:`mpi_array.globale.gndarray` instances.
+        :type func: callable
+        :param func: Function which computes a new array from the :samp:`*{func_args}`
+            arguments and for arguments converted with :samp:`{converter}`.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: The arguments for the :samp:`{func}` function.
+           Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
+           sequence (e.g. tuple of scalars) elements.
+
+        """
         mpi_func_args = self.convert_func_args_to_gndarrays(converter, func_args)
         mpi_result_ary = func(*mpi_func_args)
-        npy_result_ary = func(*func_args)
+        if npy_result_ary is None:
+            npy_result_ary = func(*func_args)
         self.compare_results(npy_result_ary, mpi_result_ary)
 
-    def do_single_locale_distribution_test(self, func, *func_args):
+    def do_cloned_distribution_test(self, npy_result_ary, func, *func_args):
         """
-        """
-        class Converter:
+        Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
+        to :obj:`mpi_array.globale.gndarray` instances distributed as
+        the :attr:`mpi_array.comms.DT_CLONED` distribution type.
 
-            def __init__(self, inter_locale_rank=0):
-                self.inter_locale_rank = inter_locale_rank
+        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
+        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
+            If :samp:`None` then it is computed.
+        :type func: callable
+        :param func: Function which computes a new array from the :samp:`*{func_args}`
+            arguments.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: The arguments for the :samp:`{func}` function.
+           Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
+           sequence (e.g. tuple of scalars) elements.
+        """
+        converter = ToGndarrayConverter(locale_type=LT_PROCESS, distrib_type=DT_CLONED)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+
+        converter = ToGndarrayConverter(locale_type=LT_NODE, distrib_type=DT_CLONED)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+
+    def do_single_locale_distribution_test(self, npy_result_ary, func, *func_args):
+        """
+        Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
+        to :obj:`mpi_array.globale.gndarray` instances distributed as
+        the :attr:`mpi_array.comms.DT_SINGLE_LOCALE` distribution type.
+
+        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
+        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
+            If :samp:`None` then it is computed.
+        :type func: callable
+        :param func: Function which computes a new array from the :samp:`*{func_args}`
+            arguments.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: The arguments for the :samp:`{func}` function.
+           Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
+           sequence (e.g. tuple of scalars) elements.
+        """
+        class Converter(ToGndarrayConverter):
 
             def __call__(self, np_ary):
-                gndary = \
-                    _asarray(
-                        np_ary,
-                        locale_type=LT_PROCESS,
-                        distrib_type=DT_SINGLE_LOCALE,
-                        inter_locale_rank=self.inter_locale_rank
-                    )
+                gndary = ToGndarrayConverter.__call__(self, np_ary)
                 num_locales = gndary.locale_comms.num_locales
-                self.inter_locale_rank = ((self.inter_locale_rank + 1) % num_locales)
+                self.kwargs["inter_locale_rank"] = \
+                    ((self.kwargs["inter_locale_rank"] + 1) % num_locales)
                 return gndary
 
-        mpi_func_args = self.convert_func_args_to_gndarrays(Converter(), func_args)
-        mpi_result_ary = func(*mpi_func_args)
-        npy_result_ary = func(*func_args)
-        self.compare_results(npy_result_ary, mpi_result_ary)
+        converter = \
+            Converter(locale_type=LT_PROCESS, distrib_type=DT_SINGLE_LOCALE, inter_locale_rank=0)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
 
-    def do_block_distribution_test(self, func, *func_args):
+        converter = \
+            Converter(locale_type=LT_NODE, distrib_type=DT_SINGLE_LOCALE, inter_locale_rank=0)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+
+    def do_block_distribution_test(self, npy_result_ary, func, *func_args):
         """
+        Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
+        to :obj:`mpi_array.globale.gndarray` instances distributed as
+        the :attr:`mpi_array.comms.DT_BLOCK` distribution type.
+
+        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
+        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
+            If :samp:`None` then it is computed.
+        :type func: callable
+        :param func: Function which computes a new array from the :samp:`*{func_args}`
+            arguments.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: The arguments for the :samp:`{func}` function.
+           Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
+           sequence (e.g. tuple of scalars) elements.
         """
-        pass
+        class Converter(ToGndarrayConverter):
+
+            def __init__(self, **kwargs):
+                ToGndarrayConverter.__init__(self, **kwargs)
+                self.dims = None
+                self.axis = 1
+
+            def __call__(self, np_ary):
+                if self.dims is None:
+                    self.kwargs["dims"] = tuple(_np.zeros((np_ary.ndim,), dtype="int64"))
+                gndary = ToGndarrayConverter.__call__(self, np_ary)
+                self.axis = min([self.axis, np_ary.ndim])
+                self.kwargs["dims"] = _np.ones((np_ary.ndim,), dtype="int64")
+                self.kwargs["dims"][self.axis] = 0
+                self.kwargs["dims"] = tuple(self.kwargs["dims"])
+                self.dims = self.kwargs["dims"]
+                self.axis = ((self.axis + 1) % np_ary.ndim)
+
+                return gndary
+
+        converter = Converter(locale_type=LT_PROCESS, distrib_type=DT_BLOCK)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+
+        converter = Converter(locale_type=LT_NODE, distrib_type=DT_BLOCK)
+        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
 
     def do_multi_distribution_tests(self, func, *func_args):
         """
+        Compares result of :samp:`{func}` called with :obj:`numpy.ndarray`
+        arguments and result of :samp:`{func}` called with :obj:`mpi_array.globale.gndarray`
+        arguments.
+        Executes :samp:`{func}(*{func_args})` and compares the result
+        with :samp:`{func}(*self.convert_func_args_to_gndarrays(converter, {func_args}))`,
+        where multiple versions instances of :samp:`converter` are used to generate
+        different distributions for the :obj:`mpi_array.globale.gndarray` :samp:`{func}`
+        arguments.
+
+        :type func: callable
+        :param func: Function which computes a new array from the :samp:`*{func_args}`
+            arguments.
+        :type func_args: sequence of :obj:`numpy.ndarray` or array-like objects
+        :param func_args: The arguments for the :samp:`{func}` function.
+           Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
+           sequence (e.g. tuple of scalars) elements.
         """
-        self.do_cloned_distribution_test(func, *func_args)
-        self.do_single_locale_distribution_test(func, *func_args)
-        self.do_block_distribution_test(func, *func_args)
+        npy_result_ary = func(*func_args)
+        npy_result_ary = _asarray(npy_result_ary)
+
+        self.do_cloned_distribution_test(npy_result_ary, func, *func_args)
+        self.do_single_locale_distribution_test(npy_result_ary, func, *func_args)
+        self.do_block_distribution_test(npy_result_ary, func, *func_args)
 
     def test_umath_multiply(self):
-        gshape = (99, 99, 5)
-        npy_ary = _np.random.uniform(low=0.5, high=1.75, size=gshape)
-        cln_ary = _asarray(npy_ary)
 
-        self.assertTrue(_np.all(npy_ary == cln_ary.lndarray_proxy.lndarray))
+        per_axis_size_factor = int(_np.floor(_np.sqrt(float(self.num_node_locales))))
+        gshape0 = (41 * per_axis_size_factor + 1, 43 * per_axis_size_factor + 3, 5)
+        npy_ary0 = _np.random.uniform(low=0.5, high=1.75, size=gshape0)
 
-        def multiply(a, b):
-            return a * b
+        cln_ary = _asarray(npy_ary0)
+        self.assertTrue(_np.all(npy_ary0 == cln_ary.lndarray_proxy.lndarray))
 
-        self.do_multi_distribution_tests(multiply, npy_ary, 1.0 / 3.0)
+        def multiply(ary0, ary1):
+            return ary0 * ary1
+
+        self.do_multi_distribution_tests(multiply, npy_ary0, 1.0 / 3.0)
+        self.do_multi_distribution_tests(multiply, npy_ary0, (0.1, 0.3, 0.5, 0.7, 1.9))
+        self.do_multi_distribution_tests(multiply, npy_ary0, npy_ary0)
+
+        gshape1 = gshape0[0:2] + (1,)
+        npy_ary1 = _np.random.uniform(low=-0.5, high=2.9, size=gshape1)
+        self.do_multi_distribution_tests(multiply, npy_ary0, npy_ary1)
+        self.do_multi_distribution_tests(multiply, npy_ary1, npy_ary0)
 
     def test_umath(self):
         """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` object
+        and a scalar.
         """
-        a = _ones((32, 48), dtype="int32", locale_type=_comms.LT_PROCESS)
-        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
-
-        c = a + b
+        c = _ones((32, 48), dtype="int32", locale_type=_comms.LT_PROCESS)
 
         self.assertTrue(isinstance(c, _gndarray))
-        self.assertTrue((c == 2).all())
+        self.assertTrue((c == 1).all())
 
         c *= 2
-        self.assertTrue((c == 4).all())
+        self.assertTrue((c == 2).all())
 
     def test_umath_broadcast(self):
         """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` objects
+        and an *array-like* object which requires requiring broadcast to result shape.
         """
-        a = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
-        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
-
-        c = a + b
+        c = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
 
         c *= (2, 2, 2, 2)
-        self.assertTrue((c == 4).all())
+        self.assertTrue((c == 2).all())
 
-        a = _ones((8, 64, 24), dtype="int32", locale_type=_comms.LT_PROCESS)
+    def test_umath_distributed_broadcast(self):
+        """
+        Test binary op for two :obj:`mpi_array.globale.gndarray` objects
+        which requires remote fetch of data when broadcasting to result shape.
+        """
+        a = _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS)
         b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
 
         c = a + b
 
         self.assertTrue(isinstance(c, _gndarray))
         self.assertTrue((c == 2).all())
-
-        c *= (_np.ones(tuple(c.shape[1:]), dtype=c.dtype) * 2)
-        self.assertTrue((c == 4).all())
-
-    def test_umath_distributed_broadcast(self):
-        a = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
-        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
-
-        c = a + b
 
         twos = _ones(tuple(a.shape[1:]), dtype=c.dtype, locale_type=_comms.LT_PROCESS, dims=(0, 1))
         twos.fill_h(2)
