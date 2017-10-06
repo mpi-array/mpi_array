@@ -511,47 +511,121 @@ class GndarrayUfuncTest(_unittest.TestCase):
         self.do_multi_distribution_tests(multiply, npy_ary0, npy_ary1)
         self.do_multi_distribution_tests(multiply, npy_ary1, npy_ary0)
 
-    def test_umath(self):
+    def do_test_umath(self, halo=0, gshape=(32, 48)):
         """
         Test binary op for a :obj:`mpi_array.globale.gndarray` object
         and a scalar.
         """
-        c = _ones((32, 48), dtype="int32", locale_type=_comms.LT_PROCESS)
+        c = _ones(gshape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo)
+        c_orig_halo = c.distribution.halo
 
         self.assertTrue(isinstance(c, _gndarray))
         self.assertTrue((c == 1).all())
 
         c *= 2
         self.assertTrue((c == 2).all())
+        self.assertTrue(_np.all(c.distribution.halo == c_orig_halo))
 
-    def test_umath_broadcast(self):
+        d = c + 2
+        self.assertTrue((d == 4).all())
+        self.assertTrue(_np.all(d.distribution.halo == c_orig_halo))
+
+    def test_umath_no_halo(self):
+        """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` object
+        and a scalar.
+        """
+        self.do_test_umath(halo=0)
+
+    def test_umath_halo(self):
+        """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` object
+        and a scalar, test halo is preserved.
+        """
+        self.do_test_umath(halo=[[1, 2], [3, 4]])
+
+    def do_test_umath_broadcast(self, halo=0):
         """
         Test binary op for a :obj:`mpi_array.globale.gndarray` objects
         and an *array-like* object which requires requiring broadcast to result shape.
         """
-        c = _ones((64, 64, 4), dtype="int32", locale_type=_comms.LT_PROCESS)
+        c = _ones((64, 61, 4), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo)
+        c_orig_halo = c.distribution.halo
 
-        c *= (2, 2, 2, 2)
-        self.assertTrue((c == 2).all())
+        d = c * (2, 2, 2, 2)
+        self.assertTrue(isinstance(d, _gndarray))
+        self.assertSequenceEqual(tuple(c.shape), tuple(d.shape))
+        self.assertSequenceEqual(d.distribution.halo.tolist(), c_orig_halo.tolist())
+        self.assertTrue((d == 2).all())
 
-    def test_umath_distributed_broadcast(self):
+    def test_umath_broadcast_no_halo(self):
+        """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` objects
+        and an *array-like* object which requires requiring broadcast to result shape.
+        """
+        self.do_test_umath_broadcast(halo=0)
+
+    def test_umath_broadcast_halo(self):
+        """
+        Test binary op for a :obj:`mpi_array.globale.gndarray` objects
+        and an *array-like* object which requires requiring broadcast to result shape.
+        """
+        self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]])
+
+    def do_test_umath_distributed_broadcast(self, halo_a=0, halo_b=0):
         """
         Test binary op for two :obj:`mpi_array.globale.gndarray` objects
         which requires remote fetch of data when broadcasting to result shape.
         """
-        a = _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS)
-        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS)
+        a = _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_a)
+        a_orig_halo = a.distribution.halo
+        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_b)
+        b_orig_halo = b.distribution.halo
 
         c = a + b
 
         self.assertTrue(isinstance(c, _gndarray))
         self.assertTrue((c == 2).all())
+        self.assertSequenceEqual(c.distribution.halo.tolist(), a_orig_halo.tolist())
 
-        twos = _ones(tuple(a.shape[1:]), dtype=c.dtype, locale_type=_comms.LT_PROCESS, dims=(0, 1))
+        twos = \
+            _ones(
+                tuple(a.shape[1:]),
+                dtype=c.dtype,
+                locale_type=_comms.LT_PROCESS,
+                dims=(0, 1),
+                halo=b_orig_halo[1:]
+            )
         twos.fill_h(2)
 
-        c *= twos
-        self.assertTrue((c == 4).all())
+        c = a * twos
+        self.assertTrue(isinstance(c, _gndarray))
+        self.assertSequenceEqual(tuple(a.shape), tuple(c.shape))
+        self.assertTrue((c == 2).all())
+
+        c = twos * a
+        self.assertSequenceEqual(tuple(a.shape), tuple(c.shape))
+        self.assertTrue((c == 2).all())
+
+    def test_umath_distributed_broadcast_no_halo(self):
+        """
+        Test binary op for two :obj:`mpi_array.globale.gndarray` objects
+        which requires remote fetch of data when broadcasting to result shape.
+        """
+        self.do_test_umath_distributed_broadcast(halo_a=0, halo_b=0)
+
+    def test_umath_distributed_broadcast_halo(self):
+        """
+        Test binary op for two :obj:`mpi_array.globale.gndarray` objects
+        which requires remote fetch of data when broadcasting to result shape.
+        Ghost elements added to arrays.
+        """
+        self.do_test_umath_distributed_broadcast(halo_a=[[1, 2], [3, 4], [2, 1]], halo_b=0)
+        self.do_test_umath_distributed_broadcast(halo_a=0, halo_b=[[1, 2], [3, 4], [2, 1]])
+        self.do_test_umath_distributed_broadcast(
+            halo_a=[[2, 1], [4, 3], [1, 2]],
+            halo_b=[[1, 2], [3, 4], [2, 1]]
+        )
 
 
 _unittest.main(__name__)
