@@ -293,7 +293,6 @@ class GndarrayTest(_unittest.TestCase):
         """
         lshape = (16, 16)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
-        gshape = (2048, 2048)
         cand_slab_ax0 = \
             create_distribution(
                 shape=gshape,
