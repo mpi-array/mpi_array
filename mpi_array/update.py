@@ -21,7 +21,7 @@ Classes and Functions
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
-
+   RmaUpdateExecutor - Execute updates using one-sided RMA fetch.
 """
 from __future__ import absolute_import
 
@@ -404,7 +404,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
                 self._str_format
                 %
                 (
-                    self.dst_extent.cart_rank,
+                    self.dst_extent.inter_locale_rank,
                     self.dst_extent.start_h,
                     self.dst_extent.stop_h,
                     self.dst_extent.globale_to_locale_h(self.dst_update_extent.start),
@@ -412,7 +412,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
                     self.dst_update_extent.start,
                     self.dst_update_extent.stop,
                     dst_mpi_dtype,
-                    self.src_extent.cart_rank,
+                    self.src_extent.inter_locale_rank,
                     self.src_extent.start_h,
                     self.src_extent.stop_h,
                     self.src_extent.globale_to_locale_h(self.src_update_extent.start),
@@ -1228,7 +1228,7 @@ class MpiUpdatesForGet(UpdatesForGet):
         intersection_extent
     ):
         """
-        Factory method for creating :obj:`PairExtentUpdate` objects.
+        Factory method for creating :obj:`MpiPairExtentUpdate` objects.
 
         :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param dst_extent: Destination extent.
@@ -1238,7 +1238,7 @@ class MpiUpdatesForGet(UpdatesForGet):
         :param src_extent: The intersection of :samp:`{src_extent}`
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
-        :rtype: :obj:`PairExtentUpdate`
+        :rtype: :obj:`MpiPairExtentUpdate`
         :return: Object Defining the source sub-array and destination sub-array.
         """
         peu = \
@@ -1260,6 +1260,167 @@ class MpiUpdatesForGet(UpdatesForGet):
             )
 
         return peu_list
+
+
+class RmaUpdateExecutor(object):
+    """
+    Performs one-sided fetch of data from remote (source) locale arrays to
+    update destination locale array.
+    """
+
+    def __init__(
+        self,
+        inter_win,
+        dst_lndarray,
+        src_inter_win_rank_attr,
+        rank_logger=None,
+        casting="same_kind"
+    ):
+        """
+        """
+        object.__init__(self)
+        self._dst_lndarray = dst_lndarray
+        self._casting = casting
+        self._inter_win = inter_win
+        self._num_requests_per_group = 32
+        self._random_state = None
+        self._rank_logger = rank_logger
+        self._src_inter_win_rank_attr = src_inter_win_rank_attr
+
+    def get_src_win_rank(self, src_extent):
+        """
+        Returns target rank integer (:attr:`inter_win`) for specified :samp:`{src_extent}` extent.
+
+        :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param src_extent: Return target rank for this extent.
+        :rtype: :obj:`int`
+        :return: Target rank for window :attr:`inter_win`.
+        """
+        return getattr(src_extent, self._src_inter_win_rank_attr)
+
+    @property
+    def inter_win(self):
+        """
+        The :obj:`mpi4py.MPI.Win` instance used for remote fetch of data.
+        """
+        return self._inter_win
+
+    @property
+    def dst_lndarray(self):
+        """
+        The destination :obj:`numpy.ndarray` for remote fetches.
+        """
+        return self._dst_lndarray
+
+    @property
+    def rank_logger(self):
+        """
+        The :obj:`logging.Logger` used for log messages.
+        """
+        return self._rank_logger
+
+    @rank_logger.setter
+    def rank_logger(self, logger):
+        """
+        """
+        self._rank_logger = logger
+
+    @property
+    def random_state(self):
+        """
+        A :obj:`numpy.random.RandomState` instance, used to permute target
+        rank ordering to alleviate swamping single rank with *get* requests
+        from multiple source ranks.
+        """
+        if (
+            (self._random_state is None)
+            and
+            (self._inter_win is not None)
+            and
+            (self._inter_win != _mpi.WIN_NULL)
+        ):
+            seed_str = str(2 ** 31)[1:]
+            rank_str = str(self._inter_win.group.rank + 1)
+            seed_str = rank_str + seed_str[len(rank_str):]
+            seed_str = seed_str[0:-len(rank_str)] + rank_str[::-1]
+            self._random_state = _np.random.RandomState(seed=int(seed_str))
+
+        return self._random_state
+
+    def do_direct_cpy2_update(self, updates, src_lndarray):
+        """
+        Does direct copy update to :attr:`dst_lndarray` from the
+        specified :samp:`{src_lndarray}` array.
+
+        :type updates: sequence of :obj:`PairExtentUpdate`
+        :param updates: Sequence of destination and source extents.
+        :type src_lndarray: :obj:`numpy.ndarray`
+        :param src_lndarray: Elements copied from this array.
+        """
+        for single_update in updates:
+            single_update.copyto(self._dst_lndarray, src_lndarray, casting=self._casting)
+
+    def do_locale_rma_update(self, updates):
+        """
+        Performs RMA to get elements from remote (source) locales to
+        update the (destination) locale extent array.
+
+        :type updates: sequence of :obj:`PairExtentUpdate`
+        :param updates: Sequence of destination and source extents.
+        """
+        if (
+            (self._inter_win is not None)
+            and
+            (self._inter_win != _mpi.WIN_NULL)
+        ):
+            update_dict = _collections.defaultdict(list)
+            for single_update in updates:
+                update_dict[self.get_src_win_rank(single_update.src_extent)].append(
+                    single_update
+                )
+            src_win_ranks = self.random_state.permutation(tuple(update_dict.keys()))
+
+            src_win_ranks_per_group = self._num_requests_per_group
+            if len(src_win_ranks) > src_win_ranks_per_group:
+                src_win_rank_sub_groups = \
+                    _np.array_split(
+                        src_win_ranks,
+                        (len(src_win_ranks) - 1) // src_win_ranks_per_group + 1
+                    )
+            else:
+                src_win_rank_sub_groups = (src_win_ranks,)
+            group_idx = 1
+            for src_win_ranks in src_win_rank_sub_groups:
+                self.rank_logger.debug(
+                    "BEG: Getting updates from src_win_ranks group %4d of %4d ranks: %s",
+                    group_idx,
+                    len(src_win_rank_sub_groups),
+                    src_win_ranks
+                )
+                for src_win_rank in src_win_ranks:
+                    self._inter_win.Lock(src_win_rank, _mpi.LOCK_SHARED)
+                    for single_update in update_dict[src_win_rank]:
+                        self.rank_logger.debug(
+                            "Getting update:\n%s\n%s",
+                            single_update._header_str,
+                            single_update
+                        )
+                        single_update.do_get(
+                            self._inter_win,
+                            src_win_rank,
+                            self._dst_lndarray
+                        )
+                    self._inter_win.Unlock(src_win_rank)
+                    for single_update in update_dict[src_win_rank]:
+                        single_update.conclude()
+
+                self.rank_logger.debug(
+                    "END: Getting updates from src_win_ranks group %4d of %4d ranks: %s",
+                    group_idx,
+                    len(src_win_rank_sub_groups),
+                    src_win_ranks
+                )
+                group_idx += 1
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

@@ -32,7 +32,6 @@ from __future__ import absolute_import
 import mpi4py.MPI as _mpi
 import numpy as _np
 from numpy.lib.mixins import NDArrayOperatorsMixin as _NDArrayOperatorsMixin
-import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
 from .update import UpdatesForRedistribute as _UpdatesForRedistribute
@@ -40,6 +39,7 @@ from .update import MpiUpdatesForGet as _MpiUpdatesForGet
 from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
+from .update import RmaUpdateExecutor as _RmaUpdateExecutor
 from .locale import win_lndarray as _win_lndarray
 from .distribution import LocaleExtent as _LocaleExtent
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
@@ -492,7 +492,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
     def do_locale_rma_update(self):
         """
         Performs RMA to get elements from remote locales to
-        update the local locale array.
+        update the locale extent array.
         """
         can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
         self._dst.rank_logger.debug(
@@ -505,63 +505,21 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         )
 
         if can_use_existing_src_peer_comm:
-            if (
-                (self._inter_win is not None)
-                and
-                (self._inter_win != _mpi.WIN_NULL)
-                and
-                self._dst.locale_comms.have_valid_inter_locale_comm
-            ):
-                updates = self._dst_rget_updates[self._dst.this_locale.inter_locale_rank]
-                update_dict = _collections.defaultdict(list)
-                for single_update in updates:
-                    update_dict[single_update.src_extent.peer_rank].append(
-                        single_update
-                    )
-                src_peer_ranks = self._random_state.permutation(tuple(update_dict.keys()))
+            inter_win = _mpi.WIN_NULL
+            if self._dst.locale_comms.have_valid_inter_locale_comm:
+                inter_win = self._inter_win
 
-                src_peer_ranks_per_group = 32
-                if len(src_peer_ranks) > src_peer_ranks_per_group:
-                    src_peer_rank_sub_groups = \
-                        _np.array_split(
-                            src_peer_ranks,
-                            (len(src_peer_ranks) - 1) // src_peer_ranks_per_group + 1
-                        )
-                else:
-                    src_peer_rank_sub_groups = (src_peer_ranks,)
-                group_idx = 1
-                for src_peer_ranks in src_peer_rank_sub_groups:
-                    self._dst.rank_logger.debug(
-                        "BEG: Getting updates from src_peer_ranks group %4d of %4d ranks: %s",
-                        group_idx,
-                        len(src_peer_rank_sub_groups),
-                        src_peer_ranks
-                    )
-                    for src_peer_rank in src_peer_ranks:
-                        self._inter_win.Lock(src_peer_rank, _mpi.LOCK_SHARED)
-                        for single_update in update_dict[src_peer_rank]:
-                            self._dst.rank_logger.debug(
-                                "Getting update:\n%s\n%s",
-                                single_update._header_str,
-                                single_update
-                            )
-                            single_update.do_get(
-                                self._inter_win,
-                                src_peer_rank,
-                                self._dst.lndarray_proxy.lndarray
-                            )
+            update_executor = \
+                _RmaUpdateExecutor(
+                    inter_win=inter_win,
+                    dst_lndarray=self._dst.lndarray_proxy.lndarray,
+                    src_inter_win_rank_attr="peer_rank",
+                    rank_logger=self._dst.rank_logger
+                )
 
-                    for src_peer_rank in src_peer_ranks:
-                        self._inter_win.Unlock(src_peer_rank)
-                        for single_update in update_dict[src_peer_rank]:
-                            single_update.conclude()
-                    self._dst.rank_logger.debug(
-                        "END: Getting updates from src_peer_ranks group %4d of %4d ranks: %s",
-                        group_idx,
-                        len(src_peer_rank_sub_groups),
-                        src_peer_ranks
-                    )
-                    group_idx += 1
+            # Fetch remote data.
+            updates = self._dst_rget_updates[self._dst.this_locale.inter_locale_rank]
+            update_executor.do_locale_rma_update(updates)
         else:
             raise RuntimeError(
                 (
@@ -917,24 +875,20 @@ class gndarray(_NDArrayOperatorsMixin):
                         order=self.order,
                         update_dst_halo=True
                     )
+                update_executor = \
+                    _RmaUpdateExecutor(
+                        inter_win=self.rma_window_buffer.inter_locale_win,
+                        dst_lndarray=locale_ary,
+                        src_inter_win_rank_attr="inter_locale_rank",
+                        rank_logger=self.rank_logger
+                    )
                 # Perform the updates, copy locale array data to locale_ary first.
                 updates = update_calculator._dst_cpy2_updates[locale_extent.inter_locale_rank]
-                for single_update in updates:
-                    single_update.copyto(locale_ary, self.lndarray_proxy.lndarray, casting="unsafe")
+                update_executor.do_direct_cpy2_update(updates, self.lndarray_proxy.lndarray)
 
                 # Fetch remote data.
                 updates = update_calculator._dst_rget_updates[locale_extent.inter_locale_rank]
-                inter_win = self.rma_window_buffer.inter_locale_win
-                for single_update in updates:
-                    src_inter_locale_rank = single_update.src_extent.inter_locale_rank
-                    inter_win.Lock(src_inter_locale_rank, _mpi.LOCK_SHARED)
-                    single_update.do_get(
-                        inter_win,
-                        src_inter_locale_rank,
-                        locale_ary
-                    )
-                    inter_win.Unlock(src_inter_locale_rank)
-                    single_update.conclude()
+                update_executor.do_locale_rma_update(updates)
 
             # All locale processes wait for data fetch to conclude
             self.intra_locale_barrier()
