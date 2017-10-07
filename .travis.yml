@@ -59,7 +59,7 @@ script:
   - flake8 mpi_array
   - mpirun -n 1 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f;
   - mpirun -n 2 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f;
-  - mpirun -n 8 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f;
+  - travis_wait 15 mpirun -n 8 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f;
   - # run tests on installed mpi_array
   - cd docs
   - mpirun -n 4 python -m mpi_array.tests -f
