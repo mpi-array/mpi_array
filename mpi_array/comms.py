@@ -1100,7 +1100,7 @@ def check_locale_type(locale_type):
         )
 
 
-def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwargs):
+def create_distribution(shape, distrib_type=None, locale_type=LT_NODE, **kwargs):
     """
     Factory function for creating :obj:`mpi_array.distribution.Distribution`
     and associated :obj:`LocaleComms`.
@@ -1112,6 +1112,8 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
        of :attr:`mpi_array.comms.DT_BLOCK` or :attr:`mpi_array.comms.DT_SLAB`
        or :attr:`mpi_array.comms.DT_CLONED` or :attr:`mpi_array.comms.DT_SINGLE_LOCALE`.
        Defines how the globale array is dstributed over locales.
+       If :samp:`None` defaults to :attr:`mpi_array.comms.DT_BLOCK`
+       if :samp:`numpy.product(shape) > 0` otherwise :attr:`mpi_array.comms.DT_CLONED`.
     :type locale_type: :obj:`str`
     :param locale_type: One of :attr:`mpi_array.comms.DT_PROCESS`
        or :attr:`mpi_array.comms.DT_NODE`. Defines locales.
@@ -1139,8 +1141,15 @@ def create_distribution(shape, distrib_type=DT_BLOCK, locale_type=LT_NODE, **kwa
        :func:`create_cloned_distribution`
        :func:`create_single_locale_distribution`
     """
+    if distrib_type is None:
+        if _np.product(shape) > 0:
+            distrib_type = DT_BLOCK
+        else:
+            distrib_type = DT_CLONED
+
     check_distrib_type(distrib_type)
     check_locale_type(locale_type)
+
     if distrib_type.lower() == DT_BLOCK:
         comms_and_distrib = create_block_distribution(shape, locale_type, **kwargs)
     elif distrib_type.lower() == DT_SLAB:
