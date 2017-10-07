@@ -110,4 +110,4 @@ def load_tests(loader, tests, pattern):
 __all__ = [s for s in dir() if not s.startswith('_')]
 
 if __name__ == "__main__":
-    _unittest_main(__name__, log_level=_logging.WARNING, verbosity=0)
+    _unittest_main(__name__, log_level=_logging.WARNING, verbosity=2)
