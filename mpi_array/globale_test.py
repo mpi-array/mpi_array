@@ -109,6 +109,121 @@ class GndarrayTest(_unittest.TestCase):
         self.assertEqual(dt, gary.dtype)
         self.assertSequenceEqual(gshape, tuple(gary.shape))
 
+    def do_test_construct_empty_locale_extent(self, locale_type=LT_PROCESS, halo=0):
+        """
+        Test constructing a :obj:`mpi_array.globale.gndarray` when locale extent is empty.
+        """
+        # test empty gndarray
+        halo_1d = halo
+        if _np.array(halo_1d).ndim > 1:
+            halo_1d = halo[0]
+
+        gshp = (0, )
+        gary = \
+            _globale_creation.empty(
+                shape=gshp, dtype="int32", locale_type=locale_type, halo=halo_1d
+            )
+        self.assertSequenceEqual(gshp, tuple(gary.shape))
+        self.assertEqual(0, _np.product(gary.lndarray_proxy.locale_extent.shape_n))
+        self.assertEqual(0, gary.lndarray_proxy.lndarray.size)
+        self.assertEqual(0, gary.view_n.size)
+
+        gshp = (15, 20, 11, 0)
+        gary = \
+            _globale_creation.empty(shape=gshp, dtype="int32", locale_type=locale_type, halo=halo)
+        self.assertSequenceEqual(gshp, tuple(gary.shape))
+        self.assertEqual(0, _np.product(gary.lndarray_proxy.locale_extent.shape_n))
+        self.assertEqual(0, gary.lndarray_proxy.lndarray.size)
+        self.assertEqual(0, gary.view_n.size)
+
+        num_locales = gary.locale_comms.num_locales
+
+        # test non-empty gndarray but some empty locale extents
+        if num_locales > 1:
+            gshp = (15, 20, 11, num_locales // 2)
+            dims = (1, 1, 1, 0)
+            gary = \
+                _globale_creation.ones(
+                    shape=gshp,
+                    dtype="int32",
+                    locale_type=locale_type,
+                    distrib_type=DT_BLOCK,
+                    dims=dims,
+                    halo=halo
+                )
+            self.assertSequenceEqual(gshp, tuple(gary.shape))
+            self.assertTrue(
+                _np.any(
+                    _np.array(
+                        tuple(
+                            _np.product(locale_extent.shape_n)
+                            for locale_extent in gary.distribution.locale_extents
+                        )
+                    )
+                )
+            )
+            if _np.product(gary.lndarray_proxy.locale_extent.shape_n) == 0:
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.shape_n=%s",
+                    gary.lndarray_proxy.locale_extent.shape_n
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.start_n=%s",
+                    gary.lndarray_proxy.locale_extent.start_n
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.stop_n=%s",
+                    gary.lndarray_proxy.locale_extent.stop_n
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.shape_h=%s",
+                    gary.lndarray_proxy.locale_extent.shape_h
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.start_h=%s",
+                    gary.lndarray_proxy.locale_extent.start_h
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.stop_h=%s",
+                    gary.lndarray_proxy.locale_extent.stop_h
+                )
+                gary.rank_logger.debug(
+                    "gary.lndarray_proxy.locale_extent.halo=%s",
+                    gary.lndarray_proxy.locale_extent.halo
+                )
+                self.assertTrue(_np.all(gary.lndarray_proxy.locale_extent.halo == 0))
+                self.assertSequenceEqual(
+                    tuple(gary.lndarray_proxy.locale_extent.stop_h),
+                    tuple(gary.lndarray_proxy.locale_extent.stop_n),
+                )
+                self.assertSequenceEqual(
+                    tuple(gary.lndarray_proxy.locale_extent.start_h),
+                    tuple(gary.lndarray_proxy.locale_extent.start_n),
+                )
+
+                self.assertEqual(0, gary.view_n.size)
+                self.assertEqual(0, gary.lndarray_proxy.lndarray.size)
+
+    def test_construct_empty_locale_extent_locale_type_process(self):
+        """
+        Test constructing a :obj:`mpi_array.globale.gndarray` when locale extent is empty.
+        """
+        self.do_test_construct_empty_locale_extent(locale_type=LT_PROCESS, halo=0)
+        self.do_test_construct_empty_locale_extent(
+            locale_type=LT_PROCESS,
+            halo=[[1, 2], [3, 4], [4, 3], [2, 1]]
+        )
+
+    def test_construct_empty_locale_extent_locale_type_node(self):
+        """
+        Test constructing a :obj:`mpi_array.globale.gndarray` when locale extent is empty.
+        """
+        self.do_test_construct_empty_locale_extent(locale_type=LT_NODE, halo=0)
+        self.do_test_construct_empty_locale_extent(
+            locale_type=LT_NODE,
+            halo=[[1, 2], [3, 4], [4, 3], [2, 1]]
+        )
+
     def test_get_item_and_set_item(self):
         """
         Test the :meth:`mpi_array.globale.gndarray.__getitem__`

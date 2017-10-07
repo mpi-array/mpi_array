@@ -48,6 +48,53 @@ class LocaleExtentTest(_unittest.TestCase):
     :obj:`unittest.TestCase` for :obj:`mpi_array.distribution.LocaleExtent`.
     """
 
+    def do_test_construct_empty_with_axis(self, halo=0):
+        """
+        Tests :obj:`mpi_array.distribution.LocaleExtent` with empty axis.
+        """
+        le = \
+            LocaleExtent(
+                start=(0, 0, 1),
+                stop=(10, 20, 1),
+                peer_rank=1,
+                inter_locale_rank=1,
+                globale_extent=GlobaleExtent(start=(0, 0, 0), stop=(10, 20, 0)),
+                halo=halo
+            )
+        self.assertSequenceEqual(
+            le.halo.tolist(),
+            [[0, 0], [0, 0], [0, 0]]
+        )
+        self.assertSequenceEqual(
+            tuple(le.start_n),
+            (0, 0, 1)
+        )
+        self.assertSequenceEqual(
+            tuple(le.start_h),
+            (0, 0, 1)
+        )
+        self.assertSequenceEqual(
+            tuple(le.stop_n),
+            (10, 20, 1)
+        )
+        self.assertSequenceEqual(
+            tuple(le.stop_n),
+            (10, 20, 1)
+        )
+
+    def test_construct_empty_with_axis_no_halo(self):
+        """
+        Tests :obj:`mpi_array.distribution.LocaleExtent` with empty axis :samp:`halo=0`.
+        """
+        self.do_test_construct_empty_with_axis(halo=0)
+
+    def test_construct_empty_with_axis_halo(self):
+        """
+        Tests :obj:`mpi_array.distribution.LocaleExtent` with empty axis with non-zero
+        halo for all axes.
+        """
+        self.do_test_construct_empty_with_axis(halo=((1, 2), (3, 4), (3, 2)))
+
     def test_repr(self):
         """
         Tests :meth:`mpi_array.distribution.LocaleExtent.__repr__`.

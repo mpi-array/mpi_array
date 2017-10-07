@@ -98,6 +98,9 @@ class HaloSubExtent(HaloIndexingExtent):
         """
         HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
         halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
+
+        # Axes with size=0 always get zero halo
+        halo[_np.where((self.stop_n - self.start_n) <= 0)] = 0
         if globale_extent is not None:
             # Calculate the locale halo, truncate if it strays outside
             # the globale_extent halo region.
