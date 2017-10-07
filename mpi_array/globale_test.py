@@ -406,6 +406,9 @@ class GndarrayTest(_unittest.TestCase):
         """
         Tests for :func:`mpi_array.globale.copyto`.
         """
+        if (_mpi.COMM_WORLD.size > 128) and (locale_type == LT_PROCESS):
+            # Skip testing for LT_PROCESS when have large number of processes, slow...
+            return
         lshape = (16, 16)
         gshape = (_mpi.COMM_WORLD.size * lshape[0], _mpi.COMM_WORLD.size * lshape[1])
         cand_slab_ax0 = \
