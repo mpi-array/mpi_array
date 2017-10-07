@@ -319,6 +319,11 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 distrib_type=DT_CLONED
             )
         _copyto(dst=mpi_cln_mpi_result_ary, src=mpi_result_ary)
+
+        self.assertSequenceEqual(
+            tuple(mpi_cln_npy_result_ary.shape),
+            tuple(mpi_cln_mpi_result_ary.shape)
+        )
         self.assertTrue(
             _np.all(
                 mpi_cln_npy_result_ary.lndarray_proxy.view_n
@@ -536,6 +541,10 @@ class GndarrayUfuncTest(_unittest.TestCase):
         self.do_multi_distribution_tests(multiply, npy_ary0, npy_ary1)
         self.do_multi_distribution_tests(multiply, npy_ary1, npy_ary0)
 
+        npy_ary0 = _np.random.uniform(low=-0.5, high=2.9, size=(gshape0[0], 1, gshape0[2]))
+        npy_ary1 = _np.random.uniform(low=-0.5, high=2.9, size=(1, gshape0[1], gshape0[2]))
+        self.do_multi_distribution_tests(multiply, npy_ary1, npy_ary0)
+
     def do_test_umath(self, halo=0, gshape=(32, 48)):
         """
         Test binary op for a :obj:`mpi_array.globale.gndarray` object
@@ -612,6 +621,80 @@ class GndarrayUfuncTest(_unittest.TestCase):
         """
         self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]], dims=(0, 0, 0))
         self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]], dims=(1, 1, 0))
+
+    def do_test_umath_broadcast_upsized_result(
+        self,
+        halo_a=0,
+        halo_b=0,
+        dims_a=(0, 0),
+        dims_b=(0, 0, 0)
+    ):
+        """
+        Test binary op for two :obj:`mpi_array.globale.gndarray` objects
+        with the resulting :obj:`mpi_array.globale.gndarray` object having
+        different (larger) shape than that of both inputs.
+        """
+        a = \
+            _ones(
+                (19, 3),
+                dtype="int32",
+                locale_type=_comms.LT_PROCESS,
+                distrib_type=_comms.DT_BLOCK,
+                dims=dims_a,
+                halo=halo_a
+            )
+        b = \
+            _ones(
+                (23, 1, 3),
+                dtype="int32",
+                locale_type=_comms.LT_PROCESS,
+                distrib_type=_comms.DT_BLOCK,
+                dims=dims_b,
+                halo=halo_b
+            )
+
+        d = a + b
+
+        self.assertTrue(isinstance(d, _gndarray))
+        self.assertSequenceEqual((b.shape[0], a.shape[0], 3), tuple(d.shape))
+        self.assertTrue((d == 2).all())
+
+    def test_umath_broadcast_upsized_result(self):
+        """
+        Test binary op for two :obj:`mpi_array.globale.gndarray` objects
+        with the resulting :obj:`mpi_array.globale.gndarray` object having
+        different (larger) shape than that of both inputs.
+        """
+        self.do_test_umath_broadcast_upsized_result(
+            halo_a=0,
+            halo_b=0,
+            dims_a=(0, 0),
+            dims_b=(0, 0, 0)
+        )
+        self.do_test_umath_broadcast_upsized_result(
+            halo_a=0,
+            halo_b=0,
+            dims_a=(0, 1),
+            dims_b=(0, 0, 1)
+        )
+        self.do_test_umath_broadcast_upsized_result(
+            halo_a=[[1, 2], [2, 1]],
+            halo_b=0,
+            dims_a=(0, 1),
+            dims_b=(0, 0, 1)
+        )
+        self.do_test_umath_broadcast_upsized_result(
+            halo_a=0,
+            halo_b=[[1, 2], [3, 4], [2, 1]],
+            dims_a=(0, 1),
+            dims_b=(0, 0, 1)
+        )
+        self.do_test_umath_broadcast_upsized_result(
+            halo_a=[[1, 2], [2, 1]],
+            halo_b=[[1, 2], [3, 4], [2, 1]],
+            dims_a=(0, 1),
+            dims_b=(0, 0, 1)
+        )
 
     def do_test_umath_distributed_broadcast(self, halo_a=0, halo_b=0):
         """

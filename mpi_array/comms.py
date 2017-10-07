@@ -764,7 +764,7 @@ def reshape_comms_distribution(comms_distrib, new_globale_shape):
     this_locale = comms_distrib.this_locale
     globale_shape = _np.array(distrib.globale_extent.shape)
 
-    new_globale_shape = _np.array(globale_shape)
+    new_globale_shape = _np.array(new_globale_shape)
 
     if (
         (new_globale_shape.size == globale_shape.size)

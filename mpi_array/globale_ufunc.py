@@ -567,7 +567,7 @@ class GndarrayArrayUfuncExecutor(object):
             d = input_shapes - result_shape
             d *= d
             d = d.sum(axis=1)
-            best_input = self._inputs(_np.argmin(d))
+            best_input = self._inputs[_np.argmin(d)]
 
         return best_input
 
@@ -595,12 +595,14 @@ class GndarrayArrayUfuncExecutor(object):
             template_output_gary = outputs[-1]
         else:
             best_match_input = self.get_best_match_input(result_shape)
+            comms_distrib = None
             if best_match_input is not None:
                 comms_distrib = \
                     _comms.reshape_comms_distribution(
                         best_match_input.comms_and_distrib,
                         result_shape
                     )
+            if comms_distrib is not None:
                 template_output_gary = \
                     _globale_creation.empty(
                         result_shape,
@@ -703,12 +705,17 @@ class GndarrayArrayUfuncExecutor(object):
         """
         # Calculate the shape of the output arrays.
         result_shape = broadcast_shape(*(self.get_inputs_shapes()))
+        self.array_like_obj.rank_logger.debug("result_shape=%s", result_shape)
 
         # Calculate the result dtype for each output array
         result_types = ufunc_result_type(self.ufunc.types, self.inputs, self.outputs, self.casting)
+        self.array_like_obj.rank_logger.debug("result_types=%s", result_types)
 
         # Create the output gndarray instances
         gndarray_outputs = self.create_outputs(self.outputs, result_shape, result_types)
+        self.array_like_obj.rank_logger.debug(
+            "output shapes=%s", [o.shape for o in gndarray_outputs]
+        )
 
         # TODO: Should really check whether remote fetch of data is needed
         # for any locale before calling this barrier. If all locales
