@@ -34,6 +34,7 @@ import numpy as _np
 from .license import license as _license, copyright as _copyright, version as _version
 from . import globale as _globale
 from . import locale as _locale
+from .indexing import IndexingExtent as _IndexingExtent
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
@@ -50,6 +51,11 @@ class GndarrayTest(_unittest.TestCase):
     """
     :obj:`unittest.TestCase` for :obj:`mpi_array.globale.gndarray`.
     """
+
+    def setUp(self):
+        """
+        """
+        _np.random.seed(534219812)
 
     def test_attr(self):
         """
@@ -395,6 +401,53 @@ class GndarrayTest(_unittest.TestCase):
         gary0 = _globale_creation.zeros(comms_and_distrib=cand, dtype="int64")
         gary1 = _globale_creation.ones(comms_and_distrib=cand, dtype="int64")
         self.assertFalse((gary0 == gary1).all())
+
+    def do_test_peer_rank_get(self, locale_type=LT_PROCESS):
+        """
+        Test for :meth:`mpi_array.globale.gndarray.peer_rank_get`.
+        """
+        lshape = (11, 12)
+        f = int(_np.ceil(_np.sqrt(_mpi.COMM_WORLD.size)))
+        gshape = (f * lshape[0] + 1, f * lshape[1] + 3)
+
+        npy_ary = _np.random.uniform(low=1.5, high=2.9, size=gshape)
+        gnd_ary = _globale_creation.asarray(npy_ary, distrib_type=DT_BLOCK, locale_type=locale_type)
+
+        # Wait for all procs to finish copying.
+        gnd_ary.locale_comms.peer_comm.barrier()
+
+        num_locales = gnd_ary.distribution.num_locales
+        fetch_extent = \
+            gnd_ary.distribution.locale_extents[_np.random.randint(low=0, high=num_locales)]
+
+        fetch_portion_start = \
+            (fetch_extent.start_n + fetch_extent.stop_n) // 2 - fetch_extent.shape_n // 4
+        fetch_portion_stop = fetch_portion_start + fetch_extent.shape_n // 2
+        fetch_portion_extent = _IndexingExtent(start=fetch_portion_start, stop=fetch_portion_stop)
+        fetch_portion_slice = fetch_portion_extent.to_slice()
+
+        gnd_ary.rank_logger.debug("fetch_portion_extent=%s", fetch_portion_extent)
+        fetch_ary = gnd_ary.peer_rank_get(slice=fetch_portion_slice)
+
+        self.assertTrue(
+            _np.all(fetch_ary == npy_ary[fetch_portion_slice])
+        )
+        # Wait for all procs to finish fetching.
+        gnd_ary.locale_comms.peer_comm.barrier()
+
+    def test_peer_rank_get_locale_type_process(self):
+        """
+        Test for :meth:`mpi_array.globale.gndarray.peer_rank_get`.
+        """
+        locale_type = LT_PROCESS
+        self.do_test_peer_rank_get(locale_type=locale_type)
+
+    def test_peer_rank_get_locale_type_node(self):
+        """
+        Test for :meth:`mpi_array.globale.gndarray.peer_rank_get`.
+        """
+        locale_type = LT_NODE
+        self.do_test_peer_rank_get(locale_type=locale_type)
 
     def do_test_copyto_same_locale_types(
         self,

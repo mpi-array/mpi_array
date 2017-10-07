@@ -815,13 +815,14 @@ class gndarray(_NDArrayOperatorsMixin):
 
         return ary_out
 
-    def locale_get(self, slice=None, start=None, stop=None, halo=0):
+    def get_view(self, slice=None, start=None, stop=None, halo=0):
         """
-        Collective over :samp:`{self}.comms.intra_locale_comm` to
-        get a portion of the globale array. Returns a view from the
-        locale extent of the array if possible, otherwise allocates
-        shared memory and performs one-sided RMA to fetch data from
-        remote locales.
+        Returns :samp:`(ary, extent)` pair, where :samp:`ary` is a
+        view from the locale extent array corresponding to the
+        specified extent arguments. If any of the globale slice
+        lies outside the locale extent, then :samp:`ary` is :samp:`None`.
+        The :samp:`extent` element is a :obj:`mpi_array.distribution.LocaleExtent`
+        instance which corresponds to the specified extent arguments.
         """
         if slice is not None:
             tmp = _np.array(list([s.start, s.stop] for s in slice))
@@ -854,7 +855,19 @@ class gndarray(_NDArrayOperatorsMixin):
             lstop = lstart + shape
             slc = tuple(_builtin_slice(lstart[a], lstop[a]) for a in range(locale_extent.ndim))
             locale_ary = self.lndarray_proxy.lndarray[slc]
-        else:
+
+        return locale_ary, dst_extent
+
+    def locale_get(self, slice=None, start=None, stop=None, halo=0):
+        """
+        Collective over :samp:`{self}.comms.intra_locale_comm` to
+        get a portion of the globale array. Returns a view from the
+        locale extent of the array if possible, otherwise allocates
+        shared memory and performs one-sided RMA to fetch data from
+        remote locales.
+        """
+        locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
+        if locale_ary is None:
             # Need to fetch remote data
 
             # Allocate (shared) memory for the data to be returned.
@@ -883,15 +896,59 @@ class gndarray(_NDArrayOperatorsMixin):
                         rank_logger=self.rank_logger
                     )
                 # Perform the updates, copy locale array data to locale_ary first.
-                updates = update_calculator._dst_cpy2_updates[locale_extent.inter_locale_rank]
+                updates = update_calculator._dst_cpy2_updates[dst_extent.inter_locale_rank]
                 update_executor.do_direct_cpy2_update(updates, self.lndarray_proxy.lndarray)
 
                 # Fetch remote data.
-                updates = update_calculator._dst_rget_updates[locale_extent.inter_locale_rank]
+                updates = update_calculator._dst_rget_updates[dst_extent.inter_locale_rank]
                 update_executor.do_locale_rma_update(updates)
 
             # All locale processes wait for data fetch to conclude
             self.intra_locale_barrier()
+
+        return locale_ary
+
+    def peer_rank_get(self, slice=None, start=None, stop=None, halo=0):
+        """
+        Non-collective, one-sided fetch of data to this peer rank process.
+        Returns a view from the locale extent of the array if possible,
+        otherwise allocates non-shared memory and performs one-sided RMA
+        to fetch data from remote locales.
+        """
+        locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
+        if locale_ary is None:
+            # Need to fetch remote data
+
+            # Allocate memory for the data to be returned.
+            locale_ary = \
+                _win_lndarray(
+                    shape=dst_extent.shape_h,
+                    dtype=self.dtype,
+                    comm=_mpi.COMM_SELF
+                )
+
+            update_calculator = \
+                _MpiUpdatesForGet(
+                    dst_extent=dst_extent,
+                    src_distrib=self.distribution,
+                    dtype=self.dtype,
+                    order=self.order,
+                    update_dst_halo=True
+                )
+            update_executor = \
+                _RmaUpdateExecutor(
+                    inter_win=self.rma_window_buffer.peer_win,
+                    dst_lndarray=locale_ary,
+                    src_inter_win_rank_attr="peer_rank",
+                    rank_logger=self.rank_logger
+                )
+            # Perform the updates, copy locale array data to locale_ary first.
+            updates = update_calculator._dst_cpy2_updates[dst_extent.inter_locale_rank]
+            update_executor.do_direct_cpy2_update(updates, self.lndarray_proxy.lndarray)
+
+            # Fetch remote data.
+            updates = update_calculator._dst_rget_updates[dst_extent.inter_locale_rank]
+            update_executor.do_locale_rma_update(updates)
 
         return locale_ary
 
