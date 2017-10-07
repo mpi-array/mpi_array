@@ -39,6 +39,7 @@ from . import comms as _comms
 from .globale_ufunc import broadcast_shape, ufunc_result_type
 from .globale import gndarray as _gndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
+from .globale_creation import zeros_like as _zeros_like
 from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
@@ -363,6 +364,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
            Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
            sequence (e.g. tuple of scalars) elements.
 
+        .. seealso: :meth:`convert_func_args_to_gndarrays`
+
         """
         mpi_func_args = self.convert_func_args_to_gndarrays(converter, func_args)
         mpi_result_ary = func(*mpi_func_args)
@@ -386,6 +389,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
         :param func_args: The arguments for the :samp:`{func}` function.
            Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
            sequence (e.g. tuple of scalars) elements.
+
+        .. seealso: :meth:`do_convert_execute_and_compare`, :meth:`compare_results`
         """
         converter = ToGndarrayConverter(locale_type=LT_PROCESS, distrib_type=DT_CLONED)
         self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
@@ -409,6 +414,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
         :param func_args: The arguments for the :samp:`{func}` function.
            Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
            sequence (e.g. tuple of scalars) elements.
+
+        .. seealso: :meth:`do_convert_execute_and_compare`
         """
         class Converter(ToGndarrayConverter):
 
@@ -443,6 +450,9 @@ class GndarrayUfuncTest(_unittest.TestCase):
         :param func_args: The arguments for the :samp:`{func}` function.
            Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
            sequence (e.g. tuple of scalars) elements.
+
+        .. seealso: :meth:`do_convert_execute_and_compare`
+
         """
         class Converter(ToGndarrayConverter):
 
@@ -488,6 +498,9 @@ class GndarrayUfuncTest(_unittest.TestCase):
         :param func_args: The arguments for the :samp:`{func}` function.
            Can be comprised of :obj:`numpy.ndarray`, scalars or broadcastable
            sequence (e.g. tuple of scalars) elements.
+
+        .. seealso: :meth:`do_cloned_distribution_test`, :meth:`do_single_locale_distribution_test`
+           , :meth:`do_block_distribution_test` and :meth:`do_convert_execute_and_compare`
         """
         npy_result_ary = func(*func_args)
         npy_result_ary = _asarray(npy_result_ary)
@@ -497,7 +510,13 @@ class GndarrayUfuncTest(_unittest.TestCase):
         self.do_block_distribution_test(npy_result_ary, func, *func_args)
 
     def test_umath_multiply(self):
-
+        """
+        Asserts that binary ufunc multiplication (:obj:`numpy.multiply`) computation
+        for :obj:`mpi_array.globale.gndarray` arguments produces same results as
+        for :obj:`numpy.ndarray` arguments. Tries various argument combinations
+        and different distribution types for the :obj:`mpi_array.globale.gndarray`
+        arguments.
+        """
         per_axis_size_factor = int(_np.floor(_np.sqrt(float(self.num_node_locales))))
         gshape0 = (41 * per_axis_size_factor + 1, 43 * per_axis_size_factor + 3, 5)
         npy_ary0 = _np.random.uniform(low=0.5, high=1.75, size=gshape0)
@@ -533,6 +552,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
         self.assertTrue(_np.all(c.distribution.halo == c_orig_halo))
 
         d = c + 2
+        self.assertTrue(isinstance(d, _gndarray))
+        self.assertEqual(c.dtype, d.dtype)
         self.assertTrue((d == 4).all())
         self.assertTrue(_np.all(d.distribution.halo == c_orig_halo))
 
@@ -550,18 +571,30 @@ class GndarrayUfuncTest(_unittest.TestCase):
         """
         self.do_test_umath(halo=[[1, 2], [3, 4]])
 
-    def do_test_umath_broadcast(self, halo=0):
+    def do_test_umath_broadcast(self, halo=0, dims=(0, 0, 0)):
         """
         Test binary op for a :obj:`mpi_array.globale.gndarray` objects
         and an *array-like* object which requires requiring broadcast to result shape.
         """
-        c = _ones((64, 61, 4), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo)
+        c = \
+            _ones(
+                (61, 55, 3),
+                dtype="int32",
+                locale_type=_comms.LT_PROCESS,
+                distrib_type=_comms.DT_BLOCK,
+                dims=dims,
+                halo=halo
+            )
         c_orig_halo = c.distribution.halo
 
-        d = c * (2, 2, 2, 2)
+        d = _zeros_like(c)
+        d = c * (2, 2, 2)
+
         self.assertTrue(isinstance(d, _gndarray))
+        self.assertEqual(_np.asarray((2, 2, 2)).dtype, d.dtype)
         self.assertSequenceEqual(tuple(c.shape), tuple(d.shape))
         self.assertSequenceEqual(d.distribution.halo.tolist(), c_orig_halo.tolist())
+        self.assertTrue((d.view_n == 2).all())
         self.assertTrue((d == 2).all())
 
     def test_umath_broadcast_no_halo(self):
@@ -569,14 +602,16 @@ class GndarrayUfuncTest(_unittest.TestCase):
         Test binary op for a :obj:`mpi_array.globale.gndarray` objects
         and an *array-like* object which requires requiring broadcast to result shape.
         """
-        self.do_test_umath_broadcast(halo=0)
+        self.do_test_umath_broadcast(halo=0, dims=(0, 0, 0))
+        self.do_test_umath_broadcast(halo=0, dims=(1, 1, 0))
 
     def test_umath_broadcast_halo(self):
         """
         Test binary op for a :obj:`mpi_array.globale.gndarray` objects
         and an *array-like* object which requires requiring broadcast to result shape.
         """
-        self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]])
+        self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]], dims=(0, 0, 0))
+        self.do_test_umath_broadcast(halo=[[1, 2], [3, 4], [2, 1]], dims=(1, 1, 0))
 
     def do_test_umath_distributed_broadcast(self, halo_a=0, halo_b=0):
         """

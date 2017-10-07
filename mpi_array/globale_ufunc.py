@@ -75,8 +75,16 @@ def get_dtype_and_ndim(array_like):
     return dt, nd
 
 
-def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
+def ufunc_result_type(
+    ufunc_types,
+    inputs,
+    outputs=None,
+    casting="safe",
+    input_match_casting="safe"
+):
     """
+    Attempts to calculate the result type from given ufunc :samp:`{inputs}`
+    and ufunc types (:attr:`numpy.ufunc.types`).
     Like :obj:`numpy.result_type`, but
     handles :obj:`mpi_array.globale.gndarray` in the :samp:`{inputs}`
     and handles multiple :samp:`{outputs}` cases.
@@ -90,7 +98,10 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
     :type outputs: :samp:`None` or sequence of :obj:`object`
     :param outputs: The output arrays these are explicitly checked casting correctness.
     :type casting: :obj:`str` :samp:`{'no', 'equiv', 'safe', 'same_kind', 'unsafe'}`
-    :param casting: Casting mode. See :func:`numpy.can_cast`.
+    :param casting: Casting mode applied to outputs. See :func:`numpy.can_cast`.
+    :type input_match_casting: :obj:`str` :samp:`{'no', 'equiv', 'safe', 'same_kind', 'unsafe'}`
+    :param input_match_casting: Casting mode applied to match :samp:`{ufunc_types}` inputs
+       with the :samp:`{inputs}`. See :func:`numpy.can_cast`.
     :rtype: :obj:`tuple` of :obj:`numpy.dtype`
     :return: A tuple of :obj:`numpy.dtype` indicating the output types produced for
        the given inputs.
@@ -177,7 +188,7 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
                                 _np.can_cast(
                                     in_scalars_and_dtypes[j],
                                     ufunc_in_dtypes[i, j],
-                                    casting=casting
+                                    casting=input_match_casting
                                 )
                                 for j in range(ufunc_in_dtypes.shape[1])
                             )
@@ -222,9 +233,9 @@ def ufunc_result_type(ufunc_types, inputs, outputs=None, casting="safe"):
             )
     else:
         raise ValueError(
-            "Could not cast inputs types = %s to ufunc types=\n%s"
+            "Could not cast (with input_match_casting='%s') inputs types = %s to ufunc types=\n%s"
             %
-            (in_dtypes, ufunc_in_dtypes, )
+            (input_match_casting, in_dtypes, ufunc_in_dtypes, )
         )
 
     return result_dtypes
@@ -717,8 +728,24 @@ class GndarrayArrayUfuncExecutor(object):
             kwargs = dict()
             kwargs.update(self._kwargs)
             kwargs["out"] = np_ufunc_outputs
+            self.array_like_obj.rank_logger.debug(
+                "Calling numpy.ufunc=%s:\ninputs=%s\noutputs=%s",
+                self.ufunc, np_ufunc_inputs, kwargs["out"]
+            )
             self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
-            gndarray_outputs[0].intra_locale_barrier()
+            self.array_like_obj.rank_logger.debug(
+                "Finished numpy.ufunc=%s:\noutputs=%s",
+                self.ufunc,
+                kwargs["out"]
+            )
+        else:
+            self.array_like_obj.rank_logger.debug(
+                "Locale output extent is empty, skipping call to self.ufunc=%s:\nOutput extent=%s",
+                self.ufunc,
+                gndarray_outputs[0].lndarray_proxy.locale_extent
+            )
+
+        gndarray_outputs[0].intra_locale_barrier()
 
         # return the outputs
         if len(gndarray_outputs) == 1:
