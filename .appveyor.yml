@@ -16,6 +16,9 @@ environment:
       PYTHON_VERSION: "3.6"
       PYTHON_ARCH: "64"
 
+git:
+  depth: 200
+
 install:
 
   # Prepend newly installed Python to the PATH of this build (this cannot be
