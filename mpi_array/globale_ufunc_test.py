@@ -160,7 +160,7 @@ class UfuncResultTypeTest(_unittest.TestCase):
             (
                 _np.array([1, 2], dtype='d'),
                 _np.array([1, 2], dtype='i'),
-                _np.array([1, 2], dtype='i')
+                _np.array([1, 2], dtype='uint16')
             )
         self.assertRaises(
             ValueError,

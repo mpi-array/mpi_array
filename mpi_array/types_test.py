@@ -61,7 +61,7 @@ class TypesTest(_unittest.TestCase):
             ["uint16", _mpi.UNSIGNED_SHORT, ],
             ["int16", _mpi.SIGNED_SHORT, ],
             ["uint32", _mpi.UNSIGNED_INT, _mpi.UNSIGNED_LONG, ],
-            ["int32", _mpi.SIGNED_INT, _mpi.INT],
+            ["int32", _mpi.SIGNED_INT, _mpi.INT, _mpi.LONG],
             ["uint64", _mpi.UNSIGNED_LONG_LONG, _mpi.UNSIGNED_LONG],
             ["int64", _mpi.AINT, _mpi.LONG, _mpi.LONG_INT, _mpi.SIGNED_LONG_LONG, _mpi.SIGNED_LONG],
             ["float32", _mpi.FLOAT, ],
