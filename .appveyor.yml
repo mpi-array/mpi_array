@@ -16,8 +16,7 @@ environment:
       PYTHON_VERSION: "3.6"
       PYTHON_ARCH: "64"
 
-git:
-  depth: 200
+clone_depth: 200
 
 install:
 
