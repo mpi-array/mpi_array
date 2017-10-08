@@ -31,8 +31,8 @@ install:
   - "conda update -y conda"
   - "conda config --add channels intel"
 
-  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt "python=2"
-  - if [%PYTHON_VERSION%]==[3.5] conda create -y -n idp intelpython3_core impi_rt "python=3"
+  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py "python=2"
+  - if [%PYTHON_VERSION%]==[3.5] conda create -y -n idp intelpython3_core impi_rt mpi4py "python=3"
 
   - "activate idp"
   - "python -c \"import numpy;print('numpy.__version__='+str(numpy.__version__))\""
