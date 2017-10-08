@@ -10,6 +10,9 @@
 .. image:: https://travis-ci.org/mpi-array/mpi_array.svg?branch=dev
    :target: https://travis-ci.org/mpi-array/mpi_array
    :alt: Build Status
+.. image:: https://ci.appveyor.com/api/projects/status/6yuhwolxtq93qvd0?svg=true
+   :target: https://ci.appveyor.com/project/mpi-array/mpi-array
+   :alt: AppVeyor Status
 .. image:: https://coveralls.io/repos/github/mpi-array/mpi_array/badge.svg
    :target: https://coveralls.io/github/mpi-array/mpi_array
    :alt: Coveralls Status
