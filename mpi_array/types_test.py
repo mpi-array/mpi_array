@@ -65,7 +65,7 @@ class TypesTest(_unittest.TestCase):
             ["uint64", _mpi.UNSIGNED_LONG_LONG, _mpi.UNSIGNED_LONG],
             ["int64", _mpi.AINT, _mpi.LONG, _mpi.LONG_INT, _mpi.SIGNED_LONG_LONG, _mpi.SIGNED_LONG],
             ["float32", _mpi.FLOAT, ],
-            ["float64", _mpi.DOUBLE, ],
+            ["float64", _mpi.DOUBLE, _mpi.LONG_DOUBLE, ],
         ]
         for tup in type_tuples:
             np_dt = tup[0]
