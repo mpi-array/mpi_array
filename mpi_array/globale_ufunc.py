@@ -61,10 +61,10 @@ def get_dtype_and_ndim(array_like):
 
        >>> get_dtype_and_ndim(1.0)
        (dtype('float64'), 0)
-       >>> get_dtype_and_ndim((1, 2, 3, 4))
-       (dtype('int64'), 1)
-       >>> get_dtype_and_ndim([(1, 2, 3, 4), (5, 6, 7, 8)])
-       (dtype('int64'), 2)
+       >>> get_dtype_and_ndim((1.0, 2.0, 3.0, 4.0))
+       (dtype('float64'), 1)
+       >>> get_dtype_and_ndim([(1.0, 2.0, 3.0, 4.0), (5.0, 6.0, 7.0, 8.0)])
+       (dtype('float64'), 2)
     """
     dt, nd = None, None
     if not ((hasattr(array_like, "dtype") and hasattr(array_like, "ndim"))):
