@@ -28,7 +28,7 @@ install:
   - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
   
   # Install Intel Distribution for Python
-  - "conda update conda"
+  - "conda update -y conda"
   - "conda config --add channels intel"
 
   - if [%PYTHON_VERSION%]==[2.7] conda create -n idp intelpython2_core "python=2"
