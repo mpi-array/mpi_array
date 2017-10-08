@@ -1,0 +1,53 @@
+environment:
+
+  matrix:
+
+    # Pre-installed mini-conda versions, which Appveyor may upgrade to
+    # a later point release.
+    # See: http://www.appveyor.com/docs/installed-software#miniconda
+
+    - MINICONDA: "C:\\Miniconda-x64"
+      PYTHON: "%MINICONDA%"
+      PYTHON_VERSION: "2.7"
+      PYTHON_ARCH: "64"
+
+    - MINICONDA: "C:\\Miniconda35-x64"
+      PYTHON: "%MINICONDA%"
+      PYTHON_VERSION: "3.5"
+      PYTHON_ARCH: "64"
+
+install:
+
+  # Prepend newly installed Python to the PATH of this build (this cannot be
+  # done from inside the powershell script as it would require to restart
+  # the parent CMD process).
+  - "SET PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+
+  # Check that we have the expected version and architecture for Python
+  - "python --version"
+  - "python -c \"import struct; print(struct.calcsize('P') * 8)\""
+  
+  # Install Intel Distribution for Python
+  - "conda update conda"
+  - "conda config --add channels intel"
+
+  - if [%PYTHON_VERSION%]==[2.7] conda create -n idp intelpython2_core "python=2"
+  - if [%PYTHON_VERSION%]==[3.5] conda create -n idp intelpython3_core "python=3"
+
+  - "activate idp"
+  - "python -c \"import numpy;print('numpy.__version__='+str(numpy.__version__))\""
+
+  - "dir"
+
+  # Install the build dependencies of the project. If some dependencies contain
+  # compiled extensions and are not provided as pre-built wheel packages,
+  # pip will build them from source using the MSVC compiler matching the
+  # target Python version and architecture
+  - "python setup.py install"
+  - "python utils/mpi_array_info.py"
+
+build: false
+
+test_script:
+  # Run the project tests
+  - "python setup.py test"
