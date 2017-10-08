@@ -51,5 +51,5 @@ build: false
 test_script:
   # Run the project tests
   - "python setup.py test"
-  - "mpirun -n 2 python -m mpi_array.tests"
-  - "mpirun -n 4 python -m mpi_array.tests"
+  - "mpiexec -n 2 python -m mpi_array.tests"
+  - "mpiexec -n 4 python -m mpi_array.tests"
