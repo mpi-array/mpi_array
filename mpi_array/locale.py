@@ -231,6 +231,28 @@ class win_lndarray(_np.ndarray):
         """
         return self._win
 
+    def free(self):
+        """
+        Collective (over all processes in :attr:`comm`) free the MPI window
+        and associated memory buffer.
+        """
+        self.shape = tuple(_np.zeros_like(self.shape))
+        if self._win is not None:
+            self._win.Free()
+
+    def __enter__(self):
+        """
+        For use with :samp:`with` contexts.
+        """
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """
+        For use with :samp:`with` contexts.
+        """
+        self.free()
+        return False
+
 
 class lndarray(_np.ndarray):
 
@@ -305,6 +327,12 @@ class lndarray(_np.ndarray):
         """
         return self._md
 
+    def free(self):
+        """
+        Release reference to buffer, and zero-ise :samp:`self.shape`.
+        """
+        pass
+
 
 PartitionViewSlices = \
     _collections.namedtuple(
@@ -374,7 +402,8 @@ class LndarrayProxy(object):
         intra_partition_dims=None,
         locale_extent=None,
         halo=None,
-        comms_and_distrib=None
+        comms_and_distrib=None,
+        rma_window_buffer=None
     ):
         """
         Initialise, at least one of :samp:{shape} or :samp:`locale_extent` should
@@ -400,6 +429,12 @@ class LndarrayProxy(object):
         """
 
         self = object.__new__(cls)
+
+        # initialise these members before potential exceptions
+        # because they are referenced in self.free (via self.__del__).
+        self._lndarray = None
+        self.rma_window_buffer = None
+
         if locale_extent is None or (not isinstance(locale_extent, _LocaleExtent)):
             raise ValueError(
                 "Got locale_extent=%s, expecting instance of type %s"
@@ -437,8 +472,47 @@ class LndarrayProxy(object):
                 halo=self._halo
             )
         self.comms_and_distrib = comms_and_distrib
+        self.rma_window_buffer = rma_window_buffer
 
         return self
+
+    def free(self):
+        """
+        Release locale array memory and assign :samp:`None` to self attributes.
+        """
+        if self._lndarray is not None:
+            self._lndarray.free()
+            self._lndarray = None
+        self._intra_locale_rank = None
+        self._intra_locale_size = None
+        self._intra_partition_dims = None
+        self._locale_extent = None
+        self._halo = None
+        self._intra_partition_dims = None
+        self._intra_partition = None
+        self.comms_and_distrib = None
+        if self.rma_window_buffer is not None:
+            self.rma_window_buffer.free()
+            self.rma_window_buffer = None
+
+    def __del__(self):
+        """
+        Calls :meth:`free`.
+        """
+        self.free()
+
+    def __enter__(self):
+        """
+        For use with :samp:`with` contexts.
+        """
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """
+        For use with :samp:`with` contexts.
+        """
+        self.free()
+        return False
 
     def calculate_intra_partition(
             self,
@@ -706,6 +780,12 @@ def empty(
             dtype=dtype
         )
 
+    kwargs = dict()
+    if not return_rma_window_buffer:
+        kwargs = {
+            "comms_and_distrib": comms_and_distrib,
+            "rma_window_buffer": rma_window_buffer,
+        }
     ret = \
         LndarrayProxy(
             shape=rma_window_buffer.shape,
@@ -717,7 +797,7 @@ def empty(
             intra_partition_dims=intra_partition_dims,
             locale_extent=locale_extent,
             halo=comms_and_distrib.distribution.halo,
-            comms_and_distrib=comms_and_distrib
+            **kwargs
         )
 
     if return_rma_window_buffer:

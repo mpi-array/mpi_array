@@ -34,8 +34,8 @@ __version__ = _version()
 
 _thismodule = _sys.modules[__name__]
 
-from . import globale as _globale  # noqa: E402,F401
-gndarray = _globale.gndarray
+from .globale import gndarray  # noqa: E402,F401
+from .globale import free_all  # noqa: E402,F401
 
 from . import globale_creation as _creation  # noqa: E402,F401
 for s in _creation.__all__:

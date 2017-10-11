@@ -17,7 +17,6 @@ import re as _re
 import unittest as _unittest
 import doctest as _doctest  # noqa: E402,F401
 import os.path as _os_path
-import mpi_array as _mpi_array
 
 from .license import license as _license, copyright as _copyright, version as _version
 from .unittest import main as _unittest_main
@@ -65,6 +64,7 @@ class DocTestTestSuite(_unittest.TestSuite):
                 _os_path.join(_os_path.dirname(__file__), "..", "README.rst")
             )
         suite = _unittest.TestSuite()
+
         if _os_path.exists(readme_file_name):
             suite.addTests(
                 _doctest.DocFileSuite(
@@ -73,9 +73,17 @@ class DocTestTestSuite(_unittest.TestSuite):
                     optionflags=_doctest.NORMALIZE_WHITESPACE
                 )
             )
+        from . import indexing as _indexing
         suite.addTests(
             _doctest.DocTestSuite(
-                _mpi_array.globale_ufunc,
+                _indexing,
+                optionflags=_doctest.NORMALIZE_WHITESPACE
+            )
+        )
+        from . import globale_ufunc as _globale_ufunc
+        suite.addTests(
+            _doctest.DocTestSuite(
+                _globale_ufunc,
                 optionflags=_doctest.NORMALIZE_WHITESPACE
             )
         )
@@ -100,9 +108,6 @@ def load_tests(loader, tests, pattern):
             ]
         )
     suite.addTests(DocTestTestSuite())
-
-    import mpi_array.indexing as _indexing
-    suite.addTests(_doctest.DocTestSuite(_indexing))
 
     return suite
 

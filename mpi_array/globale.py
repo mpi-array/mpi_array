@@ -242,7 +242,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
                     lo_hi_updates_pair = rank_updates_per_axis[a]
 
                     # When axis doesn't have a halo then lo_hi_updates_pair
-                    # is None on all cart_comm ranks, and we avoid calling the Fence
+                    # is None on all inter_locale_comm ranks, and we avoid calling the Fence
                     # in this case
                     if lo_hi_updates_pair is not None:
                         axis_inter_locale_rank_updates = \
@@ -600,6 +600,38 @@ class gndarray(_NDArrayOperatorsMixin):
 
         return self
 
+    def free(self):
+        """
+        Collective (all samp:`peer_comm` processes) free of MPI windows (and locale array memory).
+        """
+        self._halo_updater = None
+        self._comms_and_distrib = None
+        if self._lndarray_proxy is not None:
+            self._lndarray_proxy.free()
+            self._lndarray_proxy = None
+        if self._rma_window_buffer is not None:
+            self._rma_window_buffer.free()
+            self._rma_window_buffer = None
+
+    def __del__(self):
+        """
+        Calls :meth:`free`.
+        """
+        self.free()
+
+    def __enter__(self):
+        """
+        For use with :samp:`with` contexts.
+        """
+        return self
+
+    def __exit__(self, type, value, traceback):
+        """
+        For use with :samp:`with` contexts.
+        """
+        self.free()
+        return False
+
     def __getitem__(self, i):
         """
         """
@@ -951,6 +983,19 @@ class gndarray(_NDArrayOperatorsMixin):
             update_executor.do_locale_rma_update(updates)
 
         return locale_ary
+
+
+def free_all(objects):
+    """
+    Call the :samp:`free` attribute on all arguments.
+
+    :type objects: sequence of :obj:`object`
+    :param objects: Call the :samp:`free` attribute for all objects in this
+        sequence (if it exists and it is :obj:`callable`).
+    """
+    for obj in objects:
+        if hasattr(obj, "free") and hasattr(obj.free, "__call__"):
+            obj.free()
 
 
 def copyto(dst, src, casting="same_kind", **kwargs):
