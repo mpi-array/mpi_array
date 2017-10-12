@@ -45,7 +45,7 @@ def get_shared_mem_usage_percent_string(shm_file_name="/dev/shm"):
     return usage_percent
 
 
-def log_shared_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype):
+def log_shared_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buffer=None):
     """
     Generates logging message which indicates amount of shared-memory allocated
     using call to :meth:`mpi4py.MPI.Win.Allocate_shared`.
@@ -53,20 +53,22 @@ def log_shared_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype):
     sfx = "."
     if pfx.find("BEG") >= 0:
         sfx = sfx + ".."
+    logger_args = \
+        (pfx, num_rank_bytes, rank_shape, dtype, get_shared_mem_usage_percent_string())
+    buffer_fmt = ""
+    if buffer is not None:
+        buffer_fmt = ", buffer=%s"
+        logger_args = logger_args + (buffer, )
+    logger_args = logger_args + (sfx,)
     logger(
         "%sWin.Allocate_shared - allocating buffer of %12d bytes for shape=%s, "
         +
-        "dtype=%s, shared-mem-usage=%s%s",
-        pfx,
-        num_rank_bytes,
-        rank_shape,
-        dtype,
-        get_shared_mem_usage_percent_string(),
-        sfx
+        "dtype=%s, shared-mem-usage=%s" + buffer_fmt + "%s",
+        *logger_args
     )
 
 
-def log_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype):
+def log_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buffer=None):
     """
     Generates logging message which indicates amount of memory allocated
     using call to :meth:`mpi4py.MPI.Win.Allocate`.
@@ -74,15 +76,18 @@ def log_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype):
     sfx = "."
     if pfx.find("BEG") >= 0:
         sfx = sfx + ".."
+    logger_args = \
+        (pfx, num_rank_bytes, rank_shape, dtype)
+    buffer_fmt = ""
+    if buffer is not None:
+        buffer_fmt = ", buffer=%s"
+        logger_args = logger_args + (buffer, )
+    logger_args = logger_args + (sfx,)
     logger(
         "%sWin.Allocate - allocating buffer of %12d bytes for shape=%s, "
         +
-        "dtype=%s%s",
-        pfx,
-        num_rank_bytes,
-        rank_shape,
-        dtype,
-        sfx
+        "dtype=%s" + buffer_fmt + "%s",
+        *logger_args
     )
 
 

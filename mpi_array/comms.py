@@ -416,7 +416,7 @@ class LocaleComms(object):
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
             _log_shared_memory_alloc(
-                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
             )
         else:
             self.rank_logger.debug(
@@ -430,11 +430,11 @@ class LocaleComms(object):
             )
             intra_locale_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
-            _log_memory_alloc(
-                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
-            )
             buffer = intra_locale_win.memory
             itemsize = dtype.itemsize
+            _log_memory_alloc(
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
+            )
 
         if num_rank_bytes > 0:
             peer_buffer = buffer
