@@ -39,7 +39,6 @@ from . import comms as _comms
 from .globale_ufunc import broadcast_shape, ufunc_result_type
 from .globale import gndarray as _gndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
-from .globale_creation import zeros_like as _zeros_like
 from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
@@ -170,19 +169,24 @@ class UfuncResultTypeTest(_unittest.TestCase):
     def test_example(self):
         import numpy as np
         import mpi_array as mpia
-        inp = (
-            np.zeros((10, 10, 10), dtype='float16'),
-            16.0,
-            mpia.zeros((10, 10, 10), dtype='float32'),
-        )
-        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
-        self.assertSequenceEqual((_np.dtype('float32'), _np.dtype('bool')), dtypes)
-        out = (mpia.zeros((10, 10, 10), dtype="float64"),)
-        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
-        self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('bool')), dtypes)
-        out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
-        dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
-        self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('uint16')), dtypes)
+        try:
+            inp = (
+                np.zeros((10, 10, 10), dtype='float16'),
+                16.0,
+                mpia.zeros((10, 10, 10), dtype='float32'),
+            )
+            dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp)
+            self.assertSequenceEqual((_np.dtype('float32'), _np.dtype('bool')), dtypes)
+            out = (mpia.zeros((10, 10, 10), dtype="float64"),)
+            dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+            self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('bool')), dtypes)
+            out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
+            dtypes = ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
+            self.assertSequenceEqual((_np.dtype('float64'), _np.dtype('uint16')), dtypes)
+        finally:
+            inp[2].free()
+            out[0].free()
+            out[1].free()
 
 
 class BroadcastShapeTest(_unittest.TestCase):
@@ -290,7 +294,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
         """
         _np.random.seed(1531796312)
         self._rank_logger = _logging.get_rank_logger(self.id())
-        self.num_node_locales = _asarray(_np.zeros((100,))).locale_comms.num_locales
+        with _asarray(_np.zeros((100,))) as gary:
+            self.num_node_locales = gary.num_locales
 
     @property
     def rank_logger(self):
@@ -299,38 +304,40 @@ class GndarrayUfuncTest(_unittest.TestCase):
         """
         return self._rank_logger
 
-    def compare_results(self, npy_result_ary, mpi_result_ary):
+    def compare_results(self, mpi_cln_npy_result_ary, mpi_result_ary):
         """
-        Asserts that all elements of the :obj:`numpy.ndarray` :samp:`{npy_result_ary}`
+        Asserts that all elements of
+        the :obj:`mpi_array.globale.gndarray` :samp:`{mpi_cln_npy_result_ary}`
         equal all elements of the  :obj:`mpi_array.globale.gndarray` :samp:`{mpi_result_ary}`.
 
-        :type npy_result_ary: :obj:`numpy.ndarray`
-        :param npy_result_ary: The result array from :obj:`numpy.ufunc` execution.
+        :type mpi_cln_npy_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_cln_npy_result_ary: The result returned by :samp:`{func}(*{func_args})`
+            converted to a cloned-distribution :obj:`mpi_array.globale.gndarray`.
         :type mpi_result_ary: :obj:`mpi_array.globale.gndarray`
         :param mpi_result_ary: The result array
            from :meth:`mpi_array.globale.gndarray.__array_ufunc__` execution.
         """
-        mpi_cln_npy_result_ary = _asarray(npy_result_ary)
-        mpi_cln_mpi_result_ary = \
-            _zeros(
-                shape=mpi_result_ary.shape,
-                dtype=mpi_result_ary.dtype,
-                locale_type=LT_NODE,
-                distrib_type=DT_CLONED
-            )
-        _copyto(dst=mpi_cln_mpi_result_ary, src=mpi_result_ary)
+        with \
+                _zeros(
+                    shape=mpi_result_ary.shape,
+                    dtype=mpi_result_ary.dtype,
+                    locale_type=LT_NODE,
+                    distrib_type=DT_CLONED
+                ) as mpi_cln_mpi_result_ary:
 
-        self.assertSequenceEqual(
-            tuple(mpi_cln_npy_result_ary.shape),
-            tuple(mpi_cln_mpi_result_ary.shape)
-        )
-        self.assertTrue(
-            _np.all(
-                mpi_cln_npy_result_ary.lndarray_proxy.view_n
-                ==
-                mpi_cln_mpi_result_ary.lndarray_proxy.view_n
+            _copyto(dst=mpi_cln_mpi_result_ary, src=mpi_result_ary)
+
+            self.assertSequenceEqual(
+                tuple(mpi_cln_npy_result_ary.shape),
+                tuple(mpi_cln_mpi_result_ary.shape)
             )
-        )
+            self.assertTrue(
+                _np.all(
+                    mpi_cln_npy_result_ary.lndarray_proxy.view_n
+                    ==
+                    mpi_cln_mpi_result_ary.lndarray_proxy.view_n
+                )
+            )
 
     def convert_func_args_to_gndarrays(self, converter, func_args):
         """
@@ -348,16 +355,17 @@ class GndarrayUfuncTest(_unittest.TestCase):
         """
         return [converter(arg) if isinstance(arg, _np.ndarray) else arg for arg in func_args]
 
-    def do_convert_execute_and_compare(self, npy_result_ary, converter, func, *func_args):
+    def do_convert_execute_and_compare(self, mpi_cln_npy_result_ary, converter, func, *func_args):
         """
-        Calls :samp:`{func}` with :samp:`{func_args}` arguments and compares
-        the result with :samp:`{func}` called
+        Compares the result of :samp:`{func}` called
         with :samp:`self.convert_func_args_to_gndarrays({converter}, {func_args})`
-        converted arguments.
+        converted arguments with the :samp:`{mpi_cln_npy_result_ary}` array (which should
+        have been produced by
+        calling :samp:`mpi_array.globale_creation.asarray({func}(*func_args))`).
 
-        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
-        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
-            If :samp:`None` then it is computed.
+        :type mpi_cln_npy_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_cln_npy_result_ary: The result returned by :samp:`{func}(*{func_args})`
+            converted to a cloned-distribution :obj:`mpi_array.globale.gndarray`.
         :type converter: :obj:`ToGndarrayConverter`
         :param converter: Used to convert the :obj:`numpy.ndarray` instances
            of :samp:`{func_args}` to :samp:`mpi_array.globale.gndarray` instances.
@@ -373,20 +381,23 @@ class GndarrayUfuncTest(_unittest.TestCase):
 
         """
         mpi_func_args = self.convert_func_args_to_gndarrays(converter, func_args)
-        mpi_result_ary = func(*mpi_func_args)
-        if npy_result_ary is None:
-            npy_result_ary = func(*func_args)
-        self.compare_results(npy_result_ary, mpi_result_ary)
+        with func(*mpi_func_args) as mpi_result_ary:
+            if mpi_cln_npy_result_ary is None:
+                mpi_cln_npy_result_ary = func(*func_args)
+            self.compare_results(mpi_cln_npy_result_ary, mpi_result_ary)
+        for arg in mpi_func_args:
+            if hasattr(arg, "free"):
+                arg.free()
 
-    def do_cloned_distribution_test(self, npy_result_ary, func, *func_args):
+    def do_cloned_distribution_test(self, mpi_cln_npy_result_ary, func, *func_args):
         """
         Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
         to :obj:`mpi_array.globale.gndarray` instances distributed as
         the :attr:`mpi_array.comms.DT_CLONED` distribution type.
 
-        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
-        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
-            If :samp:`None` then it is computed.
+        :type mpi_cln_npy_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_cln_npy_result_ary: The result returned by :samp:`{func}(*{func_args})`
+            converted to a cloned-distribution :obj:`mpi_array.globale.gndarray`.
         :type func: callable
         :param func: Function which computes a new array from the :samp:`*{func_args}`
             arguments.
@@ -398,20 +409,20 @@ class GndarrayUfuncTest(_unittest.TestCase):
         .. seealso: :meth:`do_convert_execute_and_compare`, :meth:`compare_results`
         """
         converter = ToGndarrayConverter(locale_type=LT_PROCESS, distrib_type=DT_CLONED)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
         converter = ToGndarrayConverter(locale_type=LT_NODE, distrib_type=DT_CLONED)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
-    def do_single_locale_distribution_test(self, npy_result_ary, func, *func_args):
+    def do_single_locale_distribution_test(self, mpi_cln_npy_result_ary, func, *func_args):
         """
         Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
         to :obj:`mpi_array.globale.gndarray` instances distributed as
         the :attr:`mpi_array.comms.DT_SINGLE_LOCALE` distribution type.
 
-        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
-        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
-            If :samp:`None` then it is computed.
+        :type mpi_cln_npy_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_cln_npy_result_ary: The result returned by :samp:`{func}(*{func_args})`
+            converted to a cloned-distribution :obj:`mpi_array.globale.gndarray`.
         :type func: callable
         :param func: Function which computes a new array from the :samp:`*{func_args}`
             arguments.
@@ -433,21 +444,21 @@ class GndarrayUfuncTest(_unittest.TestCase):
 
         converter = \
             Converter(locale_type=LT_PROCESS, distrib_type=DT_SINGLE_LOCALE, inter_locale_rank=0)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
         converter = \
             Converter(locale_type=LT_NODE, distrib_type=DT_SINGLE_LOCALE, inter_locale_rank=0)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
-    def do_block_distribution_test(self, npy_result_ary, func, *func_args):
+    def do_block_distribution_test(self, mpi_cln_npy_result_ary, func, *func_args):
         """
         Converts :obj:`numpy.ndarray` elements of :samp:`func_args`
         to :obj:`mpi_array.globale.gndarray` instances distributed as
         the :attr:`mpi_array.comms.DT_BLOCK` distribution type.
 
-        :type npy_result_ary: :samp:`None` or :obj:`numpy.ndarray`
-        :param npy_result_ary: The result returned by :samp:`{func}(*{func_args})`.
-            If :samp:`None` then it is computed.
+        :type mpi_cln_npy_result_ary: :obj:`mpi_array.globale.gndarray`
+        :param mpi_cln_npy_result_ary: The result returned by :samp:`{func}(*{func_args})`
+            converted to a cloned-distribution :obj:`mpi_array.globale.gndarray`.
         :type func: callable
         :param func: Function which computes a new array from the :samp:`*{func_args}`
             arguments.
@@ -480,10 +491,10 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 return gndary
 
         converter = Converter(locale_type=LT_PROCESS, distrib_type=DT_BLOCK)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
         converter = Converter(locale_type=LT_NODE, distrib_type=DT_BLOCK)
-        self.do_convert_execute_and_compare(npy_result_ary, converter, func, *func_args)
+        self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
     def do_multi_distribution_tests(self, func, *func_args):
         """
@@ -507,12 +518,10 @@ class GndarrayUfuncTest(_unittest.TestCase):
         .. seealso: :meth:`do_cloned_distribution_test`, :meth:`do_single_locale_distribution_test`
            , :meth:`do_block_distribution_test` and :meth:`do_convert_execute_and_compare`
         """
-        npy_result_ary = func(*func_args)
-        npy_result_ary = _asarray(npy_result_ary)
-
-        self.do_cloned_distribution_test(npy_result_ary, func, *func_args)
-        self.do_single_locale_distribution_test(npy_result_ary, func, *func_args)
-        self.do_block_distribution_test(npy_result_ary, func, *func_args)
+        with _asarray(func(*func_args)) as mpi_cln_npy_result_ary:
+            self.do_cloned_distribution_test(mpi_cln_npy_result_ary, func, *func_args)
+            self.do_single_locale_distribution_test(mpi_cln_npy_result_ary, func, *func_args)
+            self.do_block_distribution_test(mpi_cln_npy_result_ary, func, *func_args)
 
     def test_umath_multiply(self):
         """
@@ -526,8 +535,8 @@ class GndarrayUfuncTest(_unittest.TestCase):
         gshape0 = (41 * per_axis_size_factor + 1, 43 * per_axis_size_factor + 3, 5)
         npy_ary0 = _np.random.uniform(low=0.5, high=1.75, size=gshape0)
 
-        cln_ary = _asarray(npy_ary0)
-        self.assertTrue(_np.all(npy_ary0 == cln_ary.lndarray_proxy.lndarray))
+        with _asarray(npy_ary0) as cln_ary:
+            self.assertTrue(_np.all(npy_ary0 == cln_ary.lndarray_proxy.lndarray))
 
         def multiply(ary0, ary1):
             return ary0 * ary1
@@ -550,21 +559,23 @@ class GndarrayUfuncTest(_unittest.TestCase):
         Test binary op for a :obj:`mpi_array.globale.gndarray` object
         and a scalar.
         """
-        c = _ones(gshape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo)
-        c_orig_halo = c.distribution.halo
+        with _ones(gshape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo) as c:
+            # if True:
+            #    c = _ones(gshape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo)
+            c_orig_halo = c.distribution.halo
 
-        self.assertTrue(isinstance(c, _gndarray))
-        self.assertTrue((c == 1).all())
+            self.assertTrue(isinstance(c, _gndarray))
+            self.assertTrue((c == 1).all())
 
-        c *= 2
-        self.assertTrue((c == 2).all())
-        self.assertTrue(_np.all(c.distribution.halo == c_orig_halo))
+            c *= 2
+            self.assertTrue((c == 2).all())
+            self.assertTrue(_np.all(c.distribution.halo == c_orig_halo))
 
-        d = c + 2
-        self.assertTrue(isinstance(d, _gndarray))
-        self.assertEqual(c.dtype, d.dtype)
-        self.assertTrue((d == 4).all())
-        self.assertTrue(_np.all(d.distribution.halo == c_orig_halo))
+            with (c + 2) as d:
+                self.assertTrue(isinstance(d, _gndarray))
+                self.assertEqual(c.dtype, d.dtype)
+                self.assertTrue((d == 4).all())
+                self.assertTrue(_np.all(d.distribution.halo == c_orig_halo))
 
     def test_umath_no_halo(self):
         """
@@ -585,26 +596,25 @@ class GndarrayUfuncTest(_unittest.TestCase):
         Test binary op for a :obj:`mpi_array.globale.gndarray` objects
         and an *array-like* object which requires requiring broadcast to result shape.
         """
-        c = \
-            _ones(
-                (61, 55, 3),
-                dtype="int32",
-                locale_type=_comms.LT_PROCESS,
-                distrib_type=_comms.DT_BLOCK,
-                dims=dims,
-                halo=halo
-            )
-        c_orig_halo = c.distribution.halo
+        with \
+                _ones(
+                    (61, 55, 3),
+                    dtype="int32",
+                    locale_type=_comms.LT_PROCESS,
+                    distrib_type=_comms.DT_BLOCK,
+                    dims=dims,
+                    halo=halo
+                ) as c:
+            c_orig_halo = c.distribution.halo
 
-        d = _zeros_like(c)
-        d = c * (2, 2, 2)
+            with (c * (2, 2, 2)) as d:
 
-        self.assertTrue(isinstance(d, _gndarray))
-        self.assertEqual(_np.asarray((2, 2, 2)).dtype, d.dtype)
-        self.assertSequenceEqual(tuple(c.shape), tuple(d.shape))
-        self.assertSequenceEqual(d.distribution.halo.tolist(), c_orig_halo.tolist())
-        self.assertTrue((d.view_n == 2).all())
-        self.assertTrue((d == 2).all())
+                self.assertTrue(isinstance(d, _gndarray))
+                self.assertEqual(_np.asarray((2, 2, 2)).dtype, d.dtype)
+                self.assertSequenceEqual(tuple(c.shape), tuple(d.shape))
+                self.assertSequenceEqual(d.distribution.halo.tolist(), c_orig_halo.tolist())
+                self.assertTrue((d.view_n == 2).all())
+                self.assertTrue((d == 2).all())
 
     def test_umath_broadcast_no_halo(self):
         """
@@ -634,30 +644,29 @@ class GndarrayUfuncTest(_unittest.TestCase):
         with the resulting :obj:`mpi_array.globale.gndarray` object having
         different (larger) shape than that of both inputs.
         """
-        a = \
-            _ones(
-                (19, 3),
-                dtype="int32",
-                locale_type=_comms.LT_PROCESS,
-                distrib_type=_comms.DT_BLOCK,
-                dims=dims_a,
-                halo=halo_a
-            )
-        b = \
-            _ones(
-                (23, 1, 3),
-                dtype="int32",
-                locale_type=_comms.LT_PROCESS,
-                distrib_type=_comms.DT_BLOCK,
-                dims=dims_b,
-                halo=halo_b
-            )
+        with \
+                _ones(
+                    (19, 3),
+                    dtype="int32",
+                    locale_type=_comms.LT_PROCESS,
+                    distrib_type=_comms.DT_BLOCK,
+                    dims=dims_a,
+                    halo=halo_a
+                ) as a, \
+                _ones(
+                    (23, 1, 3),
+                    dtype="int32",
+                    locale_type=_comms.LT_PROCESS,
+                    distrib_type=_comms.DT_BLOCK,
+                    dims=dims_b,
+                    halo=halo_b
+                ) as b:
 
-        d = a + b
+            with (a + b) as d:
 
-        self.assertTrue(isinstance(d, _gndarray))
-        self.assertSequenceEqual((b.shape[0], a.shape[0], 3), tuple(d.shape))
-        self.assertTrue((d == 2).all())
+                self.assertTrue(isinstance(d, _gndarray))
+                self.assertSequenceEqual((b.shape[0], a.shape[0], 3), tuple(d.shape))
+                self.assertTrue((d == 2).all())
 
     def test_umath_broadcast_upsized_result(self):
         """
@@ -701,35 +710,33 @@ class GndarrayUfuncTest(_unittest.TestCase):
         Test binary op for two :obj:`mpi_array.globale.gndarray` objects
         which requires remote fetch of data when broadcasting to result shape.
         """
-        a = _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_a)
-        a_orig_halo = a.distribution.halo
-        b = _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_b)
-        b_orig_halo = b.distribution.halo
+        with \
+                _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_a) as a,\
+                _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_b) as b:
+            a_orig_halo = a.distribution.halo
+            b_orig_halo = b.distribution.halo
 
-        c = a + b
+            with (a + b) as c:
 
-        self.assertTrue(isinstance(c, _gndarray))
-        self.assertTrue((c == 2).all())
-        self.assertSequenceEqual(c.distribution.halo.tolist(), a_orig_halo.tolist())
+                self.assertTrue(isinstance(c, _gndarray))
+                self.assertTrue((c == 2).all())
+                self.assertSequenceEqual(c.distribution.halo.tolist(), a_orig_halo.tolist())
 
-        twos = \
-            _ones(
-                tuple(a.shape[1:]),
-                dtype=c.dtype,
-                locale_type=_comms.LT_PROCESS,
-                dims=(0, 1),
-                halo=b_orig_halo[1:]
-            )
-        twos.fill_h(2)
+                with \
+                        _ones(
+                            tuple(a.shape[1:]),
+                            dtype=c.dtype,
+                            locale_type=_comms.LT_PROCESS,
+                            dims=(0, 1),
+                            halo=b_orig_halo[1:]
+                        ) as twos:
 
-        c = a * twos
-        self.assertTrue(isinstance(c, _gndarray))
-        self.assertSequenceEqual(tuple(a.shape), tuple(c.shape))
-        self.assertTrue((c == 2).all())
+                    twos.fill_h(2)
 
-        c = twos * a
-        self.assertSequenceEqual(tuple(a.shape), tuple(c.shape))
-        self.assertTrue((c == 2).all())
+                    with (a * twos) as d:
+                        self.assertTrue(isinstance(d, _gndarray))
+                        self.assertSequenceEqual(tuple(a.shape), tuple(d.shape))
+                        self.assertTrue((d == 2).all())
 
     def test_umath_distributed_broadcast_no_halo(self):
         """

@@ -125,6 +125,7 @@ def ufunc_result_type(
        >>> out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
        (dtype('float64'), dtype('uint16'))
+       >>> mpia.free_all(inp + out)
     """
     logger = _logging.get_rank_logger(__name__)
     result_dtypes = None

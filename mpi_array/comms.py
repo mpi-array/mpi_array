@@ -94,11 +94,11 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         "A :obj:`int` indicating the rank of :samp:`peer_comm` communicator."
 
 
-RmaWindowBuffer = \
+RmaWindowBufferTuple = \
     _collections.namedtuple(
         "RmaWindowBuffer",
         [
-            "buffer",
+            "is_shared",
             "shape",
             "dtype",
             "itemsize",
@@ -107,16 +107,49 @@ RmaWindowBuffer = \
             "inter_locale_win"
         ]
     )
+
+
+class RmaWindowBuffer(RmaWindowBufferTuple):
+
+    __slots__ = ()
+
+    @property
+    def buffer(self):
+        """
+        The memory allocated using one of :meth:`mpi4py.MPI.Win.Allocate`
+        or :meth:`mpi4py.MPI.Win.Allocate_shared`. This memory is used to store
+        elements of the globale array apportioned to a locale.
+        """
+        if self.is_shared:
+            buffer, itemsize = self.intra_locale_win.Shared_query(0)
+        else:
+            buffer = self.intra_locale_win.memory
+        buffer = _np.array(buffer, dtype='B', copy=False)
+
+        return buffer
+
+    def free(self):
+        """
+        Free MPI windows and associated buffer memory.
+        """
+        if self.inter_locale_win != _mpi.WIN_NULL:
+            self.inter_locale_win.Free()
+        if self.peer_win != _mpi.WIN_NULL:
+            self.peer_win.Free()
+        if self.intra_locale_win != _mpi.WIN_NULL:
+            self.intra_locale_win.Free()
+
+
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     RmaWindowBuffer.__doc__ = \
         """
        Details of the buffer allocated on a locale.
        """
-    RmaWindowBuffer.buffer.__doc__ = \
+    RmaWindowBuffer.is_shared.__doc__ = \
         """
-        The memory allocated using one of :meth:`mpi4py.MPI.Win.Allocate`
-        or :meth:`mpi4py.MPI.Win.Allocate_shared`. This memory is used to store
-        elements of the globale array apportioned to a locale.
+        A :obj:`bool`, if :samp:`True` then buffer memory was allocated
+        using :meth:`mpi4py.MPI.Win.Allocate_shared`, otherwise memory
+        was allocated using :meth:`mpi4py.MPI.Win.Allocate`.
         """
     RmaWindowBuffer.shape.__doc__ = \
         "A sequence of :obj:`int` indicating the shape of the locale array."
@@ -360,6 +393,7 @@ class LocaleComms(object):
         :returns: A :obj:`collections.namedtuple` containing allocated buffer
            and associated RMA MPI windows.
         """
+        is_shared_alloc = False
         self.rank_logger.debug("BEG: alloc_locale_buffer")
         num_rank_bytes = 0
         dtype = _np.dtype(dtype)
@@ -370,6 +404,7 @@ class LocaleComms(object):
         else:
             rank_shape = tuple(_np.zeros_like(rank_shape))
         if (mpi_version() >= 3) and (self.intra_locale_comm.size > 1):
+            is_shared_alloc = True
             _log_shared_memory_alloc(
                 self.rank_logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
             )
@@ -381,36 +416,7 @@ class LocaleComms(object):
                 )
             buffer, itemsize = intra_locale_win.Shared_query(0)
             _log_shared_memory_alloc(
-                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
-            )
-
-            if num_rank_bytes > 0:
-                peer_buffer = buffer
-            else:
-                peer_buffer = None
-            if peer_buffer is None:
-                peer_buffer_nbytes = None
-            elif (hasattr(peer_buffer, 'nbytes')):
-                peer_buffer_nbytes = peer_buffer.nbytes
-            else:
-                peer_buffer_nbytes = \
-                    _np.product(peer_buffer.shape) * peer_buffer.itemsize
-
-            self.rank_logger.debug(
-                "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
-                peer_buffer_nbytes
-            )
-            peer_win = _mpi.Win.Create(peer_buffer, itemsize, comm=self.peer_comm)
-            if peer_win.memory is None:
-                peer_win_memory_nbytes = None
-            elif (hasattr(peer_win.memory, 'nbytes')):
-                peer_win_memory_nbytes = peer_win.memory.nbytes
-            else:
-                peer_win_memory_nbytes = \
-                    _np.product(peer_win.memory.shape) * peer_win.memory.itemsize
-            self.rank_logger.debug(
-                "END: Win.Create for self.peer_comm, peer_win.memory.nbytes=%s...",
-                peer_win_memory_nbytes
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
             )
         else:
             self.rank_logger.debug(
@@ -422,34 +428,61 @@ class LocaleComms(object):
             _log_memory_alloc(
                 self.rank_logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
             )
-            peer_win = \
+            intra_locale_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
-            _log_memory_alloc(
-                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
-            )
-            intra_locale_win = peer_win
-            buffer = peer_win.memory
+            buffer = intra_locale_win.memory
             itemsize = dtype.itemsize
+            _log_memory_alloc(
+                self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
+            )
+
+        if num_rank_bytes > 0:
+            peer_buffer = buffer
+        else:
+            peer_buffer = None
+        if peer_buffer is None:
+            peer_buffer_nbytes = None
+        elif (hasattr(peer_buffer, 'nbytes')):
+            peer_buffer_nbytes = peer_buffer.nbytes
+        else:
+            peer_buffer_nbytes = \
+                _np.product(peer_buffer.shape) * peer_buffer.itemsize
+
+        self.rank_logger.debug(
+            "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
+            peer_buffer_nbytes
+        )
+        peer_win = _mpi.Win.Create(peer_buffer, itemsize, comm=self.peer_comm)
+        if peer_win.memory is None:
+            peer_win_memory_nbytes = None
+        elif (hasattr(peer_win.memory, 'nbytes')):
+            peer_win_memory_nbytes = peer_win.memory.nbytes
+        else:
+            peer_win_memory_nbytes = \
+                _np.product(peer_win.memory.shape) * peer_win.memory.itemsize
+        self.rank_logger.debug(
+            "END: Win.Create for self.peer_comm, peer_win.memory.nbytes=%s...",
+            peer_win_memory_nbytes
+        )
 
         inter_locale_win = None
-        if self.num_locales > 1:
-            inter_locale_win = _mpi.WIN_NULL
-            if self.have_valid_inter_locale_comm:
-                self.rank_logger.debug("BEG: Win.Create for self.inter_locale_comm")
-                inter_locale_win = \
-                    _mpi.Win.Create(
-                        buffer,
-                        itemsize,
-                        comm=self.inter_locale_comm
-                    )
-                self.rank_logger.debug("END: Win.Create for self.inter_locale_comm")
+        inter_locale_win = _mpi.WIN_NULL
+        if self.have_valid_inter_locale_comm:
+            self.rank_logger.debug("BEG: Win.Create for self.inter_locale_comm")
+            inter_locale_win = \
+                _mpi.Win.Create(
+                    buffer,
+                    itemsize,
+                    comm=self.inter_locale_comm
+                )
+            self.rank_logger.debug("END: Win.Create for self.inter_locale_comm")
 
         buffer = _np.array(buffer, dtype='B', copy=False)
 
         self.rank_logger.debug("END: alloc_local_buffer")
         return \
             RmaWindowBuffer(
-                buffer=buffer,
+                is_shared=is_shared_alloc,
                 shape=locale_shape,
                 dtype=dtype,
                 itemsize=itemsize,
