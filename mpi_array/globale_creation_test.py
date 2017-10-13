@@ -34,7 +34,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .globale import gndarray as _gndarray
-from .globale_creation import asarray as _asarray
+from .globale_creation import asarray as _asarray, asanyarray as _asanyarray
 from .globale_creation import empty as _empty, zeros as _zeros, ones as _ones, copy as _copy
 from .globale_creation import empty_like as _empty_like, zeros_like as _zeros_like
 from .globale_creation import ones_like as _ones_like
@@ -105,6 +105,42 @@ class GndarrayCreationTest(_unittest.TestCase):
         self.assertTrue(isinstance(ary_subclass, _gndarray))
         asary0 = _asarray(ary_subclass)
         self.assertTrue(asary0.__class__ is _gndarray)
+
+    def test_asanyarray_with_tuple(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_creation.asanyarray`.
+        """
+
+        tary0 = _asanyarray(_np.linspace(100.0, 200.0, 101).tolist())
+        tary0.rank_logger.debug("tary0.num_locales = %s" % (tary0.num_locales,))
+        self.assertTrue(tary0.__class__ is _gndarray)
+        self.assertEqual(_np.dtype("float64"), tary0)
+        self.assertTrue(tary0.locale_comms.peer_comm is _mpi.COMM_WORLD)
+
+        tary1 = _asanyarray(tary0)
+        self.assertTrue(tary1 is tary0)
+
+    def test_asanyarray_with_subclass(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_creation.asanyarray`.
+        """
+        class GndarraySubclass(_gndarray):
+            pass
+        candd = _create_distribution(shape=(8, 32, 32, 32))
+        lndarray_proxy, rma_window_buffer = \
+            _locale.empty(
+                comms_and_distrib=candd,
+                dtype="int8",
+                order='C',
+                return_rma_window_buffer=True
+            )
+
+        ary_subclass = GndarraySubclass(candd, rma_window_buffer, lndarray_proxy)
+        self.assertTrue(ary_subclass.__class__ is not _gndarray)
+        self.assertTrue(isinstance(ary_subclass, _gndarray))
+        asanyary0 = _asanyarray(ary_subclass)
+        self.assertTrue(asanyary0.__class__ is GndarraySubclass)
+        self.assertTrue(asanyary0 is ary_subclass)
 
     def test_empty_scalar(self):
         """
