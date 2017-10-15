@@ -339,7 +339,7 @@ def copy(ary, **kwargs):
 def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     """
     Create an array.
-    
+
     :type object: array_like
     :param object: An array, any object exposing the array interface, an object
        whose :samp:`__array__` method returns an array, or any (nested) sequence.
@@ -353,7 +353,7 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
        Otherwise, a copy will only be made if :samp:`__array__` returns a copy,
        if :samp:`a` is a nested sequence, or if a copy is needed to satisfy any of
        the other requirements (:samp:`dtype`, :samp:`order`, etc.).
-    :type order: :samp:`{'K', 'A', 'C', 'F'}
+    :type order: :samp:`{'K', 'A', 'C', 'F'}`
     :param order: Only :samp:`C` implemented. Specify the memory layout of the array.
         If object is not an array, the newly created array will be in C order (row major)
     :type subok: :obj:`bool`
