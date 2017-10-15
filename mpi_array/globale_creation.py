@@ -314,6 +314,7 @@ def eye(N, M=None, k=0, dtype=_np.float):
 
 def identity(n, dtype=None):
     """
+    Not implemented.
     Return the identity array.
     """
     raise NotImplementedError()
@@ -335,8 +336,34 @@ def copy(ary, **kwargs):
     return ary.copy(**kwargs)
 
 
-def array(a, dtype=None, copy=False, order='K', subok=False, ndmin=0, **kwargs):
+def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     """
+    Create an array.
+    
+    :type object: array_like
+    :param object: An array, any object exposing the array interface, an object
+       whose :samp:`__array__` method returns an array, or any (nested) sequence.
+    :type dtype: :obj:`numpy.dtype`
+    :param dtype: The desired data-type for the array. If not given,
+       then the type will be determined as the minimum type required to hold the
+       objects in the sequence. This argument can only be used to `upcast` the
+       array.
+    :type copy: :obj:`bool`
+    :param copy: If :samp:`True`, then the object is copied.
+       Otherwise, a copy will only be made if :samp:`__array__` returns a copy,
+       if :samp:`a` is a nested sequence, or if a copy is needed to satisfy any of
+       the other requirements (:samp:`dtype`, :samp:`order`, etc.).
+    :type order: :samp:`{'K', 'A', 'C', 'F'}
+    :param order: Only :samp:`C` implemented. Specify the memory layout of the array.
+        If object is not an array, the newly created array will be in C order (row major)
+    :type subok: :obj:`bool`
+    :param subok: If :samp:`True`, then sub-classes will be passed-through, otherwise the
+        returned array will be forced to be a base-class array.
+    :type ndmin: int
+    :param ndmin: Specifies the minimum number of dimensions that the resulting array should have.
+        Ones will be pre-pended to the shape as needed to meet this requirement.
+    :rtype: :obj:`mpi_array.globlae.gndarray`
+    :return: An array object satisfying the specified requirements.
 
     .. seealso:: :func:`asarray`, :func:`asanyarray`
     """
