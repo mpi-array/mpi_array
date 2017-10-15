@@ -837,10 +837,10 @@ class gndarray(_NDArrayOperatorsMixin):
         self.lndarray_proxy.fill_h(value)
         self.intra_locale_barrier()
 
-    def copy(self):
+    def copy(self, order='C'):
         from . import globale_creation as _globale_creation
 
-        ary_out = _globale_creation.empty_like(self)
+        ary_out = _globale_creation.empty_like(self, order=order)
         ary_out.lndarray_proxy.rank_view_partition_h[...] = \
             self.lndarray_proxy.rank_view_partition_h[...]
         self.intra_locale_barrier()
@@ -889,6 +889,12 @@ class gndarray(_NDArrayOperatorsMixin):
             locale_ary = self.lndarray_proxy.lndarray[slc]
 
         return locale_ary, dst_extent
+
+    def reshape(self, shape):
+        """
+        Returns an array containing the same data with a new shape equal to :samp:`{shape}`.
+        """
+        raise NotImplementedError()
 
     def locale_get(self, slice=None, start=None, stop=None, halo=0):
         """

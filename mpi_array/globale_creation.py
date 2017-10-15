@@ -5,24 +5,34 @@ The :mod:`mpi_array.globale_creation` Module
 
 Defines :obj:`mpi_array.globale.gndarray` creation functions.
 
-Functions
-=========
+Ones and zeros
+==============
 
 .. autosummary::
    :toctree: generated/
 
-   asarray - Returns :obj:`mpi_array.globale.gndarray` equivalent of input.
-   asanyarray - Returns :obj:`mpi_array.globale.gndarray` equivalent of input.
    empty - Create uninitialised array.
    empty_like - Create uninitialised array same size/shape as another array.
+   eye - Return 2D array with ones on diagonal and zeros elsewhere.
+   identity - Return identity array.
    ones - Create one-initialised array.
    ones_like - Create one-initialised array same size/shape as another array.
    zeros - Create zero-initialised array.
    zeros_like - Create zero-initialised array same size/shape as another array.
    full - Create *fill value* initialised array.
    full_like - Create *fill value* initialised array same size/shape as another array.
-   copy - Create a replica of a specified array.
 
+
+From existing data
+==================
+
+.. autosummary::
+   :toctree: generated/
+
+   array - Returns :obj:`mpi_array.globale.gndarray` equivalent of input.
+   asarray - Returns :obj:`mpi_array.globale.gndarray` equivalent of input.
+   asanyarray - Returns :obj:`mpi_array.globale.gndarray` equivalent of input.
+   copy - Create a replica of a specified array.
 
 """
 
@@ -294,49 +304,66 @@ def ones_like(ary, *args, **kwargs):
     return full_like(ary, 1, *args, **kwargs)
 
 
+def eye(N, M=None, k=0, dtype=_np.float):
+    """
+    Not implemented.
+    Return a 2-D array with ones on the diagonal and zeros elsewhere.
+    """
+    raise NotImplementedError()
+
+
+def identity(n, dtype=None):
+    """
+    Return the identity array.
+    """
+    raise NotImplementedError()
+
+
 def copy(ary, **kwargs):
     """
     Return an array copy of the given object.
 
     :type ary: :obj:`mpi_array.globale.gndarray`
     :param ary: Array to copy.
+    :type order: :samp:`{'C', 'F'}`
+    :param order: Only :samp:`'C'` implemented.
+       Whether to store multi-dimensional data in row-major (C-style)
+       or column-major (Fortran-style) order in memory. Defaults to :samp:`'C'`.
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: A copy of :samp:`{ary}`.
     """
-    return ary.copy()
+    return ary.copy(**kwargs)
 
 
-def asarray(a, dtype=None, order=None, **kwargs):
+def array(a, dtype=None, copy=False, order='K', subok=False, ndmin=0, **kwargs):
     """
-    Converts :samp:`{a}` (potentially via a copy)
-    to a :obj:`mpi_array.globale.gndarray`.
-    The :samp:`{kwargs}` are as for the :func:`mpi_array.comms.create_distributon` function
-    and determine the distribution for the
-    returned :obj:`mpi_array.globale.gndarray`.
 
-    :type a: scalar, :obj:`tuple`, :obj:`list`, :obj:`numpy.ndarray`, etc
-    :param a: Object converted to a :obj:`mpi_array.globale.gndarray`.
-    :type dtype: :obj:`numpy.dtype`
-    :param dtype: The :obj:`numpy.dtype` for the returned :obj:`mpi_array.globale.gndarray`.
-    :rtype: :obj:`mpi_array.globale.gndarray`
-    :return: The object :obj:`a` converted to an instance
-       of :obj:`mpi_array.globale.gndarray`.
-
-    .. seealso:: :func:`asanyarray`
+    .. seealso:: :func:`asarray`, :func:`asanyarray`
     """
+    if order == 'K':
+        order = 'C'
+
     if hasattr(a, "__class__") and (a.__class__ is _globale.gndarray):
-        ret_ary = a
+        if copy:
+            ret_ary = a.copy()
+        else:
+            ret_ary = a
     elif isinstance(a, _globale.gndarray):
-        ret_ary =\
-            _globale.gndarray(
-                comms_and_distrib=a.comms_and_distrib,
-                rma_window_buffer=a.rma_window_buffer,
-                lndarray_proxy=a.lndarray_proxy
-            )
+        if subok:
+            ret_ary = a
+        else:
+            ret_ary =\
+                _globale.gndarray(
+                    comms_and_distrib=a.comms_and_distrib,
+                    rma_window_buffer=a.rma_window_buffer,
+                    lndarray_proxy=a.lndarray_proxy
+                )
+        if copy:
+            ret_ary = a.copy()
     else:
         if "distrib_type" not in kwargs.keys() or kwargs["distrib_type"] is None:
             kwargs["distrib_type"] = _comms.DT_CLONED
-        np_ary = _np.asanyarray(a, dtype, order)
+        np_ary = _np.array(a, dtype=dtype, order=order, copy=False, subok=True, ndmin=ndmin)
         ret_ary = \
             empty(
                 shape=np_ary.shape,
@@ -357,7 +384,35 @@ def asarray(a, dtype=None, order=None, **kwargs):
 
         ret_ary.intra_locale_barrier()
 
+    if ret_ary.ndim < ndmin:
+        ret_ary = ret_ary.reshape((1,) * (ndmin - ret_ary.ndim) + tuple(ret_ary.shape))
+
     return ret_ary
+
+
+def asarray(a, dtype=None, order=None, **kwargs):
+    """
+    Converts :samp:`{a}` (potentially via a copy)
+    to a :obj:`mpi_array.globale.gndarray`.
+    The :samp:`{kwargs}` are as for the :func:`mpi_array.comms.create_distributon` function
+    and determine the distribution for the
+    returned :obj:`mpi_array.globale.gndarray`.
+
+    :type a: scalar, :obj:`tuple`, :obj:`list`, :obj:`numpy.ndarray`, etc
+    :param a: Object converted to a :obj:`mpi_array.globale.gndarray`.
+    :type dtype: :obj:`numpy.dtype`
+    :param dtype: The :obj:`numpy.dtype` for the returned :obj:`mpi_array.globale.gndarray`.
+    :type order: :samp:`{'C', 'F'}`
+    :param order: Only :samp:`'C'` implemented.
+       Whether to store multi-dimensional data in row-major (C-style)
+       or column-major (Fortran-style) order in memory. Defaults to :samp:`'C'`.
+    :rtype: :obj:`mpi_array.globale.gndarray`
+    :return: The object :obj:`a` converted to an instance
+       of :obj:`mpi_array.globale.gndarray`.
+
+    .. seealso:: :func:`array`, :func:`asanyarray`
+    """
+    return array(a, dtype, copy=False, order=order, **kwargs)
 
 
 def asanyarray(a, dtype=None, order=None, **kwargs):
@@ -368,18 +423,17 @@ def asanyarray(a, dtype=None, order=None, **kwargs):
     :param a: Object converted to a :obj:`mpi_array.globale.gndarray`.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: The :obj:`numpy.dtype` for the returned :obj:`mpi_array.globale.gndarray`.
+    :type order: :samp:`{'C', 'F'}`
+    :param order: Only :samp:`'C'` implemented.
+       Whether to store multi-dimensional data in row-major (C-style)
+       or column-major (Fortran-style) order in memory. Defaults to :samp:`'C'`.
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: The object :obj:`a` converted to an instance
        of :obj:`mpi_array.globale.gndarray`.
 
-    .. seealso:: :func:`asarray`
+    .. seealso:: :func:`array`, :func:`asarray`
     """
-    if isinstance(a, _globale.gndarray):
-        ret_ary = a
-    else:
-        ret_ary = asarray(a=a, dtype=dtype, order=order, **kwargs)
-
-    return ret_ary
+    return array(a, dtype, copy=False, order=order, subok=True, **kwargs)
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]
