@@ -81,6 +81,8 @@ Related distributed array (PGAS) implementations with python API:
 - `caput.mpiarray <http://caput.readthedocs.io/en/latest/generated/caput.mpiarray.html>`_
 - `dask.distributed <https://distributed.readthedocs.io/en/latest/>`_
 - `bolt <http://bolt-project.org/>`_
+- `distnumpy <http://dl6.globalstf.org/index.php/joc/article/download/704/723>`_ and
+  `distnumpy at github <https://github.com/distnumpy/distnumpy>`_
 
 Related parallel array implementations (not PGAS) with python API:
 
@@ -106,7 +108,7 @@ Requires:
    - `psutil <https://pypi.python.org/pypi/psutil>`_ `>= 4.3.0`
    - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.13` (require `__array_ufunc__ <https://docs.scipy.org/doc/numpy/user/basics.subclassing.html#array-ufunc-for-ufuncs>`_ API),
    - an MPI implementation which supports at least MPI-3 (such as 
-     `OpenMPI <http://openmpi.org/>`_ or `MPICH <http://mpich.org/>`_)
+     `OpenMPI <http://openmpi.org/>`_, `MPICH <http://mpich.org/>`_ or `Intel MPI <https://software.intel.com/en-us/intel-mpi-library>`_)
    - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`.
 
 
