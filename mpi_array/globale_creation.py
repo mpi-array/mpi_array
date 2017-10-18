@@ -338,7 +338,7 @@ def copy(ary, **kwargs):
 
 def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     """
-    Create an array.
+    Create a :obj:`mpi_array.globale.gndarray` from an existing *array-like* object.
 
     :type object: array_like
     :param object: An array, any object exposing the array interface, an object
@@ -362,7 +362,7 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     :type ndmin: int
     :param ndmin: Specifies the minimum number of dimensions that the resulting array should have.
         Ones will be pre-pended to the shape as needed to meet this requirement.
-    :rtype: :obj:`mpi_array.globlae.gndarray`
+    :rtype: :obj:`mpi_array.globale.gndarray`
     :return: An array object satisfying the specified requirements.
 
     .. seealso:: :func:`asarray`, :func:`asanyarray`
