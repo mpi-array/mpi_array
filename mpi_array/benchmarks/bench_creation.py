@@ -9,12 +9,12 @@ class NumpyCreateBench(object):
     """
 
     repeat = 16
-    params = [[(1000000,), (10000000,), (100000000,)], ]
+    params = [[(100, 100, 100,), ((1000, 100, 100,)), ((100, 1000, 1000,))], ]
     param_names = ["shape"]
 
     def setup(self, shape):
         """
-        Import :mod:`numpy` module as :samp:`self.module`.
+        Import :mod:`numpy` module and assign to :samp:`self.module`.
         """
         import numpy
         self.module = numpy
@@ -42,21 +42,24 @@ class MpiArrayCreateBench(NumpyCreateBench):
 
     def setup(self, shape):
         """
-        Import :mod:`mpi_array` module as :samp:`self.module`.
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
         import mpi_array
         self.module = mpi_array
 
-    def time_empty(self, shape):
-        """
-        Time :func:`mpi_array.empty`.
-        """
-        with self.module.empty(shape, dtype="int32"):
-            pass
 
-    def time_zeros(self, shape):
+class MangoCreateBench(NumpyCreateBench):
+    """
+    Benchmarks for :func:`mango.empty` and :func:`mango.zeros`
+    (`mango tomography software <https://physics.anu.edu.au/appmaths/capabilities/mango.php>`_).
+    """
+
+    repeat = NumpyCreateBench.repeat
+    params = NumpyCreateBench.params
+
+    def setup(self, shape):
         """
-        Time :func:`mpi_array.zeros`.
+        Import :mod:`mango` module and assign to :samp:`self.module`.
         """
-        with self.module.zeros(shape, dtype="int32"):
-            pass
+        import mango
+        self.module = mango
