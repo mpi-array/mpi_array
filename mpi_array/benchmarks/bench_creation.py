@@ -16,8 +16,11 @@ class NumpyCreateBench(object):
         """
         Import :mod:`numpy` module and assign to :samp:`self.module`.
         """
-        import numpy
-        self.module = numpy
+        try:
+            import numpy
+            self.module = numpy
+        except Exception:
+            raise NotImplementedError("Error during numpy import.")
 
     def time_empty(self, shape):
         """
@@ -44,8 +47,11 @@ class MpiArrayCreateBench(NumpyCreateBench):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
-        import mpi_array
-        self.module = mpi_array
+        try:
+            import mpi_array
+            self.module = mpi_array
+        except Exception:
+            raise NotImplementedError("Error during mpi_array import.")
 
 
 class MangoCreateBench(NumpyCreateBench):
@@ -61,5 +67,8 @@ class MangoCreateBench(NumpyCreateBench):
         """
         Import :mod:`mango` module and assign to :samp:`self.module`.
         """
-        import mango
-        self.module = mango
+        try:
+            import mango
+            self.module = mango
+        except Exception:
+            raise NotImplementedError("Error during mango import.")
