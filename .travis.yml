@@ -62,7 +62,7 @@ script:
   - travis_wait 15 mpirun -n 4 coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f;
   - # run tests on installed mpi_array
   - cd docs
-  - travis_wait 15 mpirun -n 8 python -m mpi_array.tests -f
+  - travis_wait 20 mpirun -n 8 python -m mpi_array.tests -f
   - cd ..
   - travis-sphinx build
 
