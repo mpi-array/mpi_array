@@ -6,6 +6,7 @@
    :maxdepth: 2
 
    mpi_array
+   mpi_array_benchmarks
    mpi_array_comms
    mpi_array_comms_test
    mpi_array_distribution
