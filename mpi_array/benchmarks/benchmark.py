@@ -38,8 +38,8 @@ import pickle
 import re
 import textwrap
 import timeit
-import time
 from importlib import import_module
+from .. import logging as _logging
 
 # The best timer we can use is time.process_time, but it is not
 # available in the Python stdlib until Python 3.3.  This is a ctypes
@@ -236,6 +236,7 @@ class Benchmark(object):
         self._params = None
         self.param_names = None
         self._current_params = None
+        self._comm = None
 
     def initialise(self):
         """
@@ -289,6 +290,39 @@ class Benchmark(object):
 
             # Exported parameter representations
             self.params_repr = [[repr(item) for item in entry] for entry in self._params]
+
+    @property
+    def root_rank(self):
+        """
+        An :samp:`int` indicating the *root* rank process of :attr:`comm`.
+        """
+        return 0
+
+    @property
+    def comm(self):
+        """
+        The :obj:`mpi4pi.MPI.Comm` used for synchronization.
+        """
+        return self._comm
+
+    @comm.setter
+    def comm(self, comm):
+        self._comm = comm
+
+    def barrier(self):
+        """
+        Barrier.
+        """
+        self.comm.barrier()
+
+    def bcast(self, value):
+        """
+        Broadcast value from :attr:`root_rank` to all ranks of :attr:`comm`.
+
+        :rtype: :obj:`object`
+        :return: value on rank :attr:`root_rank` rank process.
+        """
+        return self.comm.bcast(value, self.root_rank)
 
     @property
     def params(self):
@@ -396,6 +430,7 @@ class TimeBenchmark(Benchmark):
         self._goal_time = None
         self._warmup_time = None
         self._timer = None
+        self._wall_timer = None
 
     def _load_vars(self):
         self._repeat = _get_first_attr(self._attr_sources, 'repeat', 0)
@@ -403,6 +438,7 @@ class TimeBenchmark(Benchmark):
         self._goal_time = _get_first_attr(self._attr_sources, 'goal_time', 0.1)
         self._warmup_time = _get_first_attr(self._attr_sources, 'warmup_time', -1)
         self._timer = _get_first_attr(self._attr_sources, 'timer', process_time)
+        self._wall_timer = _get_first_attr(self._attr_sources, 'wall_timer', mpi.Wtime)
 
     @property
     def repeat(self):
@@ -433,6 +469,18 @@ class TimeBenchmark(Benchmark):
         if self._timer is None:
             self._load_vars()
         return self._timer
+
+    @property
+    def wall_timer(self):
+        if self._wall_timer is None:
+            self._load_vars()
+        return self._wall_timer
+
+    def wall_time(self):
+        """
+        Return *current* time in seconds.
+        """
+        return self.wall_timer()
 
     def do_setup(self):
         result = Benchmark.do_setup(self)
@@ -467,22 +515,31 @@ class TimeBenchmark(Benchmark):
             setup=self.redo_setup,
             timer=self.timer)
 
-        samples, number = self.benchmark_timing(timer, repeat, warmup_time, number=number)
+        samples, number, samples_pre_barrier, samples_post_barrier = \
+            self.benchmark_timing(timer, repeat, warmup_time, number=number)
 
-        samples = [s / number for s in samples]
-        return {'samples': samples, 'number': number}
+        l = [samples, samples_pre_barrier, samples_post_barrier]
+        for i in range(len(l)):
+            l[i] = [s / number for s in l[i]]
+        return \
+            {
+                'samples': l[0],
+                'number': number,
+                'wall_samples_pre_barrier': l[1],
+                'wall_samples_post_barrier': l[2]
+            }
 
     def benchmark_timing(self, timer, repeat, warmup_time, number=0):
         goal_time = self.goal_time
 
-        start_time = time.time()
+        start_time = self.bcast(self.wall_time())
 
         max_time = start_time + min(warmup_time + 1.3 * repeat * goal_time,
                                     self.timeout - 1.3 * goal_time)
 
         def too_slow():
             # too slow, don't take more samples
-            return time.time() > max_time
+            return self.bcast(self.wall_time()) > max_time
 
         if number == 0:
             # Select number & warmup.
@@ -493,13 +550,16 @@ class TimeBenchmark(Benchmark):
             number = 1
             while True:
                 self._redo_setup_next = False
-                start = time.time()
+                self.barrier()
+                start = self.wall_time()
                 timing = timer.timeit(number)
-                wall_time = time.time() - start
+                self.barrier()
+                end = self.wall_time()
+                wall_time, timing = self.bcast((end - start, timing))
                 actual_timing = max(wall_time, timing)
 
                 if actual_timing >= goal_time:
-                    if time.time() > start_time + warmup_time:
+                    if self.bcast(self.wall_time()) > start_time + warmup_time:
                         break
                 else:
                     try:
@@ -514,22 +574,31 @@ class TimeBenchmark(Benchmark):
             # Warmup
             while True:
                 self._redo_setup_next = False
-                timing = timer.timeit(number)
-                if time.time() >= start_time + warmup_time:
+                timing = self.bcast(timer.timeit(number))
+                if self.bcast(self.wall_time()) >= start_time + warmup_time:
                     break
             if too_slow():
                 return [timing], number
 
         # Collect samples
         samples = []
+        wall_samples_pre_barrier = []
+        wall_samples_post_barrier = []
         for j in range(repeat):
+            self.barrier()
+            start = self.wall_time()
             timing = timer.timeit(number)
+            end_pre_barrier = self.wall_time()
+            self.barrier()
+            end_post_barrier = self.wall_time()
             samples.append(timing)
+            wall_samples_pre_barrier.append(end_pre_barrier - start)
+            wall_samples_post_barrier.append(end_post_barrier - start)
 
             if too_slow():
                 break
 
-        return samples, number
+        return samples, number, wall_samples_pre_barrier, wall_samples_post_barrier
 
 
 benchmark_types = [
@@ -835,7 +904,6 @@ def root_and_package_from_name(module_name):
     """
     Returns root filename for the package/module named by :samp:`{module_name}`.
     """
-    print("module_name=%s" % module_name)
     module = import_module(module_name)
     root = module.__file__
     dir, filename = os.path.split(root)
@@ -855,9 +923,29 @@ class BenchmarkRunner(object):
             argv = []
         arg_parser = self.create_argument_parser()
         self._args = arg_parser.parse_args(args=argv)
+        self._root_logger = None
+        self._rank_logger = None
         self._bench_module_names = None
         self._bench_results = None
         self._benchmarks = None
+
+    @property
+    def root_logger(self):
+        """
+        """
+        if self._root_logger is None:
+            self._root_logger = \
+                _logging.get_root_logger(__name__ + "." + self.__class__.__name__, comm=self.comm)
+        return self._root_logger
+
+    @property
+    def rank_logger(self):
+        """
+        """
+        if self._rank_logger is None:
+            self._rank_logger = \
+                _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.comm)
+        return self._rank_logger
 
     @property
     def comm(self):
@@ -963,6 +1051,8 @@ class BenchmarkRunner(object):
         results = []
         if benchmarks is not None:
             for benchmark in benchmarks:
+                benchmark.comm = self.comm
+                benchmark.initialise()
                 if (benchmark.params is not None) and (len(benchmark.params) > 0):
                     param_iter = enumerate(itertools.product(*benchmark.params))
                 else:
@@ -970,7 +1060,6 @@ class BenchmarkRunner(object):
 
                 for param_idx, params in param_iter:
                     started_at = datetime.datetime.utcnow()
-                    print("param_idx=%s, params=%s" % (param_idx, params))
                     if param_idx is not None:
                         benchmark.set_param_idx(param_idx)
                     skip = benchmark.do_setup()
@@ -982,6 +1071,22 @@ class BenchmarkRunner(object):
                             result = benchmark.do_run()
                     finally:
                         benchmark.do_teardown()
+
+                    if not skip:
+                        self.root_logger.info(
+                            "%68s, %16.8f, %16.8f, %6d,%8d, %s",
+                            benchmark.name,
+                            min(result["samples"]),
+                            max(result["samples"]),
+                            benchmark.repeat,
+                            result["number"],
+                            [
+                                ("%s=%s" % (benchmark.param_names[i], params[i]))
+                                for i in range(len(params))
+                            ] if params is not None else None
+                        )
+                    else:
+                        self.root_logger.info("%68s, %16s", benchmark.name, "skipped...")
 
                     result["walltime_finished_at"] = str(datetime.datetime.utcnow())
                     result["walltime_started_at"] = str(started_at)
