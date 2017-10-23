@@ -2,6 +2,8 @@
 Benchmarks for array creation.
 """
 
+from .utils import try_import_for_setup
+
 
 class NumpyCreateBench(object):
     """
@@ -19,11 +21,7 @@ class NumpyCreateBench(object):
         """
         Import :mod:`numpy` module and assign to :samp:`self.module`.
         """
-        try:
-            import numpy
-            self.module = numpy
-        except Exception:
-            raise NotImplementedError("Error during numpy import.")
+        self.module = try_import_for_setup("numpy")
 
     def time_empty(self, shape):
         """
@@ -47,11 +45,7 @@ class MpiArrayCreateBench(NumpyCreateBench):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
-        try:
-            import mpi_array
-            self.module = mpi_array
-        except Exception:
-            raise NotImplementedError("Error during mpi_array import.")
+        self.module = try_import_for_setup("mpi_array")
 
 
 class MangoCreateBench(NumpyCreateBench):
@@ -64,8 +58,7 @@ class MangoCreateBench(NumpyCreateBench):
         """
         Import :mod:`mango` module and assign to :samp:`self.module`.
         """
-        try:
-            import mango
-            self.module = mango
-        except Exception:
-            raise NotImplementedError("Error during mango import.")
+        self.module = try_import_for_setup("mango")
+
+
+__all__ = [s for s in dir() if not s.startswith('_')]

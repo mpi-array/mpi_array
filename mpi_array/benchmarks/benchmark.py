@@ -4,20 +4,12 @@ Manages finding, running and recoding benchmark results.
 This module has shamelessly borrows from
 the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
 file `benchmark.py <https://github.com/spacetelescope/asv/blob/master/asv/benchmark.py>`_.
+See the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
+`LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
 
 """
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-
-# !!!!!!!!!!!!!!!!!!!! NOTE !!!!!!!!!!!!!!!!!!!!
-# This file, unlike most others, must be compatible with as many
-# versions of Python as possible and have no dependencies outside of
-# the Python standard library.  This is the only bit of code from asv
-# that is imported into the benchmarking process.
-
-# Remove asv package directory from sys.path. This script file resides
-# there although it's not part of the package, and Python puts it to
-# sys.path[0] on start which can shadow other modules
 import mpi4py.MPI as mpi
 import sys
 import datetime
@@ -25,105 +17,20 @@ try:
     import cProfile as profile
 except BaseException:
     profile = None
-import ctypes
-from ctypes.util import find_library
 from hashlib import sha256
-import errno
-import imp
 import inspect
 import itertools
 import json
 import os
-import pickle
 import re
 import textwrap
 import timeit
 from importlib import import_module
 from .. import logging as _logging
 
-# The best timer we can use is time.process_time, but it is not
-# available in the Python stdlib until Python 3.3.  This is a ctypes
-# backport for Pythons that don't have it.
+from .utils import get_process_time_timer
 
-try:
-    from time import process_time
-except ImportError:  # Python <3.3
-    if sys.platform.startswith("linux"):
-        CLOCK_PROCESS_CPUTIME_ID = 2  # time.h
-
-        clockid_t = ctypes.c_int
-        time_t = ctypes.c_long
-
-        class timespec(ctypes.Structure):
-            _fields_ = [
-                ('tv_sec', time_t),         # seconds
-                ('tv_nsec', ctypes.c_long)  # nanoseconds
-            ]
-        _clock_gettime = ctypes.CDLL(
-            find_library('rt'), use_errno=True).clock_gettime
-        _clock_gettime.argtypes = [clockid_t, ctypes.POINTER(timespec)]
-
-        def process_time():
-            tp = timespec()
-            if _clock_gettime(CLOCK_PROCESS_CPUTIME_ID, ctypes.byref(tp)) < 0:
-                err = ctypes.get_errno()
-                msg = errno.errorcode[err]
-                if err == errno.EINVAL:
-                    msg += (
-                        "The clk_id (4) specified is not supported on this system")
-                raise OSError(err, msg)
-            return tp.tv_sec + tp.tv_nsec * 1e-9
-
-    elif sys.platform == 'darwin':
-        RUSAGE_SELF = 0  # sys/resources.h
-
-        time_t = ctypes.c_long
-        suseconds_t = ctypes.c_int32
-
-        class timeval(ctypes.Structure):
-            _fields_ = [
-                ('tv_sec', time_t),
-                ('tv_usec', suseconds_t)
-            ]
-
-        class rusage(ctypes.Structure):
-            _fields_ = [
-                ('ru_utime', timeval),
-                ('ru_stime', timeval),
-                ('ru_maxrss', ctypes.c_long),
-                ('ru_ixrss', ctypes.c_long),
-                ('ru_idrss', ctypes.c_long),
-                ('ru_isrss', ctypes.c_long),
-                ('ru_minflt', ctypes.c_long),
-                ('ru_majflt', ctypes.c_long),
-                ('ru_nswap', ctypes.c_long),
-                ('ru_inblock', ctypes.c_long),
-                ('ru_oublock', ctypes.c_long),
-                ('ru_msgsnd', ctypes.c_long),
-                ('ru_msgrcv', ctypes.c_long),
-                ('ru_nsignals', ctypes.c_long),
-                ('ru_nvcsw', ctypes.c_long),
-                ('ru_nivcsw', ctypes.c_long)
-            ]
-
-        _getrusage = ctypes.CDLL(find_library('c'), use_errno=True).getrusage
-        _getrusage.argtypes = [ctypes.c_int, ctypes.POINTER(rusage)]
-
-        def process_time():
-            ru = rusage()
-            if _getrusage(RUSAGE_SELF, ctypes.byref(ru)) < 0:
-                err = ctypes.get_errno()
-                msg = errno.errorcode[err]
-                if err == errno.EINVAL:
-                    msg += (
-                        "The clk_id (0) specified is not supported on this system")
-                raise OSError(err, msg)
-            return float(ru.ru_utime.tv_sec + ru.ru_utime.tv_usec * 1e-6 +
-                         ru.ru_stime.tv_sec + ru.ru_stime.tv_usec * 1e-6)
-
-    else:
-        # Fallback to default timer
-        process_time = timeit.default_timer
+__license__ = "https://github.com/spacetelescope/asv/blob/master/LICENSE.rst"
 
 
 def _get_attr(source, name, ignore_case=False):
@@ -437,7 +344,7 @@ class TimeBenchmark(Benchmark):
         self._number = int(_get_first_attr(self._attr_sources, 'number', 0))
         self._goal_time = _get_first_attr(self._attr_sources, 'goal_time', 0.1)
         self._warmup_time = _get_first_attr(self._attr_sources, 'warmup_time', -1)
-        self._timer = _get_first_attr(self._attr_sources, 'timer', process_time)
+        self._timer = _get_first_attr(self._attr_sources, 'timer', get_process_time_timer())
         self._wall_timer = _get_first_attr(self._attr_sources, 'wall_timer', mpi.Wtime)
 
     @property
@@ -606,37 +513,6 @@ benchmark_types = [
 ]
 
 
-class SpecificImporter(object):
-    """
-    Module importer that only allows loading a given module from the
-    given path.
-
-    Using this enables importing the asv benchmark suite without
-    adding its parent directory to sys.path. The parent directory can
-    in principle contain anything, including some version of the
-    project module (common situation if asv.conf.json is on project
-    repository top level).
-    """
-
-    def __init__(self, name, root):
-        self._name = name
-        self._root = root
-
-    def find_module(self, fullname, path=None):
-        if fullname == self._name:
-            return self
-        return None
-
-    def load_module(self, fullname):
-        file, pathname, desc = imp.find_module(fullname, [self._root])
-        return imp.load_module(fullname, file, pathname, desc)
-
-
-def update_sys_path(root):
-    sys.meta_path.insert(0, SpecificImporter(os.path.basename(root),
-                                             os.path.dirname(root)))
-
-
 def disc_files(root, package=''):
     """
     Iterate over all .py files in a given directory tree.
@@ -720,146 +596,6 @@ def disc_benchmarks(root, package=None):
                 benchmark = _get_benchmark(attr_name, module, None, module_attr)
                 if benchmark is not None:
                     yield benchmark
-
-
-def get_benchmark_from_name(root, name, quick=False):
-    """
-    Create a benchmark from a fully-qualified benchmark name.
-
-    Parameters
-    ----------
-    root : str
-        Path to the root of a benchmark suite.
-
-    name : str
-        Fully-qualified name to a specific benchmark.
-    """
-
-    if '-' in name:
-        try:
-            name, param_idx = name.split('-', 1)
-            param_idx = int(param_idx)
-        except ValueError:
-            raise ValueError("Benchmark id %r is invalid" % (name,))
-    else:
-        param_idx = None
-
-    update_sys_path(root)
-    benchmark = None
-
-    # try to directly import benchmark function by guessing its import module
-    # name
-    parts = name.split('.')
-    for i in [1, 2]:
-        path = os.path.join(root, *parts[:-i]) + '.py'
-        if not os.path.isfile(path):
-            continue
-        modname = '.'.join([os.path.basename(root)] + parts[:-i])
-        module = import_module(modname)
-        try:
-            module_attr = getattr(module, parts[-i])
-        except AttributeError:
-            break
-        if i == 1 and inspect.isfunction(module_attr):
-            benchmark = _get_benchmark(parts[-i], module, None, module_attr)
-            break
-        elif i == 2 and inspect.isclass(module_attr):
-            try:
-                class_attr = getattr(module_attr, parts[-1])
-            except AttributeError:
-                break
-            if (inspect.isfunction(class_attr) or
-                    inspect.ismethod(class_attr)):
-                benchmark = _get_benchmark(parts[-1], module, module_attr,
-                                           class_attr)
-                break
-
-    if benchmark is None:
-        for benchmark in disc_benchmarks(root):
-            if benchmark.name == name:
-                break
-        else:
-            raise ValueError(
-                "Could not find benchmark '{0}'".format(name))
-
-    if param_idx is not None:
-        benchmark.set_param_idx(param_idx)
-
-    if quick:
-        class QuickBenchmarkAttrs:
-            repeat = 1
-            number = 1
-        benchmark._attr_sources.insert(0, QuickBenchmarkAttrs)
-
-    return benchmark
-
-
-def list_benchmarks(root, fp):
-    """
-    List all of the discovered benchmarks to fp as JSON.
-    """
-    update_sys_path(root)
-
-    # Streaming of JSON back out to the master process
-
-    fp.write('[')
-    first = True
-    for benchmark in disc_benchmarks(root):
-        if not first:
-            fp.write(', ')
-        clean = dict(
-            (k, v) for (k, v) in benchmark.__dict__.items()
-            if isinstance(v, (str, int, float, list, dict, bool)) and not
-            k.startswith('_'))
-        json.dump(clean, fp, skipkeys=True)
-        first = False
-    fp.write(']')
-
-
-def main_discover(args):
-    benchmark_dir, result_file = args
-    with open(result_file, 'w') as fp:
-        list_benchmarks(benchmark_dir, fp)
-
-
-def main_setup_cache(args):
-    (benchmark_dir, benchmark_id) = args
-    benchmark = get_benchmark_from_name(benchmark_dir, benchmark_id)
-    cache = benchmark.do_setup_cache()
-    with open("cache.pickle", "wb") as fd:
-        pickle.dump(cache, fd)
-
-
-def main_run(args):
-    (benchmark_dir, benchmark_id, quick, profile_path, result_file) = args
-    quick = (quick == 'True')
-    if profile_path == 'None':
-        profile_path = None
-
-    benchmark = get_benchmark_from_name(
-        benchmark_dir, benchmark_id, quick=quick)
-
-    if benchmark.setup_cache_key is not None:
-        with open("cache.pickle", "rb") as fd:
-            cache = pickle.load(fd)
-        if cache is not None:
-            benchmark.insert_param(cache)
-
-    skip = benchmark.do_setup()
-
-    try:
-        if skip:
-            result = float('nan')
-        else:
-            result = benchmark.do_run()
-            if profile_path is not None:
-                benchmark.do_profile(profile_path)
-    finally:
-        benchmark.do_teardown()
-
-    # Write the output value
-    with open(result_file, 'w') as fp:
-        json.dump(result, fp)
 
 
 def create_runner_argument_parser():
@@ -969,6 +705,14 @@ class BenchmarkRunner(object):
         return (self.comm.rank == self.root_rank)
 
     @property
+    def do_quick_run(self):
+        """
+        A :obj:`bool`, if :samp:`True`, performs a *quick* run. Each benchmark
+        is only executed once.
+        """
+        return self._args.quick
+
+    @property
     def discover_only(self):
         """
         A :obj:`bool`, if :samp:`True` only *discover* tests and do not run them.
@@ -1044,6 +788,13 @@ class BenchmarkRunner(object):
     def run_benchmarks(self):
         """
         """
+        class QuickBenchmarkAttrs(object):
+            """
+            Over-rides for :attr:`repeat` and :attr:`number` for *quick* benchmark run.
+            """
+            repeat = 1
+            number = 1
+
         self._bench_results = None
         benchmarks = self.benchmarks
         benchmarks = self.comm.bcast(benchmarks, self.root_rank)
@@ -1051,6 +802,8 @@ class BenchmarkRunner(object):
         results = []
         if benchmarks is not None:
             for benchmark in benchmarks:
+                if self.do_quick_run:
+                    benchmark._attr_sources.insert(0, QuickBenchmarkAttrs)
                 benchmark.comm = self.comm
                 benchmark.initialise()
                 if (benchmark.params is not None) and (len(benchmark.params) > 0):
@@ -1154,7 +907,10 @@ def run_main(argv):
     Runs the benchmarks.
 
     :type argv: :obj:`list` of :obj:`str`
-    :param argv: The command line arguments.
+    :param argv: The command line arguments (e.g. :samp:`sys.argv`).
     """
     runner = BenchmarkRunner(argv=argv)
     runner.run_and_write_results()
+
+
+__all__ = [s for s in dir() if not s.startswith('_')]

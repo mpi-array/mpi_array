@@ -57,8 +57,8 @@ class MpiTest(_unittest.TestCase):
         src_ary = _np.zeros((1000,), dtype="int32")
         dst_ary = _np.zeros_like(src_ary)
 
+        win = self.create_window(src_ary, comm)
         try:
-            win = self.create_window(src_ary, comm)
             my_rank = comm.rank
             ne_rank = (my_rank + 1) % comm.size
             src_ary[...] = my_rank
@@ -83,8 +83,8 @@ class MpiTest(_unittest.TestCase):
         ary = _np.zeros((1000,), dtype="int32")
         dst_ary = ary.copy()
 
+        win = self.create_window(ary, comm)
         try:
-            win = self.create_window(ary, comm)
             my_rank = comm.rank
             ne_rank = (my_rank + 1) % comm.size
             ary[...] = my_rank
@@ -118,8 +118,8 @@ class MpiTest(_unittest.TestCase):
         ary = _np.zeros((1000,), dtype="int32")
         dst_ary = ary.copy()
 
+        win = self.create_window(ary, comm)
         try:
-            win = self.create_window(ary, comm)
             my_rank = comm.rank
             ne_rank = (my_rank + 1) % comm.size
             ary[...] = my_rank
