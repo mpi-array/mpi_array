@@ -24,6 +24,7 @@ Attributes
 from __future__ import absolute_import  # noqa: E402,F401
 
 import sys as _sys
+from . import init as _init  # noqa: E402,F401
 from . import rtd as _rtd  # noqa: E402,F401
 from .license import license as _license, copyright as _copyright, version as _version
 
@@ -33,7 +34,6 @@ __copyright__ = _copyright()
 __version__ = _version()
 
 _thismodule = _sys.modules[__name__]
-
 from .globale import gndarray  # noqa: E402,F401
 from .globale import free_all  # noqa: E402,F401
 
