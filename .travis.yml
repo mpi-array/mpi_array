@@ -1,15 +1,7 @@
 language: python
+
 git:
   depth: 200
-python:
-  - '2.7'
-  - '3.4'
-  - '3.5'
-  - '3.6'
-
-dist: trusty
-sudo: false
-os: linux
 
 cache:
   directories:
@@ -24,10 +16,54 @@ env:
     - INSTALL_PREFIX=$HOME/local/$TRAVIS_OS_NAME
     - BUILD_PREFIX=$HOME/src/builds/$TRAVIS_OS_NAME
   matrix:
-    - MPI=mpich-3.2
-    - MPI=openmpi-1.10.7
-    - MPI=openmpi-2.0.3
-    - MPI=openmpi-2.1.2
+    include:
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 2.7
+        MPI=openmpi-2.1.2
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 2.7
+        MPI=mpich-3.2
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.4
+        MPI=openmpi-2.1.2
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.5
+        MPI=openmpi-2.1.2
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.6
+        MPI=mpich-3.2
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.6
+        MPI=openmpi-1.10.7
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.6
+        MPI=openmpi-2.0.3
+
+      - os: linux
+        dist: trusty
+        sudo: false
+        python: 3.6
+        MPI=openmpi-2.1.2
 
 before_install:
   - mkdir -p $INSTALL_PREFIX
@@ -39,11 +75,15 @@ before_install:
   - export LD_LIBRARY_PATH=${MPI_PREFIX}/lib:${MPI_PREFIX}/lib64:$LD_LIBRARY_PATH
   - export CPATH=${MPI_PREFIX}/include:$CPATH
   - which mpirun
-  - df -h
-  - cat /proc/sys/kernel/shmmax
-  - cat /proc/sys/kernel/shmall
 
 install:
+  - if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
+      brew update;
+      brew install python3;
+      python3 -m venv venv; 
+      source venv/bin/activate;
+    fi
+
   - git config --global user.name mpi-array
   - git config --global user.email mpi-array@users.noreply.github.com
   - pip install flake8
@@ -64,9 +104,9 @@ script:
   - cd docs
   - travis_wait 20 mpirun -n 8 python -m mpi_array.tests -f
   - cd ..
-  - travis-sphinx build
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == '2.1'* ]]; then travis-sphinx build; fi
 
 after_success:
-  - travis-sphinx --branches=dev deploy
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == '2.1'* ]]; travis-sphinx --branches=dev deploy; fi
   - coverage combine
   - coveralls
