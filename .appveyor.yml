@@ -33,8 +33,8 @@ install:
   - "conda update -y conda"
   - "conda config --add channels intel"
 
-  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py psutil sphinx "python=2"
-  - if [%PYTHON_VERSION%]==[3.6] conda create -y -n idp intelpython3_core impi_rt mpi4py psutil sphinx "python=3"
+  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py psutil coveralls sphinx "python=2"
+  - if [%PYTHON_VERSION%]==[3.6] conda create -y -n idp intelpython3_core impi_rt mpi4py psutil coveralls sphinx "python=3"
 
   - "activate idp"
   - "python -c \"import numpy;print('numpy.__version__='+str(numpy.__version__))\""
@@ -45,7 +45,6 @@ install:
   # compiled extensions and are not provided as pre-built wheel packages,
   # pip will build them from source using the MSVC compiler matching the
   # target Python version and architecture
-  - "pip install coveralls"
   - "python setup.py install"
   - "python utils/mpi_array_info.py"
 
