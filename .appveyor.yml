@@ -45,6 +45,7 @@ install:
   # compiled extensions and are not provided as pre-built wheel packages,
   # pip will build them from source using the MSVC compiler matching the
   # target Python version and architecture
+  - "pip install coveralls"
   - "python setup.py install"
   - "python utils/mpi_array_info.py"
 
@@ -53,4 +54,10 @@ build: false
 test_script:
   # Run the project tests
   - "python setup.py test"
-  - "mpiexec -n 2 -localonly python -m mpi_array.tests"
+  - "mpiexec -n 1 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f"
+  - "mpiexec -n 1 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.benchmarks --quick"
+  - "mpiexec -n 2 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f"
+
+after_success:
+  - "coverage combine"
+  - "coveralls"
