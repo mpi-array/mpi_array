@@ -425,15 +425,15 @@ class TimeBenchmark(Benchmark):
         samples, number, samples_pre_barrier, samples_post_barrier = \
             self.benchmark_timing(timer, repeat, warmup_time, number=number)
 
-        l = [samples, samples_pre_barrier, samples_post_barrier]
-        for i in range(len(l)):
-            l[i] = [s / number for s in l[i]]
+        samples_list = [samples, samples_pre_barrier, samples_post_barrier]
+        for i in range(len(samples_list)):
+            samples_list[i] = [s / number for s in samples_list[i]]
         return \
             {
-                'samples': l[0],
+                'samples': samples_list[0],
                 'number': number,
-                'wall_samples_pre_barrier': l[1],
-                'wall_samples_post_barrier': l[2]
+                'wall_samples_pre_barrier': samples_list[1],
+                'wall_samples_post_barrier': samples_list[2]
             }
 
     def benchmark_timing(self, timer, repeat, warmup_time, number=0):
