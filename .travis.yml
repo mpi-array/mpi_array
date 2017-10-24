@@ -15,55 +15,56 @@ env:
   global:
     - INSTALL_PREFIX=$HOME/local/$TRAVIS_OS_NAME
     - BUILD_PREFIX=$HOME/src/builds/$TRAVIS_OS_NAME
-  matrix:
-    include:
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 2.7
-        env: MPI=openmpi-2.1.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 2.7
-        env: MPI=mpich-3.2
+matrix:
+  include:
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 2.7
+      env: MPI=openmpi-2.1.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.4
-        env: MPI=openmpi-2.1.2
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 2.7
+      env: MPI=mpich-3.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.5
-        env: MPI=openmpi-2.1.2
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.4
+      env: MPI=openmpi-2.1.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.6
-        env: MPI=mpich-3.2
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.5
+      env: MPI=openmpi-2.1.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.6
-        env: MPI=openmpi-1.10.7
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.6
+      env: MPI=mpich-3.2
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.6
-        env: MPI=openmpi-2.0.3
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.6
+      env: MPI=openmpi-1.10.7
 
-      - os: linux
-        dist: trusty
-        sudo: false
-        python: 3.6
-        env: MPI=openmpi-2.1.2
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.6
+      env: MPI=openmpi-2.0.3
+
+    - os: linux
+      dist: trusty
+      sudo: false
+      python: 3.6
+      env: MPI=openmpi-2.1.2
 
 before_install:
   - mkdir -p $INSTALL_PREFIX
