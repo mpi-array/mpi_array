@@ -54,6 +54,6 @@ test_script:
   # Run the project tests
   - "python setup.py test"
   - "mpiexec -n 1 -localonly python -m mpi_array.tests -f"
-  - "mpiexec -n 1 -localonly python -m mpi_array.benchmarks --quick"
   - "mpiexec -n 2 -localonly python -m mpi_array.tests -f"
+  - "mpiexec -n 1 -localonly python -m mpi_array.benchmarks --quick"
 
