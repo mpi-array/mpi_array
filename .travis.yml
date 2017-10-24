@@ -18,6 +18,16 @@ env:
 
 matrix:
   include:
+    - os: osx
+      sudo: required
+      language: generic
+      env: MPI=openmpi-2.1.2 BREW_PYTHON=python3 PYTHON_EXE=python3 TMPDIR=/tmp
+
+    - os: osx
+      sudo: required
+      language: generic
+      env: MPI=openmpi-2.1.2 BREW_PYTHON=python PYTHON_EXE=python2 TMPDIR=/tmp
+
     - os: linux
       dist: trusty
       sudo: false
@@ -80,8 +90,8 @@ before_install:
 install:
   - if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
       brew update;
-      brew install python3;
-      python3 -m venv venv; 
+      brew install ${BREW_PYTHON};
+      ${PYTHON_EXE} -m venv venv; 
       source venv/bin/activate;
     fi
 
