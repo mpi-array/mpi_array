@@ -21,49 +21,49 @@ env:
         dist: trusty
         sudo: false
         python: 2.7
-        MPI=openmpi-2.1.2
+        env: MPI=openmpi-2.1.2
 
       - os: linux
         dist: trusty
         sudo: false
         python: 2.7
-        MPI=mpich-3.2
+        env: MPI=mpich-3.2
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.4
-        MPI=openmpi-2.1.2
+        env: MPI=openmpi-2.1.2
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.5
-        MPI=openmpi-2.1.2
+        env: MPI=openmpi-2.1.2
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.6
-        MPI=mpich-3.2
+        env: MPI=mpich-3.2
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.6
-        MPI=openmpi-1.10.7
+        env: MPI=openmpi-1.10.7
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.6
-        MPI=openmpi-2.0.3
+        env: MPI=openmpi-2.0.3
 
       - os: linux
         dist: trusty
         sudo: false
         python: 3.6
-        MPI=openmpi-2.1.2
+        env: MPI=openmpi-2.1.2
 
 before_install:
   - mkdir -p $INSTALL_PREFIX
