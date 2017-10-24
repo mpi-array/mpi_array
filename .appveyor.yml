@@ -33,8 +33,8 @@ install:
   - "conda update -y conda"
   - "conda config --add channels intel"
 
-  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py psutil coveralls sphinx "python=2"
-  - if [%PYTHON_VERSION%]==[3.6] conda create -y -n idp intelpython3_core impi_rt mpi4py psutil coveralls sphinx "python=3"
+  - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py psutil sphinx "python=2"
+  - if [%PYTHON_VERSION%]==[3.6] conda create -y -n idp intelpython3_core impi_rt mpi4py psutil sphinx "python=3"
 
   - "activate idp"
   - "python -c \"import numpy;print('numpy.__version__='+str(numpy.__version__))\""
@@ -53,11 +53,7 @@ build: false
 test_script:
   # Run the project tests
   - "python setup.py test"
-  - "mpiexec -n 1 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f"
-  - "mpiexec -n 1 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.benchmarks --quick"
-  - "mpiexec -n 2 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f"
+  - "mpiexec -n 1 -localonly python -m mpi_array.tests -f"
+  - "mpiexec -n 1 -localonly python -m mpi_array.benchmarks --quick"
+  - "mpiexec -n 2 -localonly python -m mpi_array.tests -f"
 
-on_success:
-  # Update coveralls
-  - "coverage combine"
-  - "coveralls"
