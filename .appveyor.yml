@@ -58,6 +58,7 @@ test_script:
   - "mpiexec -n 1 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.benchmarks --quick"
   - "mpiexec -n 2 -localonly coverage run --parallel-mode --source=mpi_array --omit='*logging*,*unittest*,*rtd*' -m mpi_array.tests -f"
 
-after_success:
+on_success:
+  # Update coveralls
   - "coverage combine"
   - "coveralls"
