@@ -336,6 +336,7 @@ class TimeBenchmark(Benchmark):
         self._number = None
         self._goal_time = None
         self._warmup_time = None
+        self._default_timer = None
         self._timer = None
         self._wall_timer = None
 
@@ -344,8 +345,21 @@ class TimeBenchmark(Benchmark):
         self._number = int(_get_first_attr(self._attr_sources, 'number', 0))
         self._goal_time = _get_first_attr(self._attr_sources, 'goal_time', 0.1)
         self._warmup_time = _get_first_attr(self._attr_sources, 'warmup_time', -1)
-        self._timer = _get_first_attr(self._attr_sources, 'timer', get_process_time_timer())
+        self._timer = _get_first_attr(self._attr_sources, 'timer', self.default_timer)
         self._wall_timer = _get_first_attr(self._attr_sources, 'wall_timer', mpi.Wtime)
+
+    @property
+    def default_timer(self):
+        """
+        An :obj:`callable` used to measure benchmark duration, e.g. :func:`time.process_time`.
+        """
+        if self._default_timer is None:
+            self._default_timer = get_process_time_timer()
+        return self._default_timer
+
+    @default_timer.setter
+    def default_timer(self, timer):
+        self._default_timer = timer
 
     @property
     def repeat(self):
@@ -417,10 +431,12 @@ class TimeBenchmark(Benchmark):
         else:
             func = self.func
 
-        timer = timeit.Timer(
-            stmt=func,
-            setup=self.redo_setup,
-            timer=self.timer)
+        timer = \
+            timeit.Timer(
+                stmt=func,
+                setup=self.redo_setup,
+                timer=self.timer
+            )
 
         samples, number, samples_pre_barrier, samples_post_barrier = \
             self.benchmark_timing(timer, repeat, warmup_time, number=number)
@@ -476,7 +492,7 @@ class TimeBenchmark(Benchmark):
                     number = max(number + 1, int(p * number))
 
             if too_slow():
-                return [timing], number
+                return [timing], number, [timing], [timing]
         elif warmup_time > 0:
             # Warmup
             while True:
@@ -485,7 +501,7 @@ class TimeBenchmark(Benchmark):
                 if self.bcast(self.wall_time()) >= start_time + warmup_time:
                     break
             if too_slow():
-                return [timing], number
+                return [timing], number, [timing], [timing]
 
         # Collect samples
         samples = []
@@ -627,6 +643,13 @@ def create_runner_argument_parser():
         default="mpia_benchmarks.json"
     )
     ap.add_argument(
+        "-t", "--default_timer",
+        action='store',
+        help="The default timer used to measure benchmark duration.",
+        choices=["Wtime", "process_time"],
+        default="process_time"
+    )
+    ap.add_argument(
         "module_name",
         action="append",
         help="Name of modules to search for benchmarks.",
@@ -664,6 +687,12 @@ class BenchmarkRunner(object):
         self._bench_module_names = None
         self._bench_results = None
         self._benchmarks = None
+        if self._args.default_timer == "Wtime":
+            self._default_timer = mpi.Wtime
+        elif self._args.default_timer == "process_time":
+            self._default_timer = get_process_time_timer()
+        else:
+            raise ValueError("Invalid default_timer = '%s'." % self._args.default_timer)
 
     @property
     def root_logger(self):
@@ -682,6 +711,13 @@ class BenchmarkRunner(object):
             self._rank_logger = \
                 _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.comm)
         return self._rank_logger
+
+    @property
+    def default_timer(self):
+        """
+        An :obj:`callable` used to measure benchmark duration, e.g. :func:`time.process_time`.
+        """
+        return self._default_timer
 
     @property
     def comm(self):
@@ -804,6 +840,7 @@ class BenchmarkRunner(object):
             for benchmark in benchmarks:
                 if self.do_quick_run:
                     benchmark._attr_sources.insert(0, QuickBenchmarkAttrs)
+                benchmark.default_timer = self.default_timer
                 benchmark.comm = self.comm
                 benchmark.initialise()
                 if (benchmark.params is not None) and (len(benchmark.params) > 0):
