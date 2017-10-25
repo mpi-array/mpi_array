@@ -144,6 +144,7 @@ class Benchmark(object):
         self.param_names = None
         self._current_params = None
         self._comm = None
+        self._setup_error = None
 
     def initialise(self):
         """
@@ -216,6 +217,13 @@ class Benchmark(object):
     def comm(self, comm):
         self._comm = comm
 
+    @property
+    def setup_error(self):
+        """
+        The error which occured during :meth:`do_setup`, :samp:`None` if no error occurred.
+        """
+        return self._setup_error
+
     def barrier(self):
         """
         Barrier.
@@ -273,11 +281,13 @@ class Benchmark(object):
 
     def do_setup(self):
         self.initialise()
+        self._setup_error = None
         try:
             for setup in self._setups:
                 setup(*self._current_params)
-        except NotImplementedError:
+        except NotImplementedError as e:
             # allow skipping test
+            self._setup_error = e
             return True
         return False
 
@@ -832,7 +842,7 @@ class BenchmarkRunner(object):
             number = 1
 
         self._bench_results = None
-        benchmarks = self.benchmarks
+        benchmarks = sorted(self.benchmarks, key=lambda x: x.name)
         benchmarks = self.comm.bcast(benchmarks, self.root_rank)
 
         results = []
@@ -852,11 +862,23 @@ class BenchmarkRunner(object):
                     started_at = datetime.datetime.utcnow()
                     if param_idx is not None:
                         benchmark.set_param_idx(param_idx)
+
                     skip = benchmark.do_setup()
+                    skip_reason = benchmark.setup_error
+
+                    if (not skip) and self.do_quick_run and (param_idx > 0):
+                        skip = True
+                        skip_reason = "quick run, only first param run."
 
                     try:
                         if skip:
-                            result = {"samples": None, "number": None}
+                            result = \
+                                {
+                                    'samples': None,
+                                    'number': 0,
+                                    'wall_samples_pre_barrier': None,
+                                    'wall_samples_post_barrier': None
+                                }
                         else:
                             result = benchmark.do_run()
                     finally:
@@ -864,7 +886,7 @@ class BenchmarkRunner(object):
 
                     if not skip:
                         self.root_logger.info(
-                            "%68s, %16.8f, %16.8f, %6d,%8d, %s",
+                            "%68s,%16.8f,%16.8f,%6d,%8d, %s",
                             benchmark.name,
                             min(result["samples"]),
                             max(result["samples"]),
@@ -876,8 +898,18 @@ class BenchmarkRunner(object):
                             ] if params is not None else None
                         )
                     else:
-                        self.root_logger.info("%68s, %16s", benchmark.name, "skipped...")
-
+                        self.root_logger.info(
+                            "%68s,%49s, %s",
+                            benchmark.name,
+                            "skipped...%s" % skip_reason,
+                            [
+                                ("%s=%s" % (benchmark.param_names[i], params[i]))
+                                for i in range(len(params))
+                            ] if params is not None else None
+                        )
+                    result["skip_reason"] = None
+                    if skip:
+                        result["skip_reason"] = str(skip_reason)
                     result["walltime_finished_at"] = str(datetime.datetime.utcnow())
                     result["walltime_started_at"] = str(started_at)
                     result["comm_name"] = self.comm.Get_name()
