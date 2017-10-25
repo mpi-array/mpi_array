@@ -97,8 +97,8 @@ install:
         source venv/bin/activate;
       else
         brew upgrade ${BREW_PYTHON};
-        pip2 install --upgrade pip setuptools
-        alias pip=pip2
+        pip2 install --upgrade pip setuptools;
+        alias pip=pip2;
       fi
     fi
 
