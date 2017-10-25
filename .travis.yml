@@ -99,7 +99,7 @@ install:
         pip2 install --upgrade pip setuptools virtualenv;
         python -m virtualenv venv
         alias pip=pip2;
-      fi
+      fi;
       source venv/bin/activate;
     fi
 
