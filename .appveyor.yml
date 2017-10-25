@@ -34,7 +34,8 @@ install:
   
   # Install Intel Distribution for Python
   - "conda update -y conda"
-  - "conda config --add channels intel"
+  - "conda config --prepend channels intel"
+  - "conda config --append channels conda-forge"
 
   - if [%PYTHON_VERSION%]==[2.7] conda create -y -n idp intelpython2_core impi_rt mpi4py psutil coveralls sphinx "python=2"
   - if [%PYTHON_VERSION%]==[3.6] conda create -y -n idp intelpython3_core impi_rt mpi4py psutil coveralls sphinx "python=3"
