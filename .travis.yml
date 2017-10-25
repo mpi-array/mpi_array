@@ -88,6 +88,7 @@ before_install:
   - which mpirun
 
 install:
+  - shopt -s expand_aliases
   - if [[ $TRAVIS_OS_NAME == 'osx' ]]; then
       brew update;
       if [[ ${BREW_PYTHON} == 'python3' ]]; then
