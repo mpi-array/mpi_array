@@ -842,7 +842,9 @@ class BenchmarkRunner(object):
             number = 1
 
         self._bench_results = None
-        benchmarks = sorted(self.benchmarks, key=lambda x: x.name)
+        benchmarks = self.benchmarks
+        if benchmarks is not None:
+            benchmarks = sorted(benchmarks, key=lambda x: x.name)
         benchmarks = self.comm.bcast(benchmarks, self.root_rank)
 
         results = []
