@@ -19,6 +19,7 @@
    mpi_array_globale_ufunc_test
    mpi_array_indexing
    mpi_array_indexing_test
+   mpi_array_init
    mpi_array_license
    mpi_array_locale
    mpi_array_locale_test

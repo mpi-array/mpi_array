@@ -683,10 +683,16 @@ def root_and_package_from_name(module_name):
 
 class BenchmarkRunner(object):
     """
+    Discovers and runs benchmarks.
     """
 
     def __init__(self, argv=None):
         """
+        Initialise.
+
+        :type argv: :obj:`list` of :obj:`str`
+        :param argv: Command line arguments, parsed with the :obj:`argparse.ArgumentParser`
+           instance returned by :func:`create_argument_parser`.
         """
         if argv is None:
             argv = []
@@ -707,6 +713,7 @@ class BenchmarkRunner(object):
     @property
     def root_logger(self):
         """
+        A :obj:`logging.Logger` object for logging root-rank process messages.
         """
         if self._root_logger is None:
             self._root_logger = \
@@ -716,6 +723,7 @@ class BenchmarkRunner(object):
     @property
     def rank_logger(self):
         """
+        A :obj:`logging.Logger` object for logging all rank process messages.
         """
         if self._rank_logger is None:
             self._rank_logger = \
@@ -732,7 +740,7 @@ class BenchmarkRunner(object):
     @property
     def comm(self):
         """
-        A :obj:`mpi4py.MPI.Comm object.
+        A :obj:`mpi4py.MPI.Comm` object, typically :attr:`mpi4py.MPI.COMM_WORLD`.
         """
         return mpi.COMM_WORLD
 
@@ -833,6 +841,8 @@ class BenchmarkRunner(object):
 
     def run_benchmarks(self):
         """
+        Runs the benchmarks, results are stored in :attr:`bench_results`.
+        Assumes benchmarks have already been *discovered*.
         """
         class QuickBenchmarkAttrs(object):
             """
@@ -964,7 +974,7 @@ class BenchmarkRunner(object):
 
     def run_and_write_results(self):
         """
-        Discovers, runs and records benchmark results.
+        Discovers, runs and records benchmark results in files.
         """
         self.run()
         if self.bench_results is not None:
@@ -979,6 +989,8 @@ def run_main(argv):
 
     :type argv: :obj:`list` of :obj:`str`
     :param argv: The command line arguments (e.g. :samp:`sys.argv`).
+
+    .. seealso:: :obj:`BenchmarkRunner`
     """
     runner = BenchmarkRunner(argv=argv)
     runner.run_and_write_results()

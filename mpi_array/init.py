@@ -1,11 +1,27 @@
 """
+================================
+The :mod:`mpi_array.init` Module
+================================
+
 Initialisation which needs to occur prior to :samp:`MPI_Init`.
+
 
 Parts of this source borrows from
 the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
 file `benchmark.py <https://github.com/spacetelescope/asv/blob/master/asv/benchmark.py>`_.
 
 See the `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
+
+Functions
+=========
+
+.. autosummary::
+   :toctree: generated/
+
+   create_linux_process_time - Uses :mod:`ctypes` to create :func:`time.process_time` function.
+   create_darwin_process_time - Uses :mod:`ctypes` to create :func:`time.process_time` function.
+   initialise_process_time_timer - Loads/creates and caches :func:`time.process_time` function.
+   get_process_time_timer - Returns a :func:`time.process_time` equivalent.
 
 """
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
@@ -15,9 +31,11 @@ __license__ = "https://github.com/spacetelescope/asv/blob/master/LICENSE.rst"
 
 def create_linux_process_time():
     """
-    The best timer we can use is time.process_time, but it is not
-    available in the Python stdlib until Python 3.3.  This is a ctypes
-    backport (Linux only) for Python versions which don't have it.
+    Uses :mod:`ctypes` to create a :func:`time.process_time`
+    on the :samp:`'Linux'` platform.
+
+    :rtype: :obj:`function`
+    :return: A :func:`time.process_time` equivalent.
     """
     import ctypes
     from ctypes.util import find_library
@@ -53,9 +71,11 @@ def create_linux_process_time():
 
 def create_darwin_process_time():
     """
-    The best timer we can use is time.process_time, but it is not
-    available in the Python stdlib until Python 3.3.  This is a ctypes
-    backport (Darwin only) for Python versions which don't have it.
+    Uses :mod:`ctypes` to create a :func:`time.process_time`
+    on the :samp:`'darwin'` (OSX) platform.
+
+    :rtype: :obj:`function`
+    :return: A :func:`time.process_time` equivalent.
     """
     import ctypes
     from ctypes.util import find_library
@@ -115,9 +135,8 @@ _process_time = None
 
 def initialise_process_time_timer():
     """
-    The best timer we can use is time.process_time, but it is not
-    available in the Python stdlib until Python 3.3.  This is a ctypes
-    backport for Pythons that don't have it.
+    Loads (or creates) :func:`time.process_time` function
+    and caches the function in :attr:`mpi_array.init._process_time`.
 
     :rtype: :obj:`function`
     :return: The :func:`time.process_time` function, if available, otherwise, if possible,
@@ -145,8 +164,8 @@ def initialise_process_time_timer():
 
 def get_process_time_timer():
     """
-    The best timer we can use is time.process_time, but it is not
-    available in the Python stdlib until Python 3.3.  This is a ctypes
+    The best timer we can use is :func:`time.process_time`, but it is not
+    available in the Python stdlib until Python 3.3.  This is a :mod:`ctypes`
     backport for Pythons that don't have it.
 
     :rtype: :obj:`function`
@@ -155,8 +174,6 @@ def get_process_time_timer():
     """
     global _process_time
 
-    if _process_time is None:
-        initialise_process_time_timer()
     return _process_time
 
 
