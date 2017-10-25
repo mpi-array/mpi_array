@@ -94,12 +94,13 @@ install:
       if [[ ${BREW_PYTHON} == 'python3' ]]; then
         brew install ${BREW_PYTHON};
         ${PYTHON_EXE} -m venv venv; 
-        source venv/bin/activate;
       else
         brew upgrade ${BREW_PYTHON};
-        pip2 install --upgrade pip setuptools;
+        pip2 install --upgrade pip setuptools virtualenv;
+        python -m virtualenv venv
         alias pip=pip2;
       fi
+      source venv/bin/activate;
     fi
 
   - git config --global user.name mpi-array
