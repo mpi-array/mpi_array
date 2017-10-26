@@ -830,7 +830,7 @@ class BenchmarkRunner(object):
         :rtype: :obj:`argparse.ArgumentParser`
         :return: A :obj:`argparse.ArgumentParser` for parsing command line.
 
-        ..seealso:: :func:`create_runner_argument_parser`
+        .. seealso:: :func:`create_runner_argument_parser`
         """
         return create_runner_argument_parser()
 
