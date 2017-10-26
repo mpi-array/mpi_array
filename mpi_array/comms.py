@@ -94,22 +94,11 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         "A :obj:`int` indicating the rank of :samp:`peer_comm` communicator."
 
 
-RmaWindowBufferTuple = \
-    _collections.namedtuple(
-        "RmaWindowBuffer",
-        [
-            "is_shared",
-            "shape",
-            "dtype",
-            "itemsize",
-            "peer_win",
-            "intra_locale_win",
-            "inter_locale_win"
-        ]
-    )
-
-
 class RmaWindowBuffer(object):
+
+    """
+    Details of the buffer allocated on a locale.
+    """
 
     def __init__(
         self,
@@ -122,13 +111,71 @@ class RmaWindowBuffer(object):
         inter_locale_win
     ):
         object.__init__(self)
-        self.is_shared = is_shared
-        self.shape = shape
-        self.dtype = dtype
-        self.itemsize = itemsize
-        self.peer_win = peer_win
-        self.intra_locale_win = intra_locale_win
-        self.inter_locale_win = inter_locale_win
+        self._is_shared = is_shared
+        self._shape = shape
+        self._dtype = dtype
+        self._itemsize = itemsize
+        self._peer_win = peer_win
+        self._intra_locale_win = intra_locale_win
+        self._inter_locale_win = inter_locale_win
+
+    @property
+    def is_shared(self):
+        """
+        A :obj:`bool`, if :samp:`True` then buffer memory was allocated
+        using :meth:`mpi4py.MPI.Win.Allocate_shared`, otherwise memory
+        was allocated using :meth:`mpi4py.MPI.Win.Allocate`.
+        """
+        return self._is_shared
+
+    @property
+    def shape(self):
+        """
+        A sequence of :obj:`int` indicating the shape of the locale array.
+        """
+        return self._shape
+
+    @property
+    def dtype(self):
+        """
+        A :obj:`numpy.dtype` indicating the data type of elements
+        stored in the array.
+        """
+        return self._dtype
+
+    @property
+    def itemsize(self):
+        """
+        An :obj:`int` indicating the number of bytes  per array element
+        (same as :attr:`numpy.dtype.itemsize`).
+        """
+        return self._itemsize
+
+    @property
+    def peer_win(self):
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`peer_comm` communicator
+        which exposes :attr:`buffer` for inter-locale RMA access.
+        """
+        return self._peer_win
+
+    @property
+    def intra_locale_win(self):
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`intra_locale_comm` communicator
+        which exposes :attr:`buffer` for intra-locale RMA access.
+        When :samp:`{intra_locale_win}.group.size > 1` then :attr:`buffer` was
+        allocated as shared memory (using :meth:`mpi4py.MPI.Win.Allocate_shared`).
+        """
+        return self._intra_locale_win
+
+    @property
+    def inter_locale_win(self):
+        """
+        The :obj:`mpi4py.MPI.Win` created from the :samp:`inter_locale_comm` communicator
+        which exposes :attr:`buffer` for inter-locale RMA access.
+        """
+        return self._inter_locale_win
 
     @property
     def buffer(self):
@@ -149,57 +196,15 @@ class RmaWindowBuffer(object):
         """
         Free MPI windows and associated buffer memory.
         """
-        if self.inter_locale_win != _mpi.WIN_NULL:
-            self.inter_locale_win.Free()
-            self.inter_locale_win = _mpi.WIN_NULL
-        if self.peer_win != _mpi.WIN_NULL:
-            self.peer_win.Free()
-            self.peer_win = _mpi.WIN_NULL
-        if self.intra_locale_win != _mpi.WIN_NULL:
-            self.intra_locale_win.Free()
-            self.intra_locale_win = _mpi.WIN_NULL
-
-
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    RmaWindowBuffer.__doc__ = \
-        """
-       Details of the buffer allocated on a locale.
-       """
-    RmaWindowBuffer.is_shared.__doc__ = \
-        """
-        A :obj:`bool`, if :samp:`True` then buffer memory was allocated
-        using :meth:`mpi4py.MPI.Win.Allocate_shared`, otherwise memory
-        was allocated using :meth:`mpi4py.MPI.Win.Allocate`.
-        """
-    RmaWindowBuffer.shape.__doc__ = \
-        "A sequence of :obj:`int` indicating the shape of the locale array."
-    RmaWindowBuffer.dtype.__doc__ = \
-        """
-        A :obj:`numpy.dtype` indicating the data type of elements
-        stored in the array.
-        """
-    RmaWindowBuffer.itemsize.__doc__ = \
-        """
-        An :obj:`int` indicating the number of bytes  per array element
-        (same as :attr:`numpy.dtype.itemsize`).
-        """
-    RmaWindowBuffer.peer_win.__doc__ = \
-        """
-        The :obj:`mpi4py.MPI.Win` created from the :samp:`peer_comm` communicator
-        which exposes :attr:`buffer` for inter-locale RMA access.
-        """
-    RmaWindowBuffer.intra_locale_win.__doc__ = \
-        """
-        The :obj:`mpi4py.MPI.Win` created from the :samp:`intra_locale_comm` communicator
-        which exposes :attr:`buffer` for intra-locale RMA access.
-        When :samp:`{intra_locale_win}.group.size > 1` then :attr:`buffer` was
-        allocated as shared memory (using :meth:`mpi4py.MPI.Win.Allocate_shared`).
-        """
-    RmaWindowBuffer.inter_locale_win.__doc__ = \
-        """
-        The :obj:`mpi4py.MPI.Win` created from the :samp:`inter_locale_comm` communicator
-        which exposes :attr:`buffer` for inter-locale RMA access.
-        """
+        if self._inter_locale_win != _mpi.WIN_NULL:
+            self._inter_locale_win.Free()
+            self._inter_locale_win = _mpi.WIN_NULL
+        if self._peer_win != _mpi.WIN_NULL:
+            self._peer_win.Free()
+            self._peer_win = _mpi.WIN_NULL
+        if self._intra_locale_win != _mpi.WIN_NULL:
+            self._intra_locale_win.Free()
+            self._intra_locale_win = _mpi.WIN_NULL
 
 
 class LocaleComms(object):
