@@ -25,6 +25,7 @@ import os
 import re
 import textwrap
 import timeit
+import gc
 from importlib import import_module
 from .. import logging as _logging
 
@@ -484,9 +485,11 @@ class TimeBenchmark(Benchmark):
             while True:
                 self._redo_setup_next = False
                 self.barrier()
+                gc.disable()
                 start = self.wall_time()
                 timing = timer.timeit(number)
                 self.barrier()
+                gc.enable()
                 end = self.wall_time()
                 wall_time, timing = self.bcast((end - start, timing))
                 actual_timing = max(wall_time, timing)
@@ -507,7 +510,9 @@ class TimeBenchmark(Benchmark):
             # Warmup
             while True:
                 self._redo_setup_next = False
+                gc.disable()
                 timing = self.bcast(timer.timeit(number))
+                gc.enable()
                 if self.bcast(self.wall_time()) >= start_time + warmup_time:
                     break
             if too_slow():
@@ -519,11 +524,13 @@ class TimeBenchmark(Benchmark):
         wall_samples_post_barrier = []
         for j in range(repeat):
             self.barrier()
+            gc.disable()
             start = self.wall_time()
             timing = timer.timeit(number)
             end_pre_barrier = self.wall_time()
             self.barrier()
             end_post_barrier = self.wall_time()
+            gc.enable()
             samples.append(timing)
             wall_samples_pre_barrier.append(end_pre_barrier - start)
             wall_samples_post_barrier.append(end_post_barrier - start)
