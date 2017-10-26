@@ -909,7 +909,15 @@ class BenchmarkRunner(object):
                     skip = benchmark.do_setup()
                     skip_reason = benchmark.setup_error
 
-                    if (not skip) and self.do_quick_run and (param_idx > 0):
+                    if (
+                        (not skip)
+                        and
+                        self.do_quick_run
+                        and
+                        (param_idx is not None)
+                        and
+                        (param_idx > 0)
+                    ):
                         skip = True
                         skip_reason = "quick run, only first param run."
 
