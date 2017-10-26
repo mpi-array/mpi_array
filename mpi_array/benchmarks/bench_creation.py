@@ -101,8 +101,43 @@ class MpiArrayCreateBench(NumpyCreateBench):
         self.module = _try_import_for_setup("mpi_array")
 
     def free(self, a):
-        a.locale_comms.free()
-        a.free()
+        if hasattr(a, "locale_comms"):
+            a.locale_comms.free()
+        if hasattr(a, "free"):
+            a.free()
+
+
+class CommsCreateBench(CreateBench):
+    """
+    Benchmarks for :obj:`mpi_array.comms.LocaleComms`
+    and :obj:`mpi_array.comms.CartLocaleComms` construction.
+    """
+
+    params = None
+
+    def setup(self):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        """
+        self.module = _try_import_for_setup("mpi_array")
+
+    def free(self, a):
+        if hasattr(a, "locale_comms"):
+            a.locale_comms.free()
+        if hasattr(a, "free"):
+            a.free()
+
+    def time_locale_comms(self):
+        """
+        Time construction of :obj:`mpi_array.comms.LocaleComms`.
+        """
+        self.free(self.module.comms.LocaleComms())
+
+    def time_cart_locale_comms(self):
+        """
+        Time construction of :obj:`mpi_array.comms.CartLocaleComms`.
+        """
+        self.free(self.module.comms.CartLocaleComms(ndims=3))
 
 
 class MangoCreateBench(NumpyCreateBench):
