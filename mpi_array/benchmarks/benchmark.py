@@ -667,6 +667,12 @@ def create_runner_argument_parser():
         default="process_time"
     )
     ap.add_argument(
+        "-f", "--filter_regex",
+        action='store',
+        help="A regular expression for filtering which benchmark(s) to run.",
+        default=".*"
+    )
+    ap.add_argument(
         "module_name",
         action="append",
         help="Name of modules to search for benchmarks.",
@@ -705,6 +711,7 @@ class BenchmarkRunner(object):
             argv = []
         arg_parser = self.create_argument_parser()
         self._args = arg_parser.parse_args(args=argv)
+        self._filter_name_regex = None
         self._root_logger = None
         self._rank_logger = None
         self._bench_module_names = None
@@ -823,6 +830,23 @@ class BenchmarkRunner(object):
         """
         return self._args.benchmarks_file
 
+    @property
+    def filter_name_regex(self):
+        """
+        The :obj:`re.RegularExpression` used to filter the benchmarks by name.
+        """
+        if self._filter_name_regex is None:
+            import re as _re
+            self._filter_name_regex = _re.compile(self._args.filter_regex)
+        return self._filter_name_regex
+
+    def filter(self, b):
+        """
+        Returns :samp:`True` if the :obj:`Benchmark` :samp:`{b}` passes
+        the filtering criterion.
+        """
+        return self.filter_name_regex.match(b.name) is not None
+
     def create_argument_parser(self):
         """
         Creates :obj:`argparse.ArgumentParser` for handling command line.
@@ -842,7 +866,7 @@ class BenchmarkRunner(object):
             self._benchmarks = []
             for module_name in self.benchmark_module_names:
                 root, package = root_and_package_from_name(module_name)
-                self._benchmarks += [b for b in disc_benchmarks(root, package)]
+                self._benchmarks += [b for b in disc_benchmarks(root, package) if self.filter(b)]
         else:
             self._benchmarks = None
 
