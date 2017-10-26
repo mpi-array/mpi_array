@@ -101,6 +101,7 @@ class MpiArrayCreateBench(NumpyCreateBench):
         self.module = _try_import_for_setup("mpi_array")
 
     def free(self, a):
+        a.locale_comms.free()
         a.free()
 
 

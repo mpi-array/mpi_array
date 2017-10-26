@@ -109,9 +109,26 @@ RmaWindowBufferTuple = \
     )
 
 
-class RmaWindowBuffer(RmaWindowBufferTuple):
+class RmaWindowBuffer(object):
 
-    __slots__ = ()
+    def __init__(
+        self,
+        is_shared,
+        shape,
+        dtype,
+        itemsize,
+        peer_win,
+        intra_locale_win,
+        inter_locale_win
+    ):
+        object.__init__(self)
+        self.is_shared = is_shared
+        self.shape = shape
+        self.dtype = dtype
+        self.itemsize = itemsize
+        self.peer_win = peer_win
+        self.intra_locale_win = intra_locale_win
+        self.inter_locale_win = inter_locale_win
 
     @property
     def buffer(self):
@@ -134,10 +151,13 @@ class RmaWindowBuffer(RmaWindowBufferTuple):
         """
         if self.inter_locale_win != _mpi.WIN_NULL:
             self.inter_locale_win.Free()
+            self.inter_locale_win = _mpi.WIN_NULL
         if self.peer_win != _mpi.WIN_NULL:
             self.peer_win.Free()
+            self.peer_win = _mpi.WIN_NULL
         if self.intra_locale_win != _mpi.WIN_NULL:
             self.intra_locale_win.Free()
+            self.intra_locale_win = _mpi.WIN_NULL
 
 
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
@@ -379,6 +399,41 @@ class LocaleComms(object):
                 __name__ + "." + self.__class__.__name__,
                 comm=self._peer_comm
             )
+
+    def free(self):
+        """
+        """
+        if (
+            (self._intra_locale_comm is not None)
+            and
+            (self._intra_locale_comm != _mpi.COMM_NULL)
+            and
+            (self._intra_locale_comm is not _mpi.COMM_WORLD)
+            and
+            (self._intra_locale_comm is not _mpi.COMM_SELF)
+        ):
+            self._intra_locale_comm.Free()
+        self._intra_locale_comm = None
+        if (
+            (self._inter_locale_comm is not None)
+            and
+            (self._inter_locale_comm != _mpi.COMM_NULL)
+            and
+            (self._inter_locale_comm is not _mpi.COMM_WORLD)
+            and
+            (self._inter_locale_comm is not _mpi.COMM_SELF)
+        ):
+            self._inter_locale_comm.Free()
+        self._inter_locale_comm = None
+        if (
+            (self._peer_comm is not None)
+            and
+            (self._peer_comm is not _mpi.COMM_WORLD)
+            and
+            (self._peer_comm is not _mpi.COMM_SELF)
+        ):
+            self._peer_comm.Free()
+        self._peer_comm = None
 
     def alloc_locale_buffer(self, shape, dtype):
         """
@@ -719,6 +774,22 @@ class CartLocaleComms(LocaleComms):
             )
 
         self._cart_comm = cart_comm
+
+    def free(self):
+        """
+        """
+        if (
+            (self._cart_comm is not None)
+            and
+            (self._cart_comm != _mpi.COMM_NULL)
+            and
+            (self._cart_comm is not _mpi.COMM_WORLD)
+            and
+            (self._cart_comm is not _mpi.COMM_SELF)
+        ):
+            self._cart_comm.Free()
+        self._cart_comm = None
+        LocaleComms.free(self)
 
     @property
     def cart_coord_to_cart_rank_map(self):

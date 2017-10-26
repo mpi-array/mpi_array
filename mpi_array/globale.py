@@ -605,7 +605,8 @@ class gndarray(_NDArrayOperatorsMixin):
         Collective (all samp:`peer_comm` processes) free of MPI windows (and locale array memory).
         """
         self._halo_updater = None
-        self._comms_and_distrib = None
+        if self._comms_and_distrib is not None:
+            self._comms_and_distrib = None
         if self._lndarray_proxy is not None:
             self._lndarray_proxy.free()
             self._lndarray_proxy = None
