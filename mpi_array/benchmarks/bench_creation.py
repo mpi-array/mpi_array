@@ -11,16 +11,16 @@ class CreateBench(object):
     """
 
     #: Number of repetitions to run each benchmark
-    repeat = 16
+    repeat = 10
 
     #: The set of array-shape parameters.
-    params = [[(100, 100, 100,), ((1000, 100, 100,)), ((1024 // 4, 1024, 1024,))], ]
+    params = [[(100, 100, 100,), ((1000, 100, 100,)), ((1024, 1024, 1024,))], ]
 
     #: The name of the array-shape parameters.
     param_names = ["shape"]
 
-    goal_time = 1.0
-    warmup_time = 1.0
+    goal_time = 5.0
+    warmup_time = 2.0
 
     #: Inter-locale cartesian communicator dims
     cart_comm_dims = None
