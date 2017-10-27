@@ -127,7 +127,7 @@ class MpiArrayCreateBench(NumpyCreateBench):
 
     def free(self, a):
         """
-        .. seealso:: :meth:`free_mpi_array_obj`
+        See :meth:`free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -149,7 +149,7 @@ class CommsCreateBench(CreateBench):
 
     def free(self, a):
         """
-        .. seealso:: :meth:`free_mpi_array_obj`
+        See :meth:`free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -171,8 +171,8 @@ class CommsAllocBench(CreateBench):
     Benchmarks for :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
     """
 
-    #: No param, is :samp:`None`.
-    params = None
+    #: The set of array-shape parameters.
+    params = [[(4, 1024, 1024,), (64, 1024, 1024,), (1024, 1024, 1024,)], ]
 
     @property
     def locale_comms(self):
@@ -181,7 +181,7 @@ class CommsAllocBench(CreateBench):
         """
         return self._locale_comms
 
-    def setup(self):
+    def setup(self, shape):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         Also initialise :attr:`locale_comms` with a :obj:`mpi_array.comms.CartLocaleComms`
@@ -190,7 +190,7 @@ class CommsAllocBench(CreateBench):
         self.module = _try_import_for_setup("mpi_array.comms")
         self._locale_comms = self.module.CartLocaleComms(ndims=3)
 
-    def teardown(self):
+    def teardown(self, shape):
         """
         Free :attr:`locale_comms` communicators.
         """
@@ -198,15 +198,15 @@ class CommsAllocBench(CreateBench):
 
     def free(self, a):
         """
-        .. seealso:: :meth:`free_mpi_array_obj`
+        See :meth:`free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
-    def time_alloc_locale_buffer(self):
+    def time_alloc_locale_buffer(self, shape):
         """
         Time call of :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
         """
-        self.free(self.locale_comms.alloc_locale_buffer(shape=(128, 1024, 1024), dtype="int32"))
+        self.free(self.locale_comms.alloc_locale_buffer(shape=shape, dtype="int32"))
 
 
 class MangoCreateBench(NumpyCreateBench):
