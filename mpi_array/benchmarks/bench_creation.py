@@ -20,7 +20,7 @@ class CreateBench(object):
     param_names = ["shape"]
 
     # Goal time (seconds) for a single repeat.
-    goal_time = 5.0
+    goal_time = 2.0
 
     # Execute benchmark for this time (seconds) as a *warm-up* prior to real timing.
     warmup_time = 2.0
@@ -88,7 +88,7 @@ class CreateBench(object):
 
 class NumpyCreateBench(CreateBench):
     """
-    Comparison benchmarks for :func:`numpy.empty` and :func:`numpy.zeros`.
+    Comparison benchmarks for :func:`numpy.empty`, :func:`numpy.zeros` etc.
     """
 
     def setup(self, shape):
@@ -113,10 +113,24 @@ class NumpyCreateBench(CreateBench):
         """
         self.free(self.module.zeros(self.get_globale_shape(shape), dtype="int32"))
 
+    def time_ones(self, shape):
+        """
+        Time one-initialised array creation.
+        """
+        self.free(self.module.ones(self.get_globale_shape(shape), dtype="int32"))
+
+    def time_full(self, shape):
+        """
+        Time value-initialised array creation.
+        """
+        self.free(
+            self.module.full(self.get_globale_shape(shape), fill_value=(2**31) - 1, dtype="int32")
+        )
+
 
 class MpiArrayCreateBench(NumpyCreateBench):
     """
-    Benchmarks for :func:`mpi_array.empty` and :func:`mpi_array.zeros`.
+    Benchmarks for :func:`mpi_array.empty`, :func:`mpi_array.zeros` etc.
     """
 
     def setup(self, shape):
@@ -221,6 +235,11 @@ class MangoCreateBench(NumpyCreateBench):
         """
         self.module = _try_import_for_setup("mango")
 
+    def time_full(self, shape):
+        """
+        No :samp:`full` function in :samp:`mango`.
+        """
+        pass
 
 # class Ga4pyGainCreateBench(NumpyCreateBench):
 #    """
@@ -241,5 +260,6 @@ class MangoCreateBench(NumpyCreateBench):
 #        self._ga.sync()
 #        self._ga.destroy(a.handle)
 #        a._base = 0
+
 
 __all__ = [s for s in dir() if not s.startswith('_')]
