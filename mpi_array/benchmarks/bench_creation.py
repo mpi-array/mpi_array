@@ -166,6 +166,49 @@ class CommsCreateBench(CreateBench):
         self.free(self.module.comms.CartLocaleComms(ndims=3))
 
 
+class CommsAllocBench(CreateBench):
+    """
+    Benchmarks for :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
+    """
+
+    #: No param, is :samp:`None`.
+    params = None
+
+    @property
+    def locale_comms(self):
+        """
+        A :obj:`mpi_array.comms.CartLocaleComms` instance used to allocate memory.
+        """
+        return self._locale_comms
+
+    def setup(self):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        Also initialise :attr:`locale_comms` with a :obj:`mpi_array.comms.CartLocaleComms`
+        instance.
+        """
+        self.module = _try_import_for_setup("mpi_array.comms")
+        self._locale_comms = self.module.CartLocaleComms(ndims=3)
+
+    def teardown(self):
+        """
+        Free :attr:`locale_comms` communicators.
+        """
+        self.free(self.locale_comms)
+
+    def free(self, a):
+        """
+        .. seealso:: :meth:`free_mpi_array_obj`
+        """
+        self.free_mpi_array_obj(a)
+
+    def time_alloc_locale_buffer(self):
+        """
+        Time call of :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
+        """
+        self.free(self.locale_comms.alloc_locale_buffer(shape=(128, 1024, 1024), dtype="int32"))
+
+
 class MangoCreateBench(NumpyCreateBench):
     """
     Benchmarks for :func:`mango.empty` and :func:`mango.zeros`
