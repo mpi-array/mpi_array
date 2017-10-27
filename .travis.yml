@@ -128,6 +128,6 @@ script:
   - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; then travis-sphinx build; fi
 
 after_success:
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; travis-sphinx --branches=dev deploy; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; then travis-sphinx --branches=dev deploy; fi
   - coverage combine
   - coveralls
