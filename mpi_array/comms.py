@@ -13,7 +13,9 @@ Classes
    :toctree: generated/
 
 
+   LocaleCommsInfo - :obj:`LocaleComms` communicator related data members.
    LocaleComms - Intra-locale and inter-locale communicators.
+   CartLocaleCommsInfo - :obj:`CartLocaleComms` communicator related data members.
    CartLocaleComms - Intra-locale and cartesian-inter-locale communicators.
    CommsAndDistribution - Tuple with :obj:`LocaleComms` and :obj:`Distribution`.
    ThisLocaleInfo - The inter_locale_comm inter_locale_rank and corresponding peer_comm peer_rank.
@@ -25,6 +27,10 @@ Factory Functions
 .. autosummary::
    :toctree: generated/
 
+   create_locale_comms_info - Creates a :obj:`LocaleCommsInfo` instance.
+   get_locale_comms_info - Finds or creates a :obj:`LocaleCommsInfo` instance.
+   create_cart_locale_comms_info - Creates a :obj:`CartLocaleCommsInfo` instance.
+   get_cart_locale_comms_info - Finds or creates a :obj:`CartLocaleCommsInfo` instance.
    create_locale_comms - Factory function for creating :obj:`LocaleComms` instances.
    create_block_distribution - Factory function for creating :obj:`BlockPartition` instances.
    create_cloned_distribution - Factory function for creating :obj:`ClonedDistribution` instances.
@@ -82,7 +88,8 @@ def mpi_version():
 class CommsCache(object):
     """
     Cache for re-using the MPI communicators (and associated info)
-    when constructng :obj:`LocaleComms` instances.
+    when constructing :obj:`LocaleComms` (and :obj:`CartLocaleComms`)
+    instances.
     """
 
     def __init__(self):
@@ -109,69 +116,93 @@ class CommsCache(object):
         """
         self._lookup = []
 
-    def find(self, t):
+    def create_key_equality_tuple(self, key0, key1):
         """
-        Returns the *value* associated with the *key* :samp:`{t}`.
+        Returns a :obj:`tuple` of :obj:`bool` elements indicating
+        the per-element equality of the sequence :samp:`{key0}`
+        and sequence :samp:`{key1}`. Assumes that :samp:`len({key0}) == len({key1})`.
 
-        :type t: sequence of :obj:`mpi4py.MPI.Comm`
-        :param t: Key for look-up.
-        :rtype: :obj:`object`
-        :return: The object associated with the key :samp:`{t}`,
-           or :samp:`None` if the key is not found.
+        :type key0: :obj:`tuple`
+        :param key0: A look-up key.
+        :type key1: :obj:`tuple`
+        :param key1: A look-up key.
+        :rtype: :obj:`tuple` of :obj:`bool` elements
+        :return: Per element equality of :samp:`{key0}` and :samp:`{key1}` keys.
+        """
+        return \
+            tuple(
+                (
+                    (
+                        (
+                            (key0[j] is None)
+                            or
+                            (key1[j] is None)
+                            or
+                            isinstance(key0[j], _mpi.Comm)
+                            or
+                            isinstance(key1[j], _mpi.Comm)
+                        )
+                        and
+                        (key0[j] is key1[j])
+                    )
+                    or
+                    (
+                        (
+                            (key0[j] is not None)
+                            and
+                            (key1[j] is not None)
+                            and
+                            (not isinstance(key0[j], _mpi.Comm))
+                            and
+                            (not isinstance(key1[j], _mpi.Comm))
+                        )
+                        and
+                        (_np.asanyarray(key0[j]).size == _np.asanyarray(key1[j]).size)
+                        and
+                        _np.all(_np.asanyarray(key0[j]) == _np.asanyarray(key1[j]))
+                    )
+                )
+                for j in range(len(key1))
+            )
+
+    def find(self, key):
+        """
+        Returns the *value* associated with the *key* :samp:`{key}`.
+
+        :type key: sequence of :obj:`object`
+        :param key: Key for look-up, typically a :samp:`tuple`
+           of elements of type :obj:`mpi4py.MPI.Comm`, :samp:`None`, integer-scalar
+           or integer-sequence.
+        :rtype: :obj:`object` or :samp:`None`
+        :return: The object associated with the key :samp:`{key}`,
+           or :samp:`None` if the key :samp:`{key}` is not found.
         """
         value = None
         for i in range(len(self._lookup)):
-            e = self._lookup[i][0]
+            current_key = self._lookup[i][0]
             if (
-                (len(e) == len(t))
+                (len(current_key) == len(key))
                 and
-                _np.all(
-                    tuple(
-                        (
-                            (
-                                ((t[j] is None) or isinstance(t[j], _mpi.Comm))
-                                and
-                                (t[j] is e[j])
-                            )
-                            or
-                            (
-                                ((t[j] is not None) and (not isinstance(t[j], _mpi.Comm)))
-                                and
-                                _np.all(_np.asanyarray(t[j]) == _np.asanyarray(e[j]))
-                            )
-                        )
-                        for j in range(len(e))
-                    )
-                )
+                _np.all(self.create_key_equality_tuple(key, current_key))
             ):
                 value = self._lookup[i][1]
                 value.rank_logger.debug(
-                    "key:\n%s matched existing key:\n%s, value=\n%s\n%s", t, e, value,
-                    tuple(
-                        (
-                            (
-                                ((t[j] is None) or isinstance(t[j], _mpi.Comm))
-                                and
-                                (t[j] is e[j])
-                            )
-                            or
-                            (
-                                ((t[j] is not None) and (not isinstance(t[j], _mpi.Comm)))
-                                and
-                                _np.all(_np.asanyarray(t[j]) == _np.asanyarray(e[j]))
-                            )
-                        )
-                        for j in range(len(e))
-                    )
+                    "key:\n%s matched existing key:\n%s, value=\n%s\n%s",
+                    key, current_key, value, self.create_key_equality_tuple(key, current_key)
                 )
                 break
         if value is None:
-            self._rank_logger.debug("No match for:\n%s", (t,))
+            self._rank_logger.debug("No match for:\n%s", (key,))
         return value
 
     def add(self, key, value):
         """
-        Adds a :samp:`(key, value)` pair to this cache.
+        Adds a :samp:`({key}, {value})` pair to this cache.
+
+        :type key: :obj:`tuple`
+        :param key: Key for look-up.
+        :type value: :obj:`object`
+        :param value: Object associated with the :samp:`{key}` key.
         """
         existing_value = self.find(key)
         if existing_value is not None:
@@ -539,7 +570,13 @@ class LocaleComms(object):
        data between locales.
     """
 
-    def __init__(self, peer_comm=None, intra_locale_comm=None, inter_locale_comm=None):
+    def __init__(
+        self,
+        peer_comm=None,
+        intra_locale_comm=None,
+        inter_locale_comm=None,
+        comms_info=None
+    ):
         """
         Construct, this is a collective call over the :samp:`{peer_comm}` communcator.
 
@@ -563,14 +600,18 @@ class LocaleComms(object):
             (the :samp:`{intra_locale_comm}.rank == 0`
             process) is selected from each locale to form the :samp:`{inter_locale_comm}`
             communicator group.
+        :type comms_info: :obj:`LocaleCommsInfo`
+        :param comms_info: Convenience construction without need for lookup
+           via :func:`get_locale_comms_info`.
         """
         object.__init__(self)
-        comms_info = \
-            get_locale_comms_info(
-                peer_comm=peer_comm,
-                intra_locale_comm=intra_locale_comm,
-                inter_locale_comm=inter_locale_comm
-            )
+        if comms_info is None:
+            comms_info = \
+                get_locale_comms_info(
+                    peer_comm=peer_comm,
+                    intra_locale_comm=intra_locale_comm,
+                    inter_locale_comm=inter_locale_comm
+                )
         self._peer_comm = comms_info.peer_comm
         self._intra_locale_comm = comms_info.intra_locale_comm
         self._inter_locale_comm = comms_info.inter_locale_comm
@@ -810,6 +851,164 @@ class LocaleComms(object):
         return self._root_logger
 
 
+CartLocaleCommsInfo = \
+    _collections.namedtuple(
+        "CartLocaleCommsInfo",
+        LocaleCommsInfo._fields
+        +
+        (
+            "dims",
+            "cart_comm"
+        )
+    )
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    CartLocaleCommsInfo.__doc__ = \
+        """
+        Communicators associated with a cartesian topology locales.
+        """
+
+
+def get_cannonical_dims(num_locales, ndims=None, dims=None):
+    """
+    Returns the block partition per axis for :samp:`{num_locales}` number
+    of total number of blocks.
+
+    :type num_locales: :obj:`int`
+    :param num_locales: Total number of blocks in the partition.
+    :type ndims: :obj:`int`
+    :param ndims: The number of dimensions of the block partitioning.
+    :type dims: sequence of :obj:`int`
+    :param dims: Constraint for the partitioning, positive values indicate
+       the number of blocks for the associated axis, zero or negative values
+       are chosen (replaced) so that :samp:`num_locales` total number of blocks
+       are formed.
+    :rtype: :obj:`numpy.ndarray`
+    :return: An array of :obj:`int` such that the :samp:`numpy.product` of the
+       returned array is equal to :samp:`{num_locales}`.
+    """
+    if (ndims is None) and (dims is None):
+        raise ValueError("Must specify one of dims or ndims, got both ndims=None and dims=None.")
+    elif (ndims is not None) and (dims is not None) and (len(dims) != ndims):
+        raise ValueError(
+            "Length of dims (len(dims)=%s) not equal to ndims=%s." % (len(dims), ndims)
+        )
+    elif ndims is None:
+        ndims = len(dims)
+
+    if dims is None:
+        dims = _np.zeros((ndims,), dtype="int64")
+
+    dims = \
+        _array_split.split.calculate_num_slices_per_axis(
+            dims,
+            num_locales
+        )
+
+    return dims
+
+
+def create_cart_locale_comms_info(
+    ndims=None,
+    dims=None,
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None,
+    cart_comm=None
+):
+    """
+    Creates a :obj:`CartLocaleCommsInfo` associated with
+    the specified communicators. Collective over :samp:`{peer_comm}`.
+    """
+    comms_info = \
+        get_locale_comms_info(
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm
+        )
+    dims = get_cannonical_dims(num_locales=comms_info.num_locales, ndims=ndims, dims=dims)
+    periods = _np.zeros((len(dims),), dtype="bool")
+    inter_locale_comm = comms_info.inter_locale_comm
+    if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
+        comms_info.rank_logger.debug("BEG: inter_locale_comm.Create_cart to create cart_comm.")
+        cart_comm = \
+            inter_locale_comm.Create_cart(
+                dims,
+                periods,
+                reorder=True
+            )
+        comms_info.rank_logger.debug("END: inter_locale_comm.Create_cart to create cart_comm.")
+    elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
+        cart_comm = _mpi.COMM_NULL
+    if (
+        (cart_comm != _mpi.COMM_NULL)
+        and
+        (cart_comm.group.size != comms_info.num_locales)
+    ):
+        raise ValueError(
+            "Got cart_comm.group.size (=%s) != self._num_locales (=%s)."
+            %
+            (cart_comm.group.size, comms_info.num_locales)
+        )
+
+    return \
+        CartLocaleCommsInfo(
+            peer_comm=comms_info.peer_comm,
+            intra_locale_comm=comms_info.intra_locale_comm,
+            inter_locale_comm=comms_info.inter_locale_comm,
+            num_locales=comms_info.num_locales,
+            peer_ranks_per_locale=comms_info.peer_ranks_per_locale,
+            rank_logger=comms_info.rank_logger,
+            root_logger=comms_info.root_logger,
+            dims=dims,
+            cart_comm=cart_comm
+        )
+
+
+def get_cart_locale_comms_info(
+    ndims=None,
+    dims=None,
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None,
+    cart_comm=None
+):
+    """
+    Finds or creates a :obj:`CartLocaleCommsInfo` associated with
+    the specified communicators. Collective over :samp:`{peer_comm}`.
+    """
+    global _comms_info_cache
+
+    key = (ndims, dims, peer_comm, intra_locale_comm, inter_locale_comm, cart_comm)
+    comms_info = _comms_info_cache.find(key)
+    if comms_info is None:
+        comms_info = \
+            create_cart_locale_comms_info(
+                ndims,
+                dims,
+                peer_comm=peer_comm,
+                intra_locale_comm=intra_locale_comm,
+                inter_locale_comm=inter_locale_comm,
+                cart_comm=cart_comm
+            )
+        _comms_info_cache.add(key, comms_info)
+        key = \
+            (
+                len(comms_info.dims),
+                comms_info.dims,
+                comms_info.peer_comm,
+                comms_info.intra_locale_comm,
+                comms_info.inter_locale_comm,
+                comms_info.cart_comm
+            )
+        if _comms_info_cache.find(key) is None:
+            _comms_info_cache.add(key, comms_info)
+        key = (None,) + key[1:]
+        if _comms_info_cache.find(key) is None:
+            _comms_info_cache.add(key, comms_info)
+
+    return comms_info
+
+
 class CartLocaleComms(LocaleComms):
 
     """
@@ -821,8 +1020,9 @@ class CartLocaleComms(LocaleComms):
        the call :samp:`{inter_locale_comm}.Create_cart(...)`.
        This communicator (and associated `mpi4py.MPI.Win` window) is used to exchange
        data between locales.
-       In construction, this :obj:`mpi4py.MPI.CartComm` communicator
-       replaces the :attr:`LocaleComms.inter_locale_comm` communicator.
+       Note that :attr:`inter_locale_comm` property over-rides
+       the :attr:`LocaleComms.inter_locale_comm` property to return the :attr:`cart_comm`
+       communicator.
     """
 
     def __init__(
@@ -862,83 +1062,22 @@ class CartLocaleComms(LocaleComms):
         :param cart_comm: Cartesian topology inter-locale communicator used to exchange
             data between different locales.
         """
+        comms_info = \
+            get_cart_locale_comms_info(
+                ndims=ndims,
+                dims=dims,
+                peer_comm=peer_comm,
+                intra_locale_comm=intra_locale_comm,
+                inter_locale_comm=inter_locale_comm,
+                cart_comm=cart_comm
+            )
         LocaleComms.__init__(
             self,
-            peer_comm=peer_comm,
-            intra_locale_comm=intra_locale_comm,
-            inter_locale_comm=inter_locale_comm
+            comms_info=comms_info
         )
 
-        # No implementation for periodic boundaries yet
-        periods = None
-        if (ndims is None) and (dims is None):
-            raise ValueError("Must specify one of dims or ndims in CartLocaleComms constructor.")
-        elif (ndims is not None) and (dims is not None) and (len(dims) != ndims):
-            raise ValueError(
-                "Length of dims (len(dims)=%s) not equal to ndims=%s." % (len(dims), ndims)
-            )
-        elif ndims is None:
-            ndims = len(dims)
-
-        if dims is None:
-            dims = _np.zeros((ndims,), dtype="int")
-        if periods is None:
-            periods = _np.zeros((ndims,), dtype="bool")
-
-        self._cart_comm = cart_comm
-        rank_logger = \
-            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, comm=self.peer_comm)
-
-        self._dims = \
-            _array_split.split.calculate_num_slices_per_axis(
-                dims,
-                self.num_locales
-            )
-
-        # Create a cartesian grid communicator
-        # NB: use of self._inter_locale_comm (not self.inter_locale_comm)
-        # important here because self.inter_locale_comm is over-ridden to
-        # return self._cart_comm.
-        inter_locale_comm = self._inter_locale_comm
-        if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
-            rank_logger.debug("BEG: inter_locale_comm.Create to create cart_comm.")
-            cart_comm = \
-                inter_locale_comm.Create_cart(
-                    self.dims,
-                    periods,
-                    reorder=True
-                )
-            rank_logger.debug("END: inter_locale_comm.Create to create cart_comm.")
-        elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
-            cart_comm = _mpi.COMM_NULL
-        if (
-            (cart_comm != _mpi.COMM_NULL)
-            and
-            (cart_comm.group.size != self._num_locales)
-        ):
-            raise ValueError(
-                "Got cart_comm.group.size (=%s) != self._num_locales (=%s)."
-                %
-                (self._cart_comm.group.size, self._num_locales)
-            )
-
-        self._cart_comm = cart_comm
-
-    def free(self):
-        """
-        """
-        if (
-            (self._cart_comm is not None)
-            and
-            (self._cart_comm != _mpi.COMM_NULL)
-            and
-            (self._cart_comm is not _mpi.COMM_WORLD)
-            and
-            (self._cart_comm is not _mpi.COMM_SELF)
-        ):
-            self._cart_comm.Free()
-        self._cart_comm = None
-        LocaleComms.free(self)
+        self._dims = comms_info.dims
+        self._cart_comm = comms_info.cart_comm
 
     @property
     def cart_coord_to_cart_rank_map(self):
