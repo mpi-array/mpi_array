@@ -96,6 +96,10 @@ class LocaleCommsTest(_unittest.TestCase):
         i.inter_locale_comm = None
         self.assertEqual(None, i.inter_locale_comm)
 
+    def test_construct_invalid_comms(self):
+        """
+        Test :meth:`mpi_array.comms.LocaleComms.__init__`
+        """
         if _mpi.COMM_WORLD.size != _mpi.COMM_SELF.size:
             self.assertRaises(
                 ValueError,
@@ -104,14 +108,21 @@ class LocaleCommsTest(_unittest.TestCase):
                 _mpi.COMM_SELF,  # intra
                 _mpi.COMM_WORLD  # inter
             )
-        if i.intra_locale_comm.size > 1:
+        lc = LocaleComms()
+        if lc.intra_locale_comm.size > 1:
             self.assertRaises(
                 ValueError,
                 LocaleComms,
-                i.peer_comm,  # peer
-                i.intra_locale_comm,  # intra
-                i.peer_comm  # inter
+                lc.peer_comm,  # peer
+                lc.intra_locale_comm,  # intra
+                lc.peer_comm  # inter
             )
+
+    def test_construct_no_shared(self):
+        lc = LocaleComms(intra_locale_comm=_mpi.COMM_SELF)
+        self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
+        self.assertEqual(1, lc.intra_locale_comm.size)
+        self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
 
 
 class CartLocaleCommsTest(_unittest.TestCase):

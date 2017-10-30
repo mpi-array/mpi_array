@@ -79,6 +79,110 @@ def mpi_version():
     return _mpi.VERSION
 
 
+class CommsCache(object):
+    """
+    Cache for re-using the MPI communicators (and associated info)
+    when constructng :obj:`LocaleComms` instances.
+    """
+
+    def __init__(self):
+        """
+        Construct cache.
+        """
+        self._lookup = []
+        self._rank_logger = \
+            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__)
+
+    @property
+    def lookup(self):
+        """
+        The :obj:`list` of cached items. Each entry is
+        a pair :samp:`(comms_tuple, obj)` where the *key* :samp:`comms_tuple` is
+        a sequence of :obj:`mpi4py.MPI.Comm` objects and :samp:`obj` is
+        the *value* associated with this *key*.
+        """
+        return self._lookup
+
+    def clear(self):
+        """
+        Clears the cache.
+        """
+        self._lookup = []
+
+    def find(self, t):
+        """
+        Returns the *value* associated with the *key* :samp:`{t}`.
+
+        :type t: sequence of :obj:`mpi4py.MPI.Comm`
+        :param t: Key for look-up.
+        :rtype: :obj:`object`
+        :return: The object associated with the key :samp:`{t}`,
+           or :samp:`None` if the key is not found.
+        """
+        value = None
+        for i in range(len(self._lookup)):
+            e = self._lookup[i][0]
+            if (
+                (len(e) == len(t))
+                and
+                _np.all(
+                    tuple(
+                        (
+                            (
+                                ((t[j] is None) or isinstance(t[j], _mpi.Comm))
+                                and
+                                (t[j] is e[j])
+                            )
+                            or
+                            (
+                                ((t[j] is not None) and (not isinstance(t[j], _mpi.Comm)))
+                                and
+                                _np.all(_np.asanyarray(t[j]) == _np.asanyarray(e[j]))
+                            )
+                        )
+                        for j in range(len(e))
+                    )
+                )
+            ):
+                value = self._lookup[i][1]
+                value.rank_logger.debug(
+                    "key:\n%s matched existing key:\n%s, value=\n%s\n%s", t, e, value,
+                    tuple(
+                        (
+                            (
+                                ((t[j] is None) or isinstance(t[j], _mpi.Comm))
+                                and
+                                (t[j] is e[j])
+                            )
+                            or
+                            (
+                                ((t[j] is not None) and (not isinstance(t[j], _mpi.Comm)))
+                                and
+                                _np.all(_np.asanyarray(t[j]) == _np.asanyarray(e[j]))
+                            )
+                        )
+                        for j in range(len(e))
+                    )
+                )
+                break
+        if value is None:
+            self._rank_logger.debug("No match for:\n%s", (t,))
+        return value
+
+    def add(self, key, value):
+        """
+        Adds a :samp:`(key, value)` pair to this cache.
+        """
+        existing_value = self.find(key)
+        if existing_value is not None:
+            raise ValueError(
+                "The key %s already has an associated value=%s"
+                %
+                (key, existing_value)
+            )
+        self._lookup.append((key, value))
+
+
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
 if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
     ThisLocaleInfo.__doc__ = \
@@ -207,6 +311,213 @@ class RmaWindowBuffer(object):
             self._intra_locale_win = _mpi.WIN_NULL
 
 
+LocaleCommsInfo = \
+    _collections.namedtuple(
+        "LocaleCommsInfo",
+        [
+            "peer_comm",
+            "intra_locale_comm",
+            "inter_locale_comm",
+            "num_locales",
+            "peer_ranks_per_locale",
+            "rank_logger",
+            "root_logger"
+        ]
+    )
+if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
+    LocaleCommsInfo.__doc__ = \
+        """
+        Communicators associated with a locale.
+        """
+
+_comms_info_cache = CommsCache()
+
+
+def create_locale_comms_info(
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None
+):
+    """
+    Creates a :obj:`LocaleCommsInfo` associated with
+    the specified communicators. Collective over :samp:`{peer_comm}`.
+    """
+    if peer_comm is None:
+        peer_comm = _mpi.COMM_WORLD
+    rank_logger = _logging.get_rank_logger(__name__ + "." + "create_locale_comms_info", peer_comm)
+    if intra_locale_comm is None:
+        rank_logger.debug(
+            "BEG: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
+        )
+        intra_locale_comm = peer_comm.Split_type(_mpi.COMM_TYPE_SHARED, key=peer_comm.rank)
+        rank_logger.debug(
+            "END: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
+        )
+
+    if inter_locale_comm is None:
+        color = _mpi.UNDEFINED
+        if intra_locale_comm.rank == 0:
+            color = 0
+        rank_logger.debug("BEG: peer_comm.Split to create inter_locale_comm.")
+        inter_locale_comm = peer_comm.Split(color, peer_comm.rank)
+        rank_logger.debug("END: peer_comm.Split to create inter_locale_comm.")
+
+    peer_ranks_per_locale = None
+    num_locales = None
+
+    bad_inter_rank_to_intra_rank = tuple()
+    if inter_locale_comm != _mpi.COMM_NULL:
+        if (
+            _mpi.Group.Translate_ranks(
+                inter_locale_comm.group,
+                (inter_locale_comm.rank,),
+                intra_locale_comm.group
+            )[0]
+            !=
+            0
+        ):
+            # Collect the inconsistent inter-locale-rank to intra-locale-rank
+            # translations so that all peer_comm ranks can raise a ValueError
+            # (i.e. avoid only raising ValueError on some inter_locale_comm ranks)
+            bad_inter_rank_to_intra_rank = \
+                (
+                    (
+                        peer_comm.rank,
+                        inter_locale_comm.rank,
+                        _mpi.Group.Translate_ranks(
+                            inter_locale_comm.group,
+                            (inter_locale_comm.rank,),
+                            intra_locale_comm.group
+                        )[0]
+                    ),
+                )
+        num_locales = inter_locale_comm.size
+        peer_ranks_per_locale = \
+            _np.array(
+                _mpi.Group.Translate_ranks(
+                    intra_locale_comm.group,
+                    _np.arange(0, intra_locale_comm.size),
+                    peer_comm.group
+                ),
+                dtype="int64"
+            ).reshape((intra_locale_comm.size,))
+
+        rank_logger.debug("BEG: inter_locale_comm.allgather for peer-ranks-per-locale...")
+        all = \
+            inter_locale_comm.allgather(
+                (bad_inter_rank_to_intra_rank, peer_ranks_per_locale)
+            )
+        rank_logger.debug("END: inter_locale_comm.allgather for peer-ranks-per-locale.")
+
+        all_bad = tuple(a[0] for a in all)
+        all_prpl = tuple(a[1] for a in all)
+        # Assign peer_ranks_per_locale as 1D array of object
+        # in case intra_locale.comm.size is not the same on
+        # all locales.
+        peer_ranks_per_locale = \
+            _np.ones((len(all_prpl),), dtype="object")
+        for i in range(len(all_prpl)):
+            peer_ranks_per_locale[i] = all_prpl[i]
+
+        if (
+            _np.all(
+                tuple(
+                    len(peer_ranks_per_locale[i]) == len(peer_ranks_per_locale[0])
+                    for i in range(len(peer_ranks_per_locale))
+                )
+            )
+        ):
+            # If all locales have the same intra_locale_comm.size,
+            # then just use a 2D numpy.ndarray of 'int64' elements
+            # (rather than an 1D array of variable-length 'object' elements
+            num_peer_ranks_per_locale = len(peer_ranks_per_locale[0])
+            peer_ranks_per_locale = \
+                _np.array(peer_ranks_per_locale.tolist(), dtype="int64")
+            peer_ranks_per_locale = \
+                peer_ranks_per_locale.reshape(
+                    (num_locales, num_peer_ranks_per_locale)
+                )
+
+        bad_inter_rank_to_intra_rank = sum(all_bad, ())
+        del all, all_bad, all_prpl
+
+    rank_logger.debug("BEG: intra_locale_comm.bcast for peer-ranks-per-locale...")
+    bad_inter_rank_to_intra_rank, peer_ranks_per_locale, num_locales = \
+        intra_locale_comm.bcast(
+            (bad_inter_rank_to_intra_rank, peer_ranks_per_locale, num_locales),
+            0
+        )
+    rank_logger.debug("END: intra_locale_comm.bcast for peer-ranks-per-locale...")
+    if len(bad_inter_rank_to_intra_rank) > 0:
+        raise ValueError(
+            "Got invalid inter_locale_comm rank to intra_locale_comm rank translation:\n"
+            "\n".join(
+                (
+                    (
+                        "peer rank=%s, inter_locale_comm rank=%s translated to "
+                        +
+                        "intra_locale_comm rank=%s, should be intra_locale_comm rank=0"
+                    )
+                    %
+                    bad_translation
+                    for bad_translation in bad_inter_rank_to_intra_rank
+                )
+            )
+        )
+
+    if num_locales > peer_comm.size:
+        raise ValueError(
+            "Got number of locales=%s which is greater than peer_comm.size=%s"
+            %
+            (num_locales, peer_comm.size)
+        )
+
+    return \
+        LocaleCommsInfo(
+            peer_comm=peer_comm,
+            intra_locale_comm=intra_locale_comm,
+            inter_locale_comm=inter_locale_comm,
+            num_locales=num_locales,
+            peer_ranks_per_locale=peer_ranks_per_locale,
+            rank_logger=_logging.get_rank_logger(
+                __name__ + "." + LocaleComms.__name__,
+                comm=peer_comm
+            ),
+            root_logger=_logging.get_root_logger(
+                __name__ + "." + LocaleComms.__name__,
+                comm=peer_comm
+            )
+        )
+
+
+def get_locale_comms_info(
+    peer_comm=None,
+    intra_locale_comm=None,
+    inter_locale_comm=None
+):
+    """
+    Finds or creates a :obj:`LocaleCommsInfo` associated with
+    the specified communicators. Collective over :samp:`{peer_comm}`.
+    """
+    global _comms_info_cache
+
+    key = (peer_comm, intra_locale_comm, inter_locale_comm)
+    comms_info = _comms_info_cache.find(key)
+    if comms_info is None:
+        comms_info = \
+            create_locale_comms_info(
+                peer_comm=peer_comm,
+                intra_locale_comm=intra_locale_comm,
+                inter_locale_comm=inter_locale_comm
+            )
+        _comms_info_cache.add(key, comms_info)
+        key = (comms_info.peer_comm, comms_info.intra_locale_comm, comms_info.inter_locale_comm)
+        if _comms_info_cache.find(key) is None:
+            _comms_info_cache.add(key, comms_info)
+
+    return comms_info
+
+
 class LocaleComms(object):
 
     """
@@ -253,192 +564,25 @@ class LocaleComms(object):
             process) is selected from each locale to form the :samp:`{inter_locale_comm}`
             communicator group.
         """
-        if peer_comm is None:
-            peer_comm = _mpi.COMM_WORLD
-        self._peer_comm = peer_comm
-        rank_logger = _logging.get_rank_logger(__name__ + "." + self.__class__.__name__, peer_comm)
-        if intra_locale_comm is None:
-            if mpi_version() >= 3:
-                rank_logger.debug(
-                    "BEG: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
-                )
-                intra_locale_comm = peer_comm.Split_type(_mpi.COMM_TYPE_SHARED, key=peer_comm.rank)
-                rank_logger.debug(
-                    "END: Splitting peer_comm with peer_comm.Split_type(COMM_TYPE_SHARED, ...)"
-                )
-            else:
-                intra_locale_comm = _mpi.COMM_SELF
-
-        self._intra_locale_comm = intra_locale_comm
-
-        self._inter_locale_comm = None
-
-        if inter_locale_comm is None:
-            color = _mpi.UNDEFINED
-            if self.intra_locale_comm.rank == 0:
-                color = 0
-            rank_logger.debug("BEG: self.peer_comm.Split to create self.inter_locale_comm.")
-            inter_locale_comm = self._peer_comm.Split(color, self._peer_comm.rank)
-            rank_logger.debug("END: self.peer_comm.Split to create self.inter_locale_comm.")
-
-        self._peer_ranks_per_locale = None
-
-        self._num_locales = None
-        bad_inter_rank_to_intra_rank = tuple()
-        if inter_locale_comm != _mpi.COMM_NULL:
-            if (
-                _mpi.Group.Translate_ranks(
-                    inter_locale_comm.group,
-                    (inter_locale_comm.rank,),
-                    self._intra_locale_comm.group
-                )[0]
-                !=
-                0
-            ):
-                # Collect the inconsistent inter-locale-rank to intra-locale-rank
-                # translations so that all peer_comm ranks can raise a ValueError
-                # (i.e. avoid only raising ValueError on some inter_locale_comm ranks)
-                bad_inter_rank_to_intra_rank = \
-                    (
-                        (
-                            self._peer_comm.rank,
-                            inter_locale_comm.rank,
-                            _mpi.Group.Translate_ranks(
-                                inter_locale_comm.group,
-                                (inter_locale_comm.rank,),
-                                self._intra_locale_comm.group
-                            )[0]
-                        ),
-                    )
-            self._num_locales = inter_locale_comm.size
-            self._peer_ranks_per_locale = \
-                _np.array(
-                    _mpi.Group.Translate_ranks(
-                        self._intra_locale_comm.group,
-                        _np.arange(0, self._intra_locale_comm.size),
-                        self._peer_comm.group
-                    ),
-                    dtype="int64"
-                ).reshape((self._intra_locale_comm.size,))
-
-            rank_logger.debug("BEG: inter_locale_comm.allgather for peer-ranks-per-locale...")
-            all = \
-                inter_locale_comm.allgather(
-                    (bad_inter_rank_to_intra_rank, self._peer_ranks_per_locale)
-                )
-            rank_logger.debug("END: inter_locale_comm.allgather for peer-ranks-per-locale.")
-
-            all_bad = tuple(a[0] for a in all)
-            all_prpl = tuple(a[1] for a in all)
-            # Assign self._peer_ranks_per_locale as 1D array of object
-            # in case self.intra_locale.comm.size is not the same on
-            # all locales.
-            self._peer_ranks_per_locale = \
-                _np.ones((len(all_prpl),), dtype="object")
-            for i in range(len(all_prpl)):
-                self._peer_ranks_per_locale[i] = all_prpl[i]
-
-            if (
-                _np.all(
-                    tuple(
-                        len(self._peer_ranks_per_locale[i]) == len(self._peer_ranks_per_locale[0])
-                        for i in range(len(self._peer_ranks_per_locale))
-                    )
-                )
-            ):
-                # If all locales have the same intra_locale_comm.size,
-                # then just use a 2D numpy.ndarray of 'int64' elements
-                # (rather than an 1D array of variable-length 'object' elements
-                num_peer_ranks_per_locale = len(self._peer_ranks_per_locale[0])
-                self._peer_ranks_per_locale = \
-                    _np.array(self._peer_ranks_per_locale.tolist(), dtype="int64")
-                self._peer_ranks_per_locale = \
-                    self._peer_ranks_per_locale.reshape(
-                        (self._num_locales, num_peer_ranks_per_locale)
-                    )
-
-            bad_inter_rank_to_intra_rank = sum(all_bad, ())
-            del all, all_bad, all_prpl
-
-        rank_logger.debug("BEG: intra_locale_comm.bcast for peer-ranks-per-locale...")
-        bad_inter_rank_to_intra_rank, self._peer_ranks_per_locale, self._num_locales = \
-            self._intra_locale_comm.bcast(
-                (bad_inter_rank_to_intra_rank, self._peer_ranks_per_locale, self._num_locales),
-                0
+        object.__init__(self)
+        comms_info = \
+            get_locale_comms_info(
+                peer_comm=peer_comm,
+                intra_locale_comm=intra_locale_comm,
+                inter_locale_comm=inter_locale_comm
             )
-        rank_logger.debug("END: intra_locale_comm.bcast for peer-ranks-per-locale...")
-        if len(bad_inter_rank_to_intra_rank) > 0:
-            raise ValueError(
-                "Got invalid inter_locale_comm rank to intra_locale_comm rank translation:\n"
-                "\n".join(
-                    (
-                        (
-                            "peer rank=%s, inter_locale_comm rank=%s translated to "
-                            +
-                            "intra_locale_comm rank=%s, should be intra_locale_comm rank=0"
-                        )
-                        %
-                        bad_translation
-                        for bad_translation in bad_inter_rank_to_intra_rank
-                    )
-                )
-            )
-
-        if self._num_locales > self._peer_comm.size:
-            raise ValueError(
-                "Got number of locales=%s which is greated than peer_comm.size=%s"
-                %
-                (self._num_locales, self._peer_comm.size)
-            )
-
-        self._inter_locale_comm = inter_locale_comm
-
-        self._rank_logger = \
-            _logging.get_rank_logger(
-                __name__ + "." + self.__class__.__name__,
-                comm=self._peer_comm
-            )
-
-        self._root_logger = \
-            _logging.get_root_logger(
-                __name__ + "." + self.__class__.__name__,
-                comm=self._peer_comm
-            )
+        self._peer_comm = comms_info.peer_comm
+        self._intra_locale_comm = comms_info.intra_locale_comm
+        self._inter_locale_comm = comms_info.inter_locale_comm
+        self._num_locales = comms_info.num_locales
+        self._peer_ranks_per_locale = comms_info.peer_ranks_per_locale
+        self._rank_logger = comms_info.rank_logger
+        self._root_logger = comms_info.root_logger
 
     def free(self):
         """
         """
-        if (
-            (self._intra_locale_comm is not None)
-            and
-            (self._intra_locale_comm != _mpi.COMM_NULL)
-            and
-            (self._intra_locale_comm is not _mpi.COMM_WORLD)
-            and
-            (self._intra_locale_comm is not _mpi.COMM_SELF)
-        ):
-            self._intra_locale_comm.Free()
-        self._intra_locale_comm = None
-        if (
-            (self._inter_locale_comm is not None)
-            and
-            (self._inter_locale_comm != _mpi.COMM_NULL)
-            and
-            (self._inter_locale_comm is not _mpi.COMM_WORLD)
-            and
-            (self._inter_locale_comm is not _mpi.COMM_SELF)
-        ):
-            self._inter_locale_comm.Free()
-        self._inter_locale_comm = None
-        if (
-            (self._peer_comm is not None)
-            and
-            (self._peer_comm is not _mpi.COMM_WORLD)
-            and
-            (self._peer_comm is not _mpi.COMM_SELF)
-        ):
-            self._peer_comm.Free()
-        self._peer_comm = None
+        pass
 
     def alloc_locale_buffer(self, shape, dtype):
         """

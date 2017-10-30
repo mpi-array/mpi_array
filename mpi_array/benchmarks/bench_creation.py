@@ -11,22 +11,27 @@ class CreateBench(object):
     """
 
     #: Number of repetitions to run each benchmark
-    repeat = 16
+    repeat = 10
 
     #: The set of array-shape parameters.
-    params = [[(100, 100, 100,), ((1000, 100, 100,)), ((1024 // 4, 1024, 1024,))], ]
+    params = [[(100, 100, 100,), ((1000, 100, 100,)), ((1024, 1024, 1024,))], ]
 
     #: The name of the array-shape parameters.
     param_names = ["shape"]
 
-    goal_time = 1.0
-    warmup_time = 1.0
+    # Goal time (seconds) for a single repeat.
+    goal_time = 2.0
+
+    # Execute benchmark for this time (seconds) as a *warm-up* prior to real timing.
+    warmup_time = 2.0
 
     #: Inter-locale cartesian communicator dims
     cart_comm_dims = None
 
     def __init__(self):
-        self.array = None
+        """
+        Initialise, set :attr:`module` to :samp:`None`.
+        """
         self._module = None
 
     @property
@@ -42,10 +47,17 @@ class CreateBench(object):
 
     def setup(self, shape):
         """
+        Should be over-ridden in sub-classes.
         """
         pass
 
     def get_globale_shape(self, locale_shape):
+        """
+        Returns a *globale* array shape for the given shape of the *locale* array.
+
+        :type locale_shape: sequence of :samp:`int`
+        :param locale_shape: The shape of the array to be allocated on each *locale*.
+        """
         if self.cart_comm_dims is None:
             from ..comms import CartLocaleComms as _CartLocaleComms
             import numpy as _np
@@ -54,16 +66,29 @@ class CreateBench(object):
             self.cart_comm_dims = _np.asarray(comms.dims)
         return tuple(self.cart_comm_dims * locale_shape)
 
+    def free_mpi_array_obj(self, a):
+        """
+        Free MPI communicators and MPI windows for the given object.
+
+        :type a: free-able
+        :param a: A :obj:`mpi_array.globale.gndarray` instance
+           or a :obj:`mpi_array.comms.LocaleComms` instance.
+        """
+        if hasattr(a, "locale_comms"):
+            a.locale_comms.free()
+        if hasattr(a, "free"):
+            a.free()
+
     def free(self, a):
         """
-        Clean up array resources.
+        Clean up array resources, over-ridden in sub-classes.
         """
         pass
 
 
 class NumpyCreateBench(CreateBench):
     """
-    Comparison benchmarks for :func:`numpy.empty` and :func:`numpy.zeros`.
+    Comparison benchmarks for :func:`numpy.empty`, :func:`numpy.zeros` etc.
     """
 
     def setup(self, shape):
@@ -88,10 +113,24 @@ class NumpyCreateBench(CreateBench):
         """
         self.free(self.module.zeros(self.get_globale_shape(shape), dtype="int32"))
 
+    def time_ones(self, shape):
+        """
+        Time one-initialised array creation.
+        """
+        self.free(self.module.ones(self.get_globale_shape(shape), dtype="int32"))
+
+    def time_full(self, shape):
+        """
+        Time value-initialised array creation.
+        """
+        self.free(
+            self.module.full(self.get_globale_shape(shape), fill_value=(2**31) - 1, dtype="int32")
+        )
+
 
 class MpiArrayCreateBench(NumpyCreateBench):
     """
-    Benchmarks for :func:`mpi_array.empty` and :func:`mpi_array.zeros`.
+    Benchmarks for :func:`mpi_array.empty`, :func:`mpi_array.zeros` etc.
     """
 
     def setup(self, shape):
@@ -101,8 +140,87 @@ class MpiArrayCreateBench(NumpyCreateBench):
         self.module = _try_import_for_setup("mpi_array")
 
     def free(self, a):
-        a.locale_comms.free()
-        a.free()
+        """
+        See :meth:`free_mpi_array_obj`.
+        """
+        self.free_mpi_array_obj(a)
+
+
+class CommsCreateBench(CreateBench):
+    """
+    Benchmarks for :obj:`mpi_array.comms.LocaleComms`
+    and :obj:`mpi_array.comms.CartLocaleComms` construction.
+    """
+
+    #: No param, is :samp:`None`.
+    params = None
+
+    def setup(self):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        """
+        self.module = _try_import_for_setup("mpi_array")
+
+    def free(self, a):
+        """
+        See :meth:`free_mpi_array_obj`.
+        """
+        self.free_mpi_array_obj(a)
+
+    def time_locale_comms(self):
+        """
+        Time construction of :obj:`mpi_array.comms.LocaleComms`.
+        """
+        self.free(self.module.comms.LocaleComms())
+
+    def time_cart_locale_comms(self):
+        """
+        Time construction of :obj:`mpi_array.comms.CartLocaleComms`.
+        """
+        self.free(self.module.comms.CartLocaleComms(ndims=3))
+
+
+class CommsAllocBench(CreateBench):
+    """
+    Benchmarks for :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
+    """
+
+    #: The set of array-shape parameters.
+    params = [[(4, 1024, 1024,), (64, 1024, 1024,), (1024, 1024, 1024,)], ]
+
+    @property
+    def locale_comms(self):
+        """
+        A :obj:`mpi_array.comms.CartLocaleComms` instance used to allocate memory.
+        """
+        return self._locale_comms
+
+    def setup(self, shape):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        Also initialise :attr:`locale_comms` with a :obj:`mpi_array.comms.CartLocaleComms`
+        instance.
+        """
+        self.module = _try_import_for_setup("mpi_array.comms")
+        self._locale_comms = self.module.CartLocaleComms(ndims=3)
+
+    def teardown(self, shape):
+        """
+        Free :attr:`locale_comms` communicators.
+        """
+        self.free(self.locale_comms)
+
+    def free(self, a):
+        """
+        See :meth:`free_mpi_array_obj`.
+        """
+        self.free_mpi_array_obj(a)
+
+    def time_alloc_locale_buffer(self, shape):
+        """
+        Time call of :meth:`mpi_array.comms.LocaleComms.alloc_locale_buffer`.
+        """
+        self.free(self.locale_comms.alloc_locale_buffer(shape=shape, dtype="int32"))
 
 
 class MangoCreateBench(NumpyCreateBench):
@@ -117,6 +235,11 @@ class MangoCreateBench(NumpyCreateBench):
         """
         self.module = _try_import_for_setup("mango")
 
+    def time_full(self, shape):
+        """
+        No :samp:`full` function in :samp:`mango`.
+        """
+        pass
 
 # class Ga4pyGainCreateBench(NumpyCreateBench):
 #    """
@@ -137,5 +260,6 @@ class MangoCreateBench(NumpyCreateBench):
 #        self._ga.sync()
 #        self._ga.destroy(a.handle)
 #        a._base = 0
+
 
 __all__ = [s for s in dir() if not s.startswith('_')]
