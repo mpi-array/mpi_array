@@ -65,7 +65,14 @@ class IndexingExtent(object):
         """
         Return :samp:`True` for identical :attr:`start` and :attr:`stop`.
         """
-        return _np.all(self._beg == other._beg) and _np.all(self._end == other._end)
+        return \
+            (
+                (self.ndim == other.ndim)
+                and
+                _np.all(self._beg == other._beg)
+                and
+                _np.all(self._end == other._end)
+            )
 
     @property
     def start(self):
@@ -292,7 +299,7 @@ class HaloIndexingExtent(IndexingExtent):
 
     @start_n.setter
     def start_n(self, start_n):
-        self._beg = _np.array(start_n, dtype="int64")
+        self._beg = _np.array(start_n, dtype="int64", copy=True)
 
     @property
     def stop_h(self):
@@ -310,7 +317,7 @@ class HaloIndexingExtent(IndexingExtent):
 
     @stop_n.setter
     def stop_n(self, stop_n):
-        self._end = _np.array(stop_n, dtype="int64")
+        self._end = _np.array(stop_n, dtype="int64", copy=True)
 
     @property
     def shape_h(self):
@@ -360,6 +367,12 @@ class HaloIndexingExtent(IndexingExtent):
         Integer indicating the number of elements in this extent including halo.
         """
         return _np.product(self.shape_h)
+
+    def __eq__(self, other):
+        """
+        Equality.
+        """
+        return IndexingExtent.__eq__(self, other) and _np.all(self._halo == other._halo)
 
     def to_slice_n(self):
         """
@@ -456,11 +469,11 @@ class HaloIndexingExtent(IndexingExtent):
         """
         ext = _copy.deepcopy(lext)
         if isinstance(lext, HaloIndexingExtent):
-            ext.start_n = self.locale_to_globale_h(lext.start_n),
-            ext.stop_n = self.locale_to_globale_h(lext.stop_n),
+            ext.start_n = self.locale_to_globale_h(lext.start_n)
+            ext.stop_n = self.locale_to_globale_h(lext.stop_n)
         else:
-            ext.start = self.locale_to_globale_h(lext.start),
-            ext.stop = self.locale_to_globale_h(lext.stop),
+            ext.start = self.locale_to_globale_h(lext.start)
+            ext.stop = self.locale_to_globale_h(lext.stop)
         return ext
 
     def globale_to_locale_slice_h(self, gslice):

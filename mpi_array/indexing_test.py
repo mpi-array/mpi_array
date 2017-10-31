@@ -365,6 +365,10 @@ class HaloIndexingExtentTest(_unittest.TestCase):
 
         lext = HaloIndexingExtent(start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4))))
         self.assertEqual(
+            hie.ndim,
+            hie.locale_to_globale_extent_h(lext).ndim
+        )
+        self.assertEqual(
             hie,
             hie.locale_to_globale_extent_h(lext)
         )
@@ -484,11 +488,11 @@ class HaloIndexingExtentTest(_unittest.TestCase):
         )
         self.assertEqual(2, len(leftovers))
         self.assertEqual(
-            IndexingExtent(start=(4, 50), stop=(20, 100)),
+            HaloIndexingExtent(start=(4, 50), stop=(20, 100), halo=src_extent.halo),
             leftovers[0]
         )
         self.assertEqual(
-            IndexingExtent(start=(32, 50), stop=(50, 100)),
+            HaloIndexingExtent(start=(32, 50), stop=(50, 100), halo=src_extent.halo),
             leftovers[1]
         )
 
