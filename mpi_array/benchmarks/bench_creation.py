@@ -146,6 +146,44 @@ class MpiArrayCreateBench(NumpyCreateBench):
         self.free_mpi_array_obj(a)
 
 
+class BlockPartitionCreateBench(object):
+    """
+    Benchmarks for :obj:`mpi_array.distribution.BlockPartition`
+    construction.
+    """
+
+    #: Number of locales.
+    params = [64, 128, 256]
+    param_names = ["num_locales"]
+
+    goal_time = 0.25
+    warmup_time = 0.25
+
+    repeats = 8
+
+    def setup(self, num_locales):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        """
+        self.module = _try_import_for_setup("mpi_array.distribution")
+        np = _try_import_for_setup("numpy")
+        split = _try_import_for_setup("array_split.split")
+        self.globale_extent = self.module.GlobaleExtent(start=(0, 0, 0), stop=(8192, 8192, 8192))
+        self.dims = split.shape_factors(num_locales, self.globale_extent.ndim)
+        self.cart_coord_to_cart_rank = \
+            {tuple(np.unravel_index(rank, self.dims)): rank for rank in range(0, num_locales)}
+
+    def time_block_partition(self, num_locales):
+        """
+        Time construction of :obj:`mpi_array.distribution.BlockPartition`.
+        """
+        self.module.BlockPartition(
+            globale_extent=self.globale_extent,
+            dims=self.dims,
+            cart_coord_to_cart_rank=self.cart_coord_to_cart_rank
+        )
+
+
 class CommsCreateBench(CreateBench):
     """
     Benchmarks for :obj:`mpi_array.comms.LocaleComms`
