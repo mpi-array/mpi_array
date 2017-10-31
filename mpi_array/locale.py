@@ -69,6 +69,7 @@ from .utils import log_shared_memory_alloc as _log_shared_memory_alloc
 from .utils import log_memory_alloc as _log_memory_alloc
 from . import logging as _logging
 
+
 __author__ = "Shane J. Latham"
 __license__ = _license()
 __copyright__ = _copyright()
@@ -375,6 +376,9 @@ if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
         the halo removed.
         """
 
+#: Cache for locale array partitioning
+_intra_partition_cache = _collections.defaultdict(lambda: None)
+
 
 class LndarrayProxy(object):
 
@@ -526,71 +530,86 @@ class LndarrayProxy(object):
         Splits :samp:`{extent}` into :samp:`self.intra_locale_size` number
         of tiles.
         """
-        ndim = extent.ndim
-        rank_view_slice_n = tuple()
-        rank_view_slice_h = rank_view_slice_n
-        rank_view_relative_slice_n = rank_view_slice_n
-        rank_view_partition_h = rank_view_slice_n
-        lndarray_view_slice_n = rank_view_slice_n
+        global _intra_partition_cache
+        key = \
+            (
+                intra_locale_size,
+                tuple(intra_locale_dims),
+                intra_locale_rank,
+                extent.to_tuple(),
+                tuple(tuple(row) for row in halo.tolist())
+            )
+        partition_pair = _intra_partition_cache[key]
 
-        if ndim > 0:
-            intra_locale_dims = \
-                _array_split.split.calculate_num_slices_per_axis(
-                    intra_locale_dims,
-                    intra_locale_size
-                )
-            if extent.size_n > 0:
+        if partition_pair is None:
+            ndim = extent.ndim
+            rank_view_slice_n = tuple()
+            rank_view_slice_h = rank_view_slice_n
+            rank_view_relative_slice_n = rank_view_slice_n
+            rank_view_partition_h = rank_view_slice_n
+            lndarray_view_slice_n = rank_view_slice_n
 
-                shape_splitter = \
-                    _array_split.ShapeSplitter(
-                        array_shape=extent.shape_n,
-                        axis=intra_locale_dims,
-                        halo=0,
-                        array_start=extent.start_n
+            if ndim > 0:
+                intra_locale_dims = \
+                    _array_split.split.calculate_num_slices_per_axis(
+                        intra_locale_dims,
+                        intra_locale_size
                     )
-                split = shape_splitter.calculate_split()
-                rank_extent = \
-                    _HaloSubExtent(
-                        globale_extent=extent,
-                        slice=split.flatten()[intra_locale_rank],
-                        halo=halo
-                    )
-                # Convert rank_extent_n and rank_extent_h from global-indices
-                # to local-indices
-                rank_extent = extent.globale_to_locale_extent_h(rank_extent)
+                if extent.size_n > 0:
 
-                rank_h_relative_extent_n = \
-                    _IndexingExtent(
-                        start=rank_extent.start_n - rank_extent.start_h,
-                        stop=rank_extent.start_n - rank_extent.start_h + rank_extent.shape_n,
-                    )
-
-                rank_view_slice_n = rank_extent.to_slice_n()
-                rank_view_slice_h = rank_extent.to_slice_h()
-                rank_view_relative_slice_n = rank_h_relative_extent_n.to_slice()
-                rank_view_partition_h = rank_view_slice_n
-                if _np.any(extent.halo > 0):
                     shape_splitter = \
                         _array_split.ShapeSplitter(
-                            array_shape=extent.shape_h,
+                            array_shape=extent.shape_n,
                             axis=intra_locale_dims,
                             halo=0,
+                            array_start=extent.start_n
                         )
                     split = shape_splitter.calculate_split()
-                    rank_view_partition_h = split.flatten()[intra_locale_rank]
-                lndarray_view_slice_n = extent.globale_to_locale_extent_h(extent).to_slice_n()
+                    rank_extent = \
+                        _HaloSubExtent(
+                            globale_extent=extent,
+                            slice=split.flatten()[intra_locale_rank],
+                            halo=halo
+                        )
+                    # Convert rank_extent_n and rank_extent_h from global-indices
+                    # to local-indices
+                    rank_extent = extent.globale_to_locale_extent_h(rank_extent)
 
-        return \
-            (
-                intra_locale_dims,
-                PartitionViewSlices(
-                    rank_view_slice_n,
-                    rank_view_slice_h,
-                    rank_view_relative_slice_n,
-                    rank_view_partition_h,
-                    lndarray_view_slice_n
+                    rank_h_relative_extent_n = \
+                        _IndexingExtent(
+                            start=rank_extent.start_n - rank_extent.start_h,
+                            stop=rank_extent.start_n - rank_extent.start_h + rank_extent.shape_n,
+                        )
+
+                    rank_view_slice_n = rank_extent.to_slice_n()
+                    rank_view_slice_h = rank_extent.to_slice_h()
+                    rank_view_relative_slice_n = rank_h_relative_extent_n.to_slice()
+                    rank_view_partition_h = rank_view_slice_n
+                    if _np.any(extent.halo > 0):
+                        shape_splitter = \
+                            _array_split.ShapeSplitter(
+                                array_shape=extent.shape_h,
+                                axis=intra_locale_dims,
+                                halo=0,
+                            )
+                        split = shape_splitter.calculate_split()
+                        rank_view_partition_h = split.flatten()[intra_locale_rank]
+                    lndarray_view_slice_n = extent.globale_to_locale_extent_h(extent).to_slice_n()
+
+            partition_pair = \
+                (
+                    intra_locale_dims,
+                    PartitionViewSlices(
+                        rank_view_slice_n,
+                        rank_view_slice_h,
+                        rank_view_relative_slice_n,
+                        rank_view_partition_h,
+                        lndarray_view_slice_n
+                    )
                 )
-            )
+            _intra_partition_cache[key] = partition_pair
+
+        return partition_pair
 
     def __getitem__(self, *args, **kwargs):
         """
