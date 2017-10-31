@@ -204,6 +204,21 @@ class IndexingExtent(object):
         """
         return tuple([slice(self._beg[i], self._end[i]) for i in range(len(self._beg))])
 
+    def to_tuple(self):
+        """
+        Convert this instance to a :obj:`tuple` which can be passed to constructor
+        (or used as a :obj:`dict` key).
+
+        :rtype: :obj:`tuple`
+        :return: The :obj:`tuple` representation of this object.
+        """
+        return \
+            (
+                None,  # slice arg
+                tuple(self.start),
+                tuple(self.stop)
+            )
+
     def __repr__(self):
         """
         Stringize.
@@ -541,6 +556,22 @@ class HaloIndexingExtent(IndexingExtent):
         Same as :meth:`to_slice_n`.
         """
         return self.to_slice_n()
+
+    def to_tuple(self):
+        """
+        Convert this instance to a :obj:`tuple` which can be passed to constructor
+        (or used as a :obj:`dict` key).
+
+        :rtype: :obj:`tuple`
+        :return: The :obj:`tuple` representation of this object.
+        """
+        return \
+            (
+                None,  # slice arg
+                tuple(self.start_n),
+                tuple(self.stop_n),
+                tuple(tuple(row) for row in self.halo.tolist()),
+            )
 
     def __repr__(self):
         """

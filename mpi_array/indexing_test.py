@@ -53,6 +53,13 @@ class IndexingExtentTest(_unittest.TestCase):
 
         self.assertEqual(ie, eval(repr(ie)))
 
+    def test_to_tuple(self):
+        """
+        Test for :meth:`HaloIndexingExtent.to_tuple`.
+        """
+        ie = IndexingExtent(start=(10, 15), stop=(32, 66))
+        self.assertEqual(ie, IndexingExtent(*(ie.to_tuple())))
+
     def test_attributes(self):
         """
         Tests :attr:`mpi_array.indexing.IndexingExtent.start`
@@ -280,6 +287,13 @@ class HaloIndexingExtentTest(_unittest.TestCase):
         self.assertNotEqual("", str(ie))
 
         self.assertEqual(ie, eval(repr(ie)))
+
+    def test_to_tuple(self):
+        """
+        Test for :meth:`HaloIndexingExtent.to_tuple`.
+        """
+        ie = HaloIndexingExtent(start=(10, 15), stop=(32, 66), halo=((1, 2), (3, 4)))
+        self.assertEqual(ie, HaloIndexingExtent(*(ie.to_tuple())))
 
     def test_attributes(self):
         """

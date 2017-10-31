@@ -262,6 +262,25 @@ class LocaleExtent(HaloSubExtent):
                 stop=stop
             )
 
+    def to_tuple(self):
+        """
+        Convert this instance to a :obj:`tuple` which can be passed to constructor
+        (or used as a :obj:`dict` key).
+
+        :rtype: :obj:`tuple`
+        :return: The :obj:`tuple` representation of this object.
+        """
+        return \
+            (
+                self.peer_rank,
+                self.inter_locale_rank,
+                None,
+                None,
+                tuple(tuple(row) for row in self.halo.tolist()),
+                tuple(self.start_n),
+                tuple(self.stop_n)
+            )
+
     def __repr__(self):
         """
         Stringize.
@@ -413,6 +432,27 @@ class CartLocaleExtent(LocaleExtent):
         regions in each axis direction of the cartesian distribution.
         """
         return self._cart_shape
+
+    def to_tuple(self):
+        """
+        Convert this instance to a :obj:`tuple` which can be passed to constructor
+        (or used as a :obj:`dict` key).
+
+        :rtype: :obj:`tuple`
+        :return: The :obj:`tuple` representation of this object.
+        """
+        return \
+            (
+                self.peer_rank,
+                self.inter_locale_rank,
+                tuple(self.cart_coord),
+                tuple(self.cart_shape),
+                None,
+                None,
+                tuple(tuple(row) for row in self.halo.tolist()),
+                tuple(self.start_n),
+                tuple(self.stop_n)
+            )
 
     def __repr__(self):
         """
