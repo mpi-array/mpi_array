@@ -27,6 +27,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 import mpi4py.MPI as _mpi
 import numpy as _np
 import copy as _copy
+import collections as _collections
 
 import array_split as _array_split
 import array_split.split  # noqa: F401
@@ -865,6 +866,8 @@ class BlockPartition(Distribution):
     Block partition of an array (shape) over locales.
     """
 
+    _split_cache = _collections.defaultdict(lambda: None)
+
     def __init__(
         self,
         globale_extent,
@@ -899,14 +902,18 @@ class BlockPartition(Distribution):
         self._order = order
         self._halo_updates_dict = None
 
-        shape_splitter = \
-            _array_split.ShapeSplitter(
-                array_shape=globale_extent.shape_n,
-                array_start=globale_extent.start_n,
-                axis=self._dims,
-                halo=0
-            )
-        splt = shape_splitter.calculate_split()
+        key = (globale_extent.to_tuple(), tuple(self._dims))
+        splt = self._split_cache[key]
+        if splt is None:
+            shape_splitter = \
+                _array_split.ShapeSplitter(
+                    array_shape=globale_extent.shape_n,
+                    array_start=globale_extent.start_n,
+                    axis=self._dims,
+                    halo=0
+                )
+            splt = shape_splitter.calculate_split()
+            self._split_cache[key] = splt
 
         locale_extents = _np.empty(splt.size, dtype="object")
         for i in range(locale_extents.size):
