@@ -101,26 +101,23 @@ class HaloSubExtent(HaloIndexingExtent):
         halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
 
         # Axes with size=0 always get zero halo
-        halo[_np.where((self.stop_n - self.start_n) <= 0)] = 0
+        halo[_np.where(self.stop_n <= self.start_n)] = 0
         if globale_extent is not None:
             # Calculate the locale halo, truncate if it strays outside
             # the globale_extent halo region.
             halo = \
                 _np.maximum(
-                    _np.array((0,), dtype=halo.dtype),
-                    _np.array(
-                        (
-                            _np.minimum(
+                    0,
+                    _np.minimum(
+                        _np.asarray(
+                            [
                                 self.start_n - globale_extent.start_h,
-                                halo[:, self.LO]
-                            ),
-                            _np.minimum(
-                                globale_extent.stop_h - self.stop_n,
-                                halo[:, self.HI]
-                            ),
-                        ),
-                        dtype=halo.dtype
-                    ).T
+                                globale_extent.stop_h - self.stop_n
+                            ],
+                            dtype=halo.dtype
+                        ).T,
+                        halo
+                    )
                 )
         self._halo = halo
 
