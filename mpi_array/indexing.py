@@ -30,12 +30,11 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
 
-START = 0
-STOP = 1
-HALO = 2
-
 
 class IndexingExtent(object):
+
+    START = 0
+    STOP = 1
 
     """
     Indexing bounds for a single tile of domain decomposition.
@@ -79,16 +78,17 @@ class IndexingExtent(object):
         if struct is None:
             if slice is not None:
                 struct = self.create_struct_instance(ndim=len(slice))
-                struct[START] = _np.array([s.start for s in slice], dtype="int64")
-                struct[STOP] = _np.array([s.stop for s in slice], dtype=struct[START].dtype)
+                struct[self.START] = _np.array([s.start for s in slice], dtype="int64")
+                struct[self.STOP] = \
+                    _np.array([s.stop for s in slice], dtype=struct[self.START].dtype)
             elif (start is None) and (stop is not None):
                 struct = self.create_struct_instance(ndim=len(stop))
-                struct[STOP] = _np.array(stop, dtype="int64")
-                struct[START] = _np.zeros_like(struct[STOP])
+                struct[self.STOP] = _np.array(stop, dtype="int64")
+                struct[self.START] = _np.zeros_like(struct[self.STOP])
             elif (start is not None) and (stop is not None):
                 struct = self.create_struct_instance(ndim=len(start))
-                struct[START] = _np.array(start, dtype="int64")
-                struct[STOP] = _np.array(stop, dtype="int64")
+                struct[self.START] = _np.array(start, dtype="int64")
+                struct[self.STOP] = _np.array(stop, dtype="int64")
 
         self._struct = struct
 
@@ -120,13 +120,13 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the per-axis start indices of this extent
         (including halo).
         """
-        return self._struct[START]
+        return self._struct[self.START]
 
     @start.setter
     def start(self, start):
-        if len(start) != len(self._struct[START]):
+        if len(start) != len(self._struct[self.START]):
             self._struct = self.create_struct_dtype(ndim=len(start))
-        self._struct[START][...] = start
+        self._struct[self.START][...] = start
 
     @property
     def stop(self):
@@ -134,13 +134,13 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the per-axis stop indices of this extent
         (including halo).
         """
-        return self._struct[STOP]
+        return self._struct[self.STOP]
 
     @stop.setter
     def stop(self, stop):
-        if len(stop) != len(self._struct[STOP]):
+        if len(stop) != len(self._struct[self.STOP]):
             self._struct = self.create_struct_dtype(ndim=len(stop))
-        self._struct[STOP][...] = stop
+        self._struct[self.STOP][...] = stop
 
     @property
     def shape(self):
@@ -148,14 +148,14 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the shape of this extent
         (including halo).
         """
-        return self._struct[STOP] - self._struct[START]
+        return self._struct[self.STOP] - self._struct[self.START]
 
     @property
     def ndim(self):
         """
         Dimension of indexing.
         """
-        return self._struct[START].size
+        return self._struct[self.START].size
 
     def calc_intersection(self, other):
         """
@@ -249,8 +249,8 @@ class IndexingExtent(object):
         return \
             tuple(
                 [
-                    slice(self._struct[START][i], self._struct[STOP][i])
-                    for i in range(len(self._struct[START]))
+                    slice(self._struct[self.START][i], self._struct[self.STOP][i])
+                    for i in range(len(self._struct[self.START]))
                 ]
             )
 
@@ -274,7 +274,12 @@ class IndexingExtent(object):
         """
         Stringize.
         """
-        return "IndexingExtent(start=%s, stop=%s)" % (tuple(self.start), tuple(self.stop))
+        return \
+            (
+                "%s(start=%s, stop=%s)"
+                %
+                (self.__class__.__name__, tuple(self.start), tuple(self.stop))
+            )
 
     def __str__(self):
         """
@@ -307,6 +312,8 @@ class HaloIndexingExtent(IndexingExtent):
 
     #: The "high index" indices.
     HI = 1
+
+    HALO = 2
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
 
@@ -347,12 +354,18 @@ class HaloIndexingExtent(IndexingExtent):
            elements on the high-index *side*.
 
         """
+        struct_is_none = (struct is None)
         IndexingExtent.__init__(self, slice, start, stop, struct)
-        if halo is None:
-            halo = _np.zeros((self._struct[START].shape[0], 2), dtype=self._struct[START].dtype)
-        else:
-            halo = convert_halo_to_array_form(halo, self._struct[START].size)
-        self._struct[HALO][...] = halo
+        if struct_is_none:
+            if halo is None:
+                halo = \
+                    _np.zeros(
+                        (self._struct[self.START].shape[0], 2),
+                        dtype=self._struct[self.START].dtype
+                    )
+            else:
+                halo = convert_halo_to_array_form(halo, self._struct[self.START].size)
+            self._struct[self.HALO][...] = halo
 
     @property
     def halo(self):
@@ -362,11 +375,11 @@ class HaloIndexingExtent(IndexingExtent):
         of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
         elements on the high-index *side*.
         """
-        return self._struct[HALO]
+        return self._struct[self.HALO]
 
     @halo.setter
     def halo(self, halo):
-        self._struct[HALO] = convert_halo_to_array_form(halo, self.ndim)
+        self._struct[self.HALO] = convert_halo_to_array_form(halo, self.ndim)
 
     @property
     def start_h(self):
@@ -423,21 +436,21 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Same as :attr:`start_n`.
         """
-        return self._struct[START]
+        return self._struct[self.START]
 
     @property
     def stop(self):
         """
         Same as :attr:`stop_n`.
         """
-        return self._struct[STOP]
+        return self._struct[self.STOP]
 
     @property
     def shape(self):
         """
         Same as :attr:`shape_n`.
         """
-        return self._struct[STOP] - self._struct[START]
+        return self._struct[self.STOP] - self._struct[self.START]
 
     @property
     def size_n(self):
@@ -651,9 +664,14 @@ class HaloIndexingExtent(IndexingExtent):
         """
         return \
             (
-                "HaloIndexingExtent(start=%s, stop=%s, halo=%s)"
+                "%s(start=%s, stop=%s, halo=%s)"
                 %
-                (self.start_n.tolist(), self.stop_n.tolist(), self.halo.tolist())
+                (
+                    self.__class__.__name__,
+                    self.start_n.tolist(),
+                    self.stop_n.tolist(),
+                    self.halo.tolist()
+                )
             )
 
     def __str__(self):

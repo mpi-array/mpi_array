@@ -75,7 +75,8 @@ class HaloSubExtent(HaloIndexingExtent):
         slice=None,
         halo=0,
         start=None,
-        stop=None
+        stop=None,
+        struct=None
     ):
         """
         Construct. Takes care of trimming the halo of this extent so
@@ -97,29 +98,40 @@ class HaloSubExtent(HaloIndexingExtent):
         :type stop: sequence of :obj:`slice`
         :param stop: Per-axis stop indices (**not including ghost elements**).
         """
-        HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
-        halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
+        struct_is_none = (struct is None)
+        if (not struct_is_none) or (globale_extent is None):
+            HaloIndexingExtent.__init__(
+                self,
+                slice=slice,
+                start=start,
+                stop=stop,
+                halo=halo,
+                struct=struct
+            )
+        elif struct_is_none:
+            HaloIndexingExtent.__init__(self, slice=slice, start=start, stop=stop, halo=None)
+            halo = _convert_halo_to_array_form(halo, ndim=self.ndim)
 
-        # Axes with size=0 always get zero halo
-        halo[_np.where(self.stop_n <= self.start_n)] = 0
-        if globale_extent is not None:
-            # Calculate the locale halo, truncate if it strays outside
-            # the globale_extent halo region.
-            halo = \
-                _np.maximum(
-                    0,
-                    _np.minimum(
-                        _np.asarray(
-                            [
-                                self.start_n - globale_extent.start_h,
-                                globale_extent.stop_h - self.stop_n
-                            ],
-                            dtype=halo.dtype
-                        ).T,
-                        halo
+            # Axes with size=0 always get zero halo
+            halo[_np.where(self.stop_n <= self.start_n)] = 0
+            if globale_extent is not None:
+                # Calculate the locale halo, truncate if it strays outside
+                # the globale_extent halo region.
+                halo = \
+                    _np.maximum(
+                        0,
+                        _np.minimum(
+                            _np.asarray(
+                                [
+                                    self.start_n - globale_extent.start_h,
+                                    globale_extent.stop_h - self.stop_n
+                                ],
+                                dtype=halo.dtype
+                            ).T,
+                            halo
+                        )
                     )
-                )
-        self.halo = halo
+            self.halo = halo
 
 
 class LocaleExtent(HaloSubExtent):
@@ -131,6 +143,30 @@ class LocaleExtent(HaloSubExtent):
     responsible for exchanging the data to/from this extent.
     """
 
+    PEER_RANK = 3
+    INTER_LOCALE_RANK = 4
+
+    struct_dtype_dict = _collections.defaultdict(lambda: None)
+
+    def create_struct_dtype(self, ndim):
+        """
+        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
+
+        :rtype: :obj:`numpy.dtype`
+        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
+           fields of dimension :samp:`{ndim}`.
+        """
+        return \
+            _np.dtype(
+                [
+                    ("start", _np.int64, (ndim,)),
+                    ("stop", _np.int64, (ndim,)),
+                    ("halo", _np.int64, (ndim, 2)),
+                    ("peer_rank", _np.int64),
+                    ("inter_locale_rank", _np.int64)
+                ]
+            )
+
     def __init__(
         self,
         peer_rank,
@@ -139,7 +175,8 @@ class LocaleExtent(HaloSubExtent):
         slice=None,
         halo=0,
         start=None,
-        stop=None
+        stop=None,
+        struct=None
     ):
         """
         Construct.
@@ -164,16 +201,17 @@ class LocaleExtent(HaloSubExtent):
         :type stop: sequence of :obj:`slice`
         :param stop: Per-axis stop indices (**not including ghost elements**).
         """
-        self._peer_rank = peer_rank
-        self._inter_locale_rank = inter_locale_rank
         HaloSubExtent.__init__(
             self,
             globale_extent=globale_extent,
             slice=slice,
             start=start,
             stop=stop,
-            halo=halo
+            halo=halo,
+            struct=struct
         )
+        self._struct[self.PEER_RANK] = peer_rank
+        self._struct[self.INTER_LOCALE_RANK] = inter_locale_rank
 
     def __eq__(self, other):
         """
@@ -195,7 +233,7 @@ class LocaleExtent(HaloSubExtent):
         which corresponds to the :attr:`inter_locale_rank` in
         the :samp:`inter_locale_comm` communicator.
         """
-        return self._peer_rank
+        return self._struct[self.PEER_RANK]
 
     @property
     def inter_locale_rank(self):
@@ -203,7 +241,7 @@ class LocaleExtent(HaloSubExtent):
         An :obj:`int` indicating the rank of the process in the :samp:`inter_locale_comm`
         responsible for exchanging data to/from this extent.
         """
-        return self._inter_locale_rank
+        return self._struct[self.INTER_LOCALE_RANK]
 
     def halo_slab_extent(self, axis, dir):
         """
@@ -276,7 +314,8 @@ class LocaleExtent(HaloSubExtent):
                 None,
                 tuple(tuple(row) for row in self.halo.tolist()),
                 tuple(self.start_n),
-                tuple(self.stop_n)
+                tuple(self.stop_n),
+                None  # struct arg
             )
 
     def __repr__(self):
@@ -286,14 +325,17 @@ class LocaleExtent(HaloSubExtent):
         return \
             (
                 (
-                    "LocaleExtent("
+                    "%s("
                     "start=%s, stop=%s, halo=%s, peer_rank=%s, inter_locale_rank=%s"
                     +
                     ", globale_extent=None"
+                    +
+                    ", struct=None"
                     ")"
                 )
                 %
                 (
+                    self.__class__.__name__,
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
@@ -317,7 +359,8 @@ class ScalarLocaleExtent(LocaleExtent):
     def __init__(
         self,
         peer_rank,
-        inter_locale_rank
+        inter_locale_rank,
+        struct=None
     ):
         LocaleExtent.__init__(
             self,
@@ -325,7 +368,8 @@ class ScalarLocaleExtent(LocaleExtent):
             inter_locale_rank=inter_locale_rank,
             globale_extent=ScalarGlobaleExtent(),
             start=(),
-            stop=()
+            stop=(),
+            struct=struct
         )
 
 
@@ -334,6 +378,32 @@ class CartLocaleExtent(LocaleExtent):
     """
     Indexing extents for single tile of cartesian domain distribution.
     """
+
+    CART_COORD = 5
+    CART_SHAPE = 6
+
+    struct_dtype_dict = _collections.defaultdict(lambda: None)
+
+    def create_struct_dtype(self, ndim):
+        """
+        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
+
+        :rtype: :obj:`numpy.dtype`
+        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
+           fields of dimension :samp:`{ndim}`.
+        """
+        return \
+            _np.dtype(
+                [
+                    ("start", _np.int64, (ndim,)),
+                    ("stop", _np.int64, (ndim,)),
+                    ("halo", _np.int64, (ndim, 2)),
+                    ("peer_rank", _np.int64),
+                    ("inter_locale_rank", _np.int64),
+                    ("cart_coord", _np.int64, (ndim,)),
+                    ("cart_shape", _np.int64, (ndim,))
+                ]
+            )
 
     def __init__(
         self,
@@ -345,7 +415,8 @@ class CartLocaleExtent(LocaleExtent):
         slice=None,
         halo=None,
         start=None,
-        stop=None
+        stop=None,
+        struct=None
     ):
         """
         Construct.
@@ -387,10 +458,11 @@ class CartLocaleExtent(LocaleExtent):
             slice=slice,
             halo=halo,
             start=start,
-            stop=stop
+            stop=stop,
+            struct=struct
         )
-        self._cart_coord = _np.array(cart_coord, dtype="int64")
-        self._cart_shape = _np.array(cart_shape, dtype=self._cart_coord.dtype)
+        self._struct[self.CART_COORD] = cart_coord
+        self._struct[self.CART_SHAPE] = cart_shape
 
     def __eq__(self, other):
         """
@@ -421,7 +493,7 @@ class CartLocaleExtent(LocaleExtent):
         index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
         this :obj:`LocaleExtent` in the cartesian domain distribution.
         """
-        return self._cart_coord
+        return self._struct[self.CART_COORD]
 
     @property
     def cart_shape(self):
@@ -429,7 +501,7 @@ class CartLocaleExtent(LocaleExtent):
         A :obj:`tuple` of :obj:`int` indicating the number of :obj:`LocaleExtent`
         regions in each axis direction of the cartesian distribution.
         """
-        return self._cart_shape
+        return self._struct[self.CART_SHAPE]
 
     def to_tuple(self):
         """
@@ -449,7 +521,8 @@ class CartLocaleExtent(LocaleExtent):
                 None,
                 tuple(tuple(row) for row in self.halo.tolist()),
                 tuple(self.start_n),
-                tuple(self.stop_n)
+                tuple(self.stop_n),
+                None  # struct arg
             )
 
     def __repr__(self):
@@ -459,7 +532,7 @@ class CartLocaleExtent(LocaleExtent):
         return \
             (
                 (
-                    "CartLocaleExtent("
+                    "%s("
                     +
                     "start=%s, stop=%s, halo=%s, peer_rank=%s, "
                     +
@@ -469,10 +542,13 @@ class CartLocaleExtent(LocaleExtent):
                     +
                     ", globale_extent=None"
                     +
+                    ", struct=None"
+                    +
                     ")"
                 )
                 %
                 (
+                    self.__class__.__name__,
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
