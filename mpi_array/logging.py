@@ -297,13 +297,15 @@ class LoggerFactory (object):
 
         rank_logger = \
             _builtin_logging.getLogger(
-                name +
-                "." +
-                comm.Get_name() +
-                "." +
-                rank_string +
-                "." +
-                (("%%0%dd" % (len(str(_mpi.COMM_WORLD.size - 1)),)) % comm.Get_rank())
+                str(
+                    name +
+                    "." +
+                    comm.Get_name() +
+                    "." +
+                    rank_string +
+                    "." +
+                    (("%%0%dd" % (len(str(_mpi.COMM_WORLD.size - 1)),)) % comm.Get_rank())
+                )
             )
         # First search for handler classes.
         tmp_logger = _builtin_logging.getLogger(name)
