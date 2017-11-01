@@ -205,7 +205,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         self.assertEqual(0, de[0].cart_rank)
         self.assertTrue(_np.all(de[0].cart_coord == (0,)))
         self.assertTrue(_np.all(de[0].cart_shape == (3,)))
-        self.assertTrue(_np.all(de[0].halo == ((0, 10),)))
+        self.assertSequenceEqual(de[0].halo.tolist(), [[0, 10], ])
         self.assertEqual(
             IndexingExtent(start=(0,), stop=(0,)),
             de[0].halo_slab_extent(0, de[0].LO)

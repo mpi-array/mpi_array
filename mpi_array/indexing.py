@@ -30,6 +30,10 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
 
+START = 0
+STOP = 1
+HALO = 2
+
 
 class IndexingExtent(object):
 
@@ -37,7 +41,28 @@ class IndexingExtent(object):
     Indexing bounds for a single tile of domain decomposition.
     """
 
-    def __init__(self, slice=None, start=None, stop=None):
+    struct_dtype_dict = _collections.defaultdict(lambda: None)
+
+    def create_struct_dtype(self, ndim):
+        """
+        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
+
+        :rtype: :obj:`numpy.dtype`
+        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
+           fields of dimension :samp:`{ndim}`.
+        """
+        return _np.dtype([("start", _np.int64, (ndim,)), ("stop", _np.int64, (ndim,))])
+
+    def get_struct_dtype(self, ndim):
+        """
+        """
+        dtype = self.struct_dtype_dict[ndim]
+        if dtype is None:
+            dtype = self.create_struct_dtype(ndim)
+            self.struct_dtype_dict[ndim] = dtype
+        return dtype
+
+    def __init__(self, slice=None, start=None, stop=None, struct=None):
         """
         Construct, must specify either :samp:`{slice}` or
         both of :samp:`{start}` and :samp:`{stop}`.
@@ -51,15 +76,21 @@ class IndexingExtent(object):
 
         """
         object.__init__(self)
-        if slice is not None:
-            self._beg = _np.array([s.start for s in slice], dtype="int64")
-            self._end = _np.array([s.stop for s in slice], dtype=self._beg.dtype)
-        elif (start is None) and (stop is not None):
-            self._end = _np.array(stop, dtype="int64")
-            self._beg = _np.zeros_like(self._end)
-        elif (start is not None) and (stop is not None):
-            self._beg = _np.array(start, dtype="int64")
-            self._end = _np.array(stop, dtype="int64")
+        if struct is None:
+            if slice is not None:
+                struct = self.create_struct_instance(ndim=len(slice))
+                struct[START] = _np.array([s.start for s in slice], dtype="int64")
+                struct[STOP] = _np.array([s.stop for s in slice], dtype=struct[START].dtype)
+            elif (start is None) and (stop is not None):
+                struct = self.create_struct_instance(ndim=len(stop))
+                struct[STOP] = _np.array(stop, dtype="int64")
+                struct[START] = _np.zeros_like(struct[STOP])
+            elif (start is not None) and (stop is not None):
+                struct = self.create_struct_instance(ndim=len(start))
+                struct[START] = _np.array(start, dtype="int64")
+                struct[STOP] = _np.array(stop, dtype="int64")
+
+        self._struct = struct
 
     def __eq__(self, other):
         """
@@ -69,10 +100,19 @@ class IndexingExtent(object):
             (
                 (self.ndim == other.ndim)
                 and
-                _np.all(self._beg == other._beg)
+                _np.all(self.start == other.start)
                 and
-                _np.all(self._end == other._end)
+                _np.all(self.stop == other.stop)
             )
+
+    def create_struct_instance(self, ndim):
+        """
+        Creates a struct instance with :obj:`numpy.dtype` :samp:`self.struct_dtype_dict[ndim]`.
+
+        :rtype: struct
+        :return: A struct.
+        """
+        return _np.zeros((1,), dtype=self.get_struct_dtype(ndim))[0]
 
     @property
     def start(self):
@@ -80,11 +120,13 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the per-axis start indices of this extent
         (including halo).
         """
-        return self._beg
+        return self._struct[START]
 
     @start.setter
     def start(self, start):
-        self._beg = _np.array(start, dtype="int64")
+        if len(start) != len(self._struct[START]):
+            self._struct = self.create_struct_dtype(ndim=len(start))
+        self._struct[START][...] = start
 
     @property
     def stop(self):
@@ -92,11 +134,13 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the per-axis stop indices of this extent
         (including halo).
         """
-        return self._end
+        return self._struct[STOP]
 
     @stop.setter
     def stop(self, stop):
-        self._end = _np.array(stop, dtype="int64")
+        if len(stop) != len(self._struct[STOP]):
+            self._struct = self.create_struct_dtype(ndim=len(stop))
+        self._struct[STOP][...] = stop
 
     @property
     def shape(self):
@@ -104,14 +148,14 @@ class IndexingExtent(object):
         Sequence of :obj:`int` indicating the shape of this extent
         (including halo).
         """
-        return self._end - self._beg
+        return self._struct[STOP] - self._struct[START]
 
     @property
     def ndim(self):
         """
         Dimension of indexing.
         """
-        return len(self._beg)
+        return self._struct[START].size
 
     def calc_intersection(self, other):
         """
@@ -126,10 +170,10 @@ class IndexingExtent(object):
         """
         intersection_extent = \
             IndexingExtent(
-                start=_np.maximum(self._beg, other._beg),
-                stop=_np.minimum(self._end, other._end)
+                start=_np.maximum(self.start, other.start),
+                stop=_np.minimum(self.stop, other.stop)
             )
-        if _np.any(intersection_extent._beg >= intersection_extent._end):
+        if _np.any(intersection_extent.start >= intersection_extent.stop):
             intersection_extent = None
 
         return intersection_extent
@@ -146,17 +190,17 @@ class IndexingExtent(object):
         :rtype: :obj:`tuple`
         :return: A :samp:`(lo, hi)` pair.
         """
-        if index <= self._beg[a]:
+        if index <= self.start[a]:
             lo, hi = None, self
-        elif index >= self._end[a]:
+        elif index >= self.stop[a]:
             lo, hi = self, None
         else:
-            b = self._beg.copy()
-            e = self._end.copy()
+            b = self.start.copy()
+            e = self.stop.copy()
             e[a] = index
             lo = IndexingExtent(start=b, stop=e)
             b[a] = index
-            hi = IndexingExtent(start=b, stop=self._end.copy())
+            hi = IndexingExtent(start=b, stop=self.stop.copy())
 
         return lo, hi
 
@@ -181,11 +225,11 @@ class IndexingExtent(object):
             q.append(self)
             for a in range(self.ndim):
                 o = q.pop()
-                lo, hi = o.split(a, intersection._beg[a])
+                lo, hi = o.split(a, intersection.start[a])
                 if lo is not None:
                     leftovers.append(lo)
                 if hi is not None:
-                    lo, hi = hi.split(a, intersection._end[a])
+                    lo, hi = hi.split(a, intersection.stop[a])
                     if lo is not None:
                         q.append(lo)
                     if hi is not None:
@@ -202,7 +246,13 @@ class IndexingExtent(object):
         :rtype: :obj:`tuple` of :obj:`slice` elements
         :return: Tuple of slice equivalent to this indexing extent.
         """
-        return tuple([slice(self._beg[i], self._end[i]) for i in range(len(self._beg))])
+        return \
+            tuple(
+                [
+                    slice(self._struct[START][i], self._struct[STOP][i])
+                    for i in range(len(self._struct[START]))
+                ]
+            )
 
     def to_tuple(self):
         """
@@ -216,14 +266,15 @@ class IndexingExtent(object):
             (
                 None,  # slice arg
                 tuple(self.start),
-                tuple(self.stop)
+                tuple(self.stop),
+                None  # struct arg
             )
 
     def __repr__(self):
         """
         Stringize.
         """
-        return "IndexingExtent(start=%s, stop=%s)" % (tuple(self._beg), tuple(self._end))
+        return "IndexingExtent(start=%s, stop=%s)" % (tuple(self.start), tuple(self.stop))
 
     def __str__(self):
         """
@@ -257,7 +308,26 @@ class HaloIndexingExtent(IndexingExtent):
     #: The "high index" indices.
     HI = 1
 
-    def __init__(self, slice=None, start=None, stop=None, halo=None):
+    struct_dtype_dict = _collections.defaultdict(lambda: None)
+
+    def create_struct_dtype(self, ndim):
+        """
+        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
+
+        :rtype: :obj:`numpy.dtype`
+        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
+           fields of dimension :samp:`{ndim}`.
+        """
+        return \
+            _np.dtype(
+                [
+                    ("start", _np.int64, (ndim,)),
+                    ("stop", _np.int64, (ndim,)),
+                    ("halo", _np.int64, (ndim, 2))
+                ]
+            )
+
+    def __init__(self, slice=None, start=None, stop=None, halo=None, struct=None):
         """
         Construct.
 
@@ -277,12 +347,12 @@ class HaloIndexingExtent(IndexingExtent):
            elements on the high-index *side*.
 
         """
-        IndexingExtent.__init__(self, slice, start, stop)
+        IndexingExtent.__init__(self, slice, start, stop, struct)
         if halo is None:
-            halo = _np.zeros((self._beg.shape[0], 2), dtype=self._beg.dtype)
+            halo = _np.zeros((self._struct[START].shape[0], 2), dtype=self._struct[START].dtype)
         else:
-            halo = convert_halo_to_array_form(halo, self._beg.size)
-        self._halo = halo
+            halo = convert_halo_to_array_form(halo, self._struct[START].size)
+        self._struct[HALO][...] = halo
 
     @property
     def halo(self):
@@ -292,82 +362,82 @@ class HaloIndexingExtent(IndexingExtent):
         of elements on the low-index *side* and :samp:`halo[:,1]` is the number of
         elements on the high-index *side*.
         """
-        return self._halo
+        return self._struct[HALO]
 
     @halo.setter
     def halo(self, halo):
-        self._halo = convert_halo_to_array_form(halo, self.ndim)
+        self._struct[HALO] = convert_halo_to_array_form(halo, self.ndim)
 
     @property
     def start_h(self):
         """
         The start index of the tile with "halo" elements.
         """
-        return self._beg - self._halo[:, self.LO]
+        return self.start_n - self.halo[:, self.LO]
 
     @property
     def start_n(self):
         """
         The start index of the tile without "halo" elements ("no halo").
         """
-        return self._beg
+        return self.start
 
     @start_n.setter
     def start_n(self, start_n):
-        self._beg = _np.array(start_n, dtype="int64", copy=True)
+        self.start[...] = start_n
 
     @property
     def stop_h(self):
         """
         The stop index of the tile with "halo" elements.
         """
-        return self._end + self._halo[:, self.HI]
+        return self.stop + self.halo[:, self.HI]
 
     @property
     def stop_n(self):
         """
         The stop index of the tile without "halo" elements ("no halo").
         """
-        return self._end
+        return self.stop
 
     @stop_n.setter
     def stop_n(self, stop_n):
-        self._end = _np.array(stop_n, dtype="int64", copy=True)
+        self.stop[...] = stop_n
 
     @property
     def shape_h(self):
         """
         The shape of the tile with "halo" elements.
         """
-        return self._end + self._halo[:, self.HI] - self._beg + self._halo[:, self.LO]
+        return self.stop_n + self.halo[:, self.HI] - self.start_n + self.halo[:, self.LO]
 
     @property
     def shape_n(self):
         """
         The shape of the tile without "halo" elements ("no halo").
         """
-        return self._end - self._beg
+        return self.stop_n - self.start_n
 
     @property
     def start(self):
         """
         Same as :attr:`start_n`.
         """
-        return self.start_n
+        return self._struct[START]
 
     @property
     def stop(self):
         """
         Same as :attr:`stop_n`.
         """
-        return self.stop_n
+        return self._struct[STOP]
 
     @property
     def shape(self):
         """
         Same as :attr:`shape_n`.
         """
-        return self.shape_n
+        return self._struct[STOP] - self._struct[START]
 
     @property
     def size_n(self):
@@ -387,7 +457,7 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Equality.
         """
-        return IndexingExtent.__eq__(self, other) and _np.all(self._halo == other._halo)
+        return IndexingExtent.__eq__(self, other) and _np.all(self.halo == other.halo)
 
     def to_slice_n(self):
         """
@@ -397,7 +467,9 @@ class HaloIndexingExtent(IndexingExtent):
         :rtype: :obj:`tuple` of :obj:`slice` elements
         :return: Tuple of slice equivalent to this no-halo indexing extent.
         """
-        return tuple([slice(self._beg[i], self._end[i]) for i in range(len(self._beg))])
+        b = self.start_n
+        e = self.stop_n
+        return tuple([slice(b[i], e[i]) for i in range(len(b))])
 
     def to_slice_h(self):
         """
@@ -407,14 +479,9 @@ class HaloIndexingExtent(IndexingExtent):
         :rtype: :obj:`tuple` of :obj:`slice` elements
         :return: Tuple of slice equivalent to this indexing extent including halo.
         """
-        return tuple(
-            [
-                slice(
-                    self._beg[i] - self.halo[i, self.LO],
-                    self._end[i] + self.halo[i, self.HI]
-                ) for i in range(len(self._beg))
-            ]
-        )
+        b = self.start_h
+        e = self.stop_h
+        return tuple([slice(b[i], e[i]) for i in range(len(b))])
 
     def globale_to_locale_h(self, gidx):
         """
@@ -495,11 +562,12 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Return :samp:`gslice` converted to locale slice.
         """
+        b = self.start_h
         slc = \
             tuple(
                 slice(
-                    gslice[i].start - self._beg[i] + self._halo[i, self.LO],
-                    gslice[i].stop - self._beg[i] + self._halo[i, self.LO],
+                    gslice[i].start - b[i],
+                    gslice[i].stop - b[i],
                 )
                 for i in range(len(gslice))
             )
@@ -510,11 +578,12 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Return :samp:`lslice` converted to globale slice.
         """
+        b = self.start_h
         slc = \
             tuple(
                 slice(
-                    lslice[i].start + self._beg[i] - self._halo[i, self.LO],
-                    lslice[i].stop + self._beg[i] - self._halo[i, self.LO],
+                    lslice[i].start + b[i],
+                    lslice[i].stop + b[i],
                 )
                 for i in range(len(lslice))
             )
@@ -525,11 +594,12 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Return :samp:`gslice` converted to locale slice.
         """
+        b = self.start_n
         slc = \
             tuple(
                 slice(
-                    gslice[i].start - self._beg[i],
-                    gslice[i].stop - self._beg[i],
+                    gslice[i].start - b[i],
+                    gslice[i].stop - b[i],
                 )
                 for i in range(len(gslice))
             )
@@ -540,11 +610,12 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Return :samp:`lslice` converted to globale slice.
         """
+        b = self.start_n
         slc = \
             tuple(
                 slice(
-                    lslice[i].start + self._beg[i],
-                    lslice[i].stop + self._beg[i],
+                    lslice[i].start + b[i],
+                    lslice[i].stop + b[i],
                 )
                 for i in range(len(lslice))
             )
@@ -571,6 +642,7 @@ class HaloIndexingExtent(IndexingExtent):
                 tuple(self.start_n),
                 tuple(self.stop_n),
                 tuple(tuple(row) for row in self.halo.tolist()),
+                None,  # struct arg
             )
 
     def __repr__(self):
@@ -581,7 +653,7 @@ class HaloIndexingExtent(IndexingExtent):
             (
                 "HaloIndexingExtent(start=%s, stop=%s, halo=%s)"
                 %
-                (self._beg.tolist(), self._end.tolist(), self._halo.tolist())
+                (self.start_n.tolist(), self.stop_n.tolist(), self.halo.tolist())
             )
 
     def __str__(self):

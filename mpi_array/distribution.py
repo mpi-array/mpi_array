@@ -119,7 +119,7 @@ class HaloSubExtent(HaloIndexingExtent):
                         halo
                     )
                 )
-        self._halo = halo
+        self.halo = halo
 
 
 class LocaleExtent(HaloSubExtent):
