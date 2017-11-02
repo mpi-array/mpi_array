@@ -98,7 +98,7 @@ class CommsCache(object):
         """
         self._lookup = []
         self._rank_logger = \
-            _logging.get_rank_logger(__name__ + "." + self.__class__.__name__)
+            _logging.get_rank_logger(str(__name__ + "." + self.__class__.__name__))
 
     @property
     def lookup(self):
