@@ -55,10 +55,25 @@ class IndexingExtentTest(_unittest.TestCase):
 
     def test_to_tuple(self):
         """
-        Test for :meth:`HaloIndexingExtent.to_tuple`.
+        Test for :meth:`IndexingExtent.to_tuple`.
         """
         ie = IndexingExtent(start=(10, 15), stop=(32, 66))
         self.assertEqual(ie, IndexingExtent(*(ie.to_tuple())))
+
+    def test_assign_different_dimension_index(self):
+        """
+        Test for :meth:`IndexingExtent.start = ...`.
+        """
+        ie = IndexingExtent(start=(10, 15), stop=(32, 66))
+
+        def assign_start():
+            ie.start = (1,)
+
+        def assign_stop():
+            ie.stop = (1,)
+
+        self.assertRaises(ValueError, assign_start)
+        self.assertRaises(ValueError, assign_stop)
 
     def test_attributes(self):
         """
@@ -406,11 +421,22 @@ class HaloIndexingExtentTest(_unittest.TestCase):
             ).to_slice_h(),
             hie.globale_to_locale_slice_h(gext.to_slice_h())
         )
+        self.assertEqual(
+            HaloIndexingExtent(
+                start=(0, 0), stop=(22, 17), halo=_np.array(((1, 2), (3, 4)))
+            ).to_slice_n(),
+            hie.globale_to_locale_slice_n(gext.to_slice_n())
+        )
 
         lext = HaloIndexingExtent(start=(1, 3), stop=(23, 20), halo=_np.array(((1, 2), (3, 4))))
         self.assertEqual(
             hie.to_slice_h(),
             hie.locale_to_globale_slice_h(lext.to_slice_h())
+        )
+        lext = HaloIndexingExtent(start=(0, 0), stop=(22, 17), halo=_np.array(((1, 2), (3, 4))))
+        self.assertEqual(
+            hie.to_slice_n(),
+            hie.locale_to_globale_slice_n(lext.to_slice_n())
         )
 
     def test_to_slice(self):

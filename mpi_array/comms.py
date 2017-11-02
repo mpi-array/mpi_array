@@ -1086,12 +1086,11 @@ class CartLocaleComms(LocaleComms):
         cartesian coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`) keys
         which map to the associated :attr:`cart_comm` peer_rank.
         """
-        d = dict()
+        d = None
         if self.have_valid_cart_comm:
+            d = _np.zeros(self.cart_comm.dims, dtype="int64")
             for cart_rank in range(self.cart_comm.size):
                 d[tuple(self.cart_comm.Get_coords(cart_rank))] = cart_rank
-        elif self.cart_comm is None:
-            d = None
         return d
 
     @property

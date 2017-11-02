@@ -205,7 +205,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
         self.assertEqual(0, de[0].cart_rank)
         self.assertTrue(_np.all(de[0].cart_coord == (0,)))
         self.assertTrue(_np.all(de[0].cart_shape == (3,)))
-        self.assertTrue(_np.all(de[0].halo == ((0, 10),)))
+        self.assertSequenceEqual(de[0].halo.tolist(), [[0, 10], ])
         self.assertEqual(
             IndexingExtent(start=(0,), stop=(0,)),
             de[0].halo_slab_extent(0, de[0].LO)
@@ -686,6 +686,7 @@ class DistributionTest(_unittest.TestCase):
             GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
             d.globale_extent
         )
+        self.assertEqual(_mpi.UNDEFINED, d.get_peer_rank(0))
         self.assertEqual(
             LocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
@@ -697,12 +698,63 @@ class DistributionTest(_unittest.TestCase):
             d.locale_extents[0]
         )
 
+        d = \
+            Distribution(
+                globale_extent=globale_extent.to_slice(),
+                locale_extents=[locale_extent.to_slice(), ]
+            )
+        self.assertEqual(
+            GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
+            d.globale_extent
+        )
+        self.assertEqual(_mpi.UNDEFINED, d.get_peer_rank(0))
         self.assertEqual(
             LocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 start=locale_extent.start,
                 stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.locale_extents[0]
+        )
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.get_extent_for_rank(0)
+        )
+
+        le = \
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            )
+
+        d = \
+            Distribution(
+                globale_extent=globale_extent.to_slice(),
+                locale_extents=[le, ],
+                inter_locale_rank_to_peer_rank=[5]
+            )
+        self.assertEqual(
+            GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
+            d.globale_extent
+        )
+        self.assertEqual(5, d.get_peer_rank(0))
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=5,
+                inter_locale_rank=0,
+                start=le.start,
+                stop=le.stop,
                 globale_extent=None
             ),
             d.get_extent_for_rank(0)
@@ -777,7 +829,7 @@ class BlockPartitionTest(_unittest.TestCase):
                 halo=halo,
                 cart_coord_to_cart_rank={(i,): i for i in range(0, 4)}
             )
-        self.assertEqual(
+        valid_extent = \
             CartLocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
@@ -787,10 +839,15 @@ class BlockPartitionTest(_unittest.TestCase):
                 start=(0,),
                 stop=(8,),
                 halo=halo
-            ),
+            )
+        self.rank_logger.debug("valid_extent=\n%s" % (valid_extent,))
+        self.rank_logger.debug("distrib.locale_extents[0]=\n%s" % (distrib.locale_extents[0],))
+        self.assertEqual(
+            valid_extent,
             distrib.locale_extents[0]
         )
-        self.assertEqual(
+
+        valid_extent = \
             CartLocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=1,
@@ -800,7 +857,11 @@ class BlockPartitionTest(_unittest.TestCase):
                 start=(8,),
                 stop=(16,),
                 halo=halo
-            ),
+            )
+        self.rank_logger.debug("valid_extent=\n%s" % (valid_extent,))
+        self.rank_logger.debug("distrib.locale_extents[1]=\n%s" % (distrib.locale_extents[1],))
+        self.assertEqual(
+            valid_extent,
             distrib.locale_extents[1]
         )
         self.assertEqual(
