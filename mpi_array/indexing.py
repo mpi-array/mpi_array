@@ -34,13 +34,42 @@ __version__ = _version()
 class IndexingExtent(object):
 
     START = 0
+    START_STR = "start"
     STOP = 1
+    STOP_STR = "stop"
 
     """
     Indexing bounds for a single tile of domain decomposition.
     """
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
+
+    @staticmethod
+    def create_struct_dtype_from_ndim(cls, ndim):
+        """
+        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
+
+        :rtype: :obj:`numpy.dtype`
+        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
+           fields of dimension :samp:`{ndim}`.
+        """
+        return \
+            _np.dtype(
+                [
+                    (cls.START_STR, _np.int64, (ndim,)),
+                    (cls.STOP_STR, _np.int64, (ndim,))
+                ]
+            )
+
+    @staticmethod
+    def get_struct_dtype_from_ndim(cls, ndim):
+        """
+        """
+        dtype = cls.struct_dtype_dict[ndim]
+        if dtype is None:
+            dtype = cls.create_struct_dtype_from_ndim(cls, ndim)
+            cls.struct_dtype_dict[ndim] = dtype
+        return dtype
 
     def create_struct_dtype(self, ndim):
         """
@@ -50,16 +79,12 @@ class IndexingExtent(object):
         :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
            fields of dimension :samp:`{ndim}`.
         """
-        return _np.dtype([("start", _np.int64, (ndim,)), ("stop", _np.int64, (ndim,))])
+        return self.__class__.create_struct_dtype_from_ndim(self.__class__, ndim)
 
     def get_struct_dtype(self, ndim):
         """
         """
-        dtype = self.struct_dtype_dict[ndim]
-        if dtype is None:
-            dtype = self.create_struct_dtype(ndim)
-            self.struct_dtype_dict[ndim] = dtype
-        return dtype
+        return self.__class__.get_struct_dtype_from_ndim(self.__class__, ndim)
 
     def __init__(self, slice=None, start=None, stop=None, struct=None):
         """
@@ -313,11 +338,17 @@ class HaloIndexingExtent(IndexingExtent):
     #: The "high index" indices.
     HI = 1
 
+    START_N = IndexingExtent.START
+    START_N_STR = IndexingExtent.START_STR
+    STOP_N = IndexingExtent.STOP
+    STOP_N_STR = IndexingExtent.STOP_STR
     HALO = 2
+    HALO_STR = "halo"
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
 
-    def create_struct_dtype(self, ndim):
+    @staticmethod
+    def create_struct_dtype_from_ndim(cls, ndim):
         """
         Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
 
@@ -328,9 +359,9 @@ class HaloIndexingExtent(IndexingExtent):
         return \
             _np.dtype(
                 [
-                    ("start", _np.int64, (ndim,)),
-                    ("stop", _np.int64, (ndim,)),
-                    ("halo", _np.int64, (ndim, 2))
+                    (cls.START_STR, _np.int64, (ndim,)),
+                    (cls.STOP_STR, _np.int64, (ndim,)),
+                    (cls.HALO_STR, _np.int64, (ndim, 2))
                 ]
             )
 

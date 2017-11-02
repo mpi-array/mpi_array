@@ -71,7 +71,7 @@ class HaloSubExtent(HaloIndexingExtent):
 
     def __init__(
         self,
-        globale_extent,
+        globale_extent=None,
         slice=None,
         halo=0,
         start=None,
@@ -144,11 +144,14 @@ class LocaleExtent(HaloSubExtent):
     """
 
     PEER_RANK = 3
+    PEER_RANK_STR = "peer_rank"
     INTER_LOCALE_RANK = 4
+    INTER_LOCALE_RANK_STR = "inter_locale_rank"
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
 
-    def create_struct_dtype(self, ndim):
+    @staticmethod
+    def create_struct_dtype_from_ndim(cls, ndim):
         """
         Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
 
@@ -159,19 +162,19 @@ class LocaleExtent(HaloSubExtent):
         return \
             _np.dtype(
                 [
-                    ("start", _np.int64, (ndim,)),
-                    ("stop", _np.int64, (ndim,)),
-                    ("halo", _np.int64, (ndim, 2)),
-                    ("peer_rank", _np.int64),
-                    ("inter_locale_rank", _np.int64)
+                    (cls.START_STR, _np.int64, (ndim,)),
+                    (cls.STOP_STR, _np.int64, (ndim,)),
+                    (cls.HALO_STR, _np.int64, (ndim, 2)),
+                    (cls.PEER_RANK_STR, _np.int64),
+                    (cls.INTER_LOCALE_RANK_STR, _np.int64)
                 ]
             )
 
     def __init__(
         self,
-        peer_rank,
-        inter_locale_rank,
-        globale_extent,
+        peer_rank=None,
+        inter_locale_rank=None,
+        globale_extent=None,
         slice=None,
         halo=0,
         start=None,
@@ -201,6 +204,7 @@ class LocaleExtent(HaloSubExtent):
         :type stop: sequence of :obj:`slice`
         :param stop: Per-axis stop indices (**not including ghost elements**).
         """
+        struct_is_none = (struct is None)
         HaloSubExtent.__init__(
             self,
             globale_extent=globale_extent,
@@ -210,8 +214,9 @@ class LocaleExtent(HaloSubExtent):
             halo=halo,
             struct=struct
         )
-        self._struct[self.PEER_RANK] = peer_rank
-        self._struct[self.INTER_LOCALE_RANK] = inter_locale_rank
+        if struct_is_none:
+            self._struct[self.PEER_RANK] = peer_rank
+            self._struct[self.INTER_LOCALE_RANK] = inter_locale_rank
 
     def __eq__(self, other):
         """
@@ -380,11 +385,14 @@ class CartLocaleExtent(LocaleExtent):
     """
 
     CART_COORD = 5
+    CART_COORD_STR = "cart_coord"
     CART_SHAPE = 6
+    CART_SHAPE_STR = "cart_shape"
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
 
-    def create_struct_dtype(self, ndim):
+    @staticmethod
+    def create_struct_dtype_from_ndim(cls, ndim):
         """
         Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
 
@@ -395,23 +403,23 @@ class CartLocaleExtent(LocaleExtent):
         return \
             _np.dtype(
                 [
-                    ("start", _np.int64, (ndim,)),
-                    ("stop", _np.int64, (ndim,)),
-                    ("halo", _np.int64, (ndim, 2)),
-                    ("peer_rank", _np.int64),
-                    ("inter_locale_rank", _np.int64),
-                    ("cart_coord", _np.int64, (ndim,)),
-                    ("cart_shape", _np.int64, (ndim,))
+                    (cls.START_STR, _np.int64, (ndim,)),
+                    (cls.STOP_STR, _np.int64, (ndim,)),
+                    (cls.HALO_STR, _np.int64, (ndim, 2)),
+                    (cls.PEER_RANK_STR, _np.int64),
+                    (cls.INTER_LOCALE_RANK_STR, _np.int64),
+                    (cls.CART_COORD_STR, _np.int64, (ndim,)),
+                    (cls.CART_SHAPE_STR, _np.int64, (ndim,))
                 ]
             )
 
     def __init__(
         self,
-        peer_rank,
-        inter_locale_rank,
-        cart_coord,
-        cart_shape,
-        globale_extent,
+        peer_rank=None,
+        inter_locale_rank=None,
+        cart_coord=None,
+        cart_shape=None,
+        globale_extent=None,
         slice=None,
         halo=None,
         start=None,
@@ -450,6 +458,7 @@ class CartLocaleExtent(LocaleExtent):
         :type stop: sequence of :obj:`slice`
         :param stop: Per-axis stop indices (**not including ghost elements**).
         """
+        struct_is_none = (struct is None)
         LocaleExtent.__init__(
             self,
             peer_rank=peer_rank,
@@ -461,8 +470,9 @@ class CartLocaleExtent(LocaleExtent):
             stop=stop,
             struct=struct
         )
-        self._struct[self.CART_COORD] = cart_coord
-        self._struct[self.CART_SHAPE] = cart_shape
+        if struct_is_none:
+            self._struct[self.CART_COORD] = cart_coord
+            self._struct[self.CART_SHAPE] = cart_shape
 
     def __eq__(self, other):
         """
@@ -622,12 +632,180 @@ class Distribution(object):
         self._inter_locale_rank_to_peer_rank = inter_locale_rank_to_peer_rank
 
         self._globale_extent = self.create_globale_extent(globale_extent, halo=0)
+        ndim = self._globale_extent.ndim
         self._halo = \
-            _convert_halo_to_array_form(halo=_copy.deepcopy(halo), ndim=self._globale_extent.ndim)
-        self._locale_extents = _copy.copy(locale_extents)
-        for i in range(len(locale_extents)):
-            self._locale_extents[i] = \
-                self.create_locale_extent(i, locale_extents[i], self._globale_extent, halo)
+            _convert_halo_to_array_form(halo=_copy.deepcopy(halo), ndim=ndim)
+        num_locales = len(locale_extents)
+
+        self._struct_locale_extents = \
+            self.create_struct_locale_extents(num_locales=num_locales, ndim=ndim)
+
+        self.initialise_struct_locale_extents(self._struct_locale_extents, locale_extents)
+
+        self._locale_extents = self.create_locale_extents(self._struct_locale_extents)
+
+    def create_struct_locale_extents(self, num_locales, ndim):
+        """
+        """
+        return \
+            _np.zeros(
+                (num_locales,),
+                dtype=self._locale_extent_type.get_struct_dtype_from_ndim(
+                    self._locale_extent_type,
+                    ndim
+                )
+            )
+
+    def initialise_struct_locale_extents(self, struct_locale_extents, locale_extents_descr):
+        """
+        """
+        num_locales = len(locale_extents_descr)
+        START_STR = self._locale_extent_type.START_STR
+        STOP_STR = self._locale_extent_type.STOP_STR
+        HALO_STR = self._locale_extent_type.HALO_STR
+        PEER_RANK_STR = self._locale_extent_type.PEER_RANK_STR
+        INTER_LOCALE_RANK_STR = self._locale_extent_type.INTER_LOCALE_RANK_STR
+        ndim = 0
+        if num_locales > 0:
+            ndim = len(struct_locale_extents[START_STR][0])
+        if (num_locales > 0) and (ndim > 0):
+            initialise_halos = True
+            struct_locale_extents[INTER_LOCALE_RANK_STR] = _np.arange(0, num_locales)
+            if self._inter_locale_rank_to_peer_rank is not None:
+                if isinstance(self._inter_locale_rank_to_peer_rank, _np.ndarray):
+                    struct_locale_extents[PEER_RANK_STR] = \
+                        self._inter_locale_rank_to_peer_rank[
+                            struct_locale_extents[INTER_LOCALE_RANK_STR]
+                    ]
+                else:
+                    struct_locale_extents[PEER_RANK_STR] = \
+                        tuple(
+                            self._inter_locale_rank_to_peer_rank[inter_locale_rank]
+                            for inter_locale_rank in range(num_locales)
+                    )
+            else:
+                struct_locale_extents[PEER_RANK_STR] = _mpi.UNDEFINED
+
+            if (
+                isinstance(locale_extents_descr, _np.ndarray)
+                and
+                (START_STR in locale_extents_descr.dtype.names)
+                and
+                (STOP_STR in locale_extents_descr.dtype.names)
+            ):
+                struct_locale_extents[START_STR] = locale_extents_descr[START_STR]
+                struct_locale_extents[STOP_STR] = locale_extents_descr[STOP_STR]
+                if HALO_STR in locale_extents_descr.dtype.names:
+                    struct_locale_extents[HALO_STR] = locale_extents_descr[HALO_STR]
+                    initialise_halos = False
+            elif (
+                (
+                    hasattr(locale_extents_descr[0], "__iter__")
+                    or
+                    hasattr(locale_extents_descr[0], "__getitem__")
+                )
+                and
+                _np.all([isinstance(e, slice) for e in locale_extents_descr[0]])
+            ):
+                # assume they are all slices
+                start_stop = \
+                    _np.array(
+                        tuple(
+                            _np.array(
+                                tuple(
+                                    (slc.start, slc.stop)
+                                    for slc in le_descr
+                                )
+                            ).T
+                            for le_descr in locale_extents_descr
+                        )
+                    )
+                struct_locale_extents[START_STR] = start_stop[:, 0]
+                struct_locale_extents[STOP_STR] = start_stop[:, 1]
+            elif (
+                (
+                    hasattr(locale_extents_descr[0], "start")
+                    or
+                    hasattr(locale_extents_descr[0], "stop")
+                )
+            ):
+                start_stop = \
+                    _np.array(
+                        tuple(
+                            (le_descr.start, le_descr.stop)
+                            for le_descr in locale_extents_descr
+                        )
+                    )
+                struct_locale_extents[START_STR] = start_stop[:, 0]
+                struct_locale_extents[STOP_STR] = start_stop[:, 1]
+            elif (
+                (
+                    hasattr(locale_extents_descr[0], "__iter__")
+                    or
+                    hasattr(locale_extents_descr[0], "__getitem__")
+                )
+                and
+                _np.all(
+                    [
+                        (hasattr(e, "__int__") or hasattr(e, "__long__"))
+                        for e in iter(locale_extents_descr[0])
+                    ]
+                )
+            ):
+                struct_locale_extents[START_STR] = 0
+                struct_locale_extents[STOP_STR] = locale_extents_descr
+            else:
+                raise ValueError(
+                    "Could not construct dtype=%s instances from locale_extents_descr=%s."
+                    %
+                    (struct_locale_extents.dtype, locale_extents_descr,)
+                )
+            if initialise_halos:
+                self.initialise_struct_locale_extents_halos(
+                    struct_locale_extents,
+                    self._globale_extent,
+                    self._halo
+                )
+
+    def initialise_struct_locale_extents_halos(self, struct_locale_extents, globale_extent, halo):
+        """
+        Trim locale extent halos so they don't extend beyond the :samp:`{globale_extent}` halo.
+        """
+        START_N_STR = self._locale_extent_type.START_N_STR
+        STOP_N_STR = self._locale_extent_type.STOP_N_STR
+        HALO_STR = self._locale_extent_type.HALO_STR
+        ge_start_h = globale_extent.start_h
+        ge_stop_h = globale_extent.stop_h
+
+        msk = struct_locale_extents[STOP_N_STR] > struct_locale_extents[START_N_STR]
+        struct_locale_extents[HALO_STR][:, :, self.LO] = \
+            _np.maximum(
+                0,
+                _np.minimum(
+                    _np.where(msk, struct_locale_extents[START_N_STR] - ge_start_h, 0),
+                    halo[:, self.LO]
+                )
+        )
+        struct_locale_extents[HALO_STR][:, :, self.HI] = \
+            _np.maximum(
+                0,
+                _np.minimum(
+                    _np.where(msk, ge_stop_h - struct_locale_extents[STOP_N_STR], 0),
+                    halo[:, self.HI]
+                )
+        )
+
+    def create_locale_extents(self, struct_locale_extents):
+        """
+        """
+        return \
+            _np.array(
+                tuple(
+                    self._locale_extent_type(struct=struct_locale_extents[i])
+                    for i in range(len(struct_locale_extents))
+                ),
+                dtype="object"
+            )
 
     def get_peer_rank(self, inter_locale_rank):
         """
@@ -778,7 +956,6 @@ class Distribution(object):
                     halo=halo,
                     **kwargs
                 )
-
         else:
             raise ValueError(
                 "Could not construct %s instance from locale_extent=%s."
@@ -933,6 +1110,54 @@ class SingleLocaleDistribution(Distribution):
         )
 
 
+def convert_slice_split_to_struct(splt, globale_extent, halo):
+    """
+    """
+    LO = HaloIndexingExtent.LO
+    HI = HaloIndexingExtent.HI
+
+    START_N_STR = HaloIndexingExtent.START_N_STR
+    STOP_N_STR = HaloIndexingExtent.STOP_N_STR
+    HALO_STR = HaloIndexingExtent.HALO_STR
+
+    ndim = len(splt.flatten()[0])
+    dt = \
+        HaloIndexingExtent.get_struct_dtype_from_ndim(
+            HaloIndexingExtent,
+            ndim=ndim
+        )
+    splt_ary = _np.zeros(splt.shape, dtype=dt)
+    for i in range(splt.size):
+        midx = _np.unravel_index(i, splt.shape)
+        splt_ary[START_N_STR][midx] = tuple(slc.start for slc in splt[midx])
+        splt_ary[STOP_N_STR][midx] = tuple(slc.stop for slc in splt[midx])
+
+    ge_start_h = globale_extent.start_h
+    ge_stop_h = globale_extent.stop_h
+
+    halo = _convert_halo_to_array_form(halo, ndim)
+    msk = splt_ary[STOP_N_STR] > splt_ary[START_N_STR]
+    slice_lo = (slice(None),) * ndim + (slice(None), LO)
+    splt_ary[HALO_STR][slice_lo] = \
+        _np.maximum(
+            0,
+            _np.minimum(
+                _np.where(msk, splt_ary[START_N_STR] - ge_start_h, 0),
+                halo[:, LO]
+            )
+    )
+    slice_hi = (slice(None),) * ndim + (slice(None), HI)
+    splt_ary[HALO_STR][slice_hi] = \
+        _np.maximum(
+            0,
+            _np.minimum(
+                _np.where(msk, ge_stop_h - splt_ary[STOP_N_STR], 0),
+                halo[:, HI]
+            )
+    )
+    return splt_ary
+
+
 class BlockPartition(Distribution):
 
     """
@@ -970,12 +1195,11 @@ class BlockPartition(Distribution):
         """
         self._globale_extent_type = GlobaleExtent
         globale_extent = self.create_globale_extent(globale_extent, halo)
-        self._num_locales = _np.product(dims)
         self._dims = dims
-        self._order = order
-        self._halo_updates_dict = None
+        ndim = len(self._dims)
+        halo = _convert_halo_to_array_form(halo, ndim)
 
-        key = (globale_extent.to_tuple(), tuple(self._dims))
+        key = (globale_extent.to_tuple(), tuple(self._dims), tuple(tuple(row) for row in halo))
         splt = self._split_cache[key]
         if splt is None:
             shape_splitter = \
@@ -985,10 +1209,15 @@ class BlockPartition(Distribution):
                     axis=self._dims,
                     halo=0
                 )
-            splt = shape_splitter.calculate_split()
+            splt = \
+                convert_slice_split_to_struct(
+                    shape_splitter.calculate_split(),
+                    globale_extent,
+                    halo
+                )
             self._split_cache[key] = splt
 
-        locale_extents = _np.empty(splt.size, dtype="object")
+        locale_extents = _np.empty(splt.size, dtype=splt.dtype)
         for i in range(locale_extents.size):
             cart_coord = tuple(_np.unravel_index(i, splt.shape))
             locale_extents[cart_coord_to_cart_rank[cart_coord]] = splt[cart_coord]
@@ -996,6 +1225,14 @@ class BlockPartition(Distribution):
         self._cart_coord_to_cart_rank = cart_coord_to_cart_rank
         self._cart_rank_to_cart_coord_map = \
             {cart_coord_to_cart_rank[c]: c for c in cart_coord_to_cart_rank.keys()}
+        self._cart_rank_to_cart_coord_map = \
+            _np.array(
+                tuple(
+                    self._cart_rank_to_cart_coord_map[cart_rank]
+                    for cart_rank in range(len(self._cart_rank_to_cart_coord_map.keys()))
+                ),
+                dtype="int64"
+            )
         Distribution.__init__(
             self,
             globale_extent=globale_extent,
@@ -1005,6 +1242,22 @@ class BlockPartition(Distribution):
             locale_extent_type=CartLocaleExtent,
             globale_extent_type=self._globale_extent_type
         )
+
+    def initialise_struct_locale_extents(self, struct_locale_extents, locale_extents_descr):
+        """
+        """
+        Distribution.initialise_struct_locale_extents(
+            self,
+            struct_locale_extents,
+            locale_extents_descr
+        )
+        num_locales = len(locale_extents_descr)
+        CART_COORD_STR = self._locale_extent_type.CART_COORD_STR
+        CART_SHAPE_STR = self._locale_extent_type.CART_SHAPE_STR
+        if num_locales > 0:
+            struct_locale_extents[CART_COORD_STR] = \
+                self._cart_rank_to_cart_coord_map[_np.arange(num_locales)]
+            struct_locale_extents[CART_SHAPE_STR] = self._dims
 
     def create_locale_extent(
             self,
