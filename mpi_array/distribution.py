@@ -642,7 +642,7 @@ class Distribution(object):
 
         self.initialise_struct_locale_extents(self._struct_locale_extents, locale_extents)
 
-        self._locale_extents = self.create_locale_extents(self._struct_locale_extents)
+        self._locale_extents = None
 
     def create_struct_locale_extents(self, num_locales, ndim):
         """
@@ -725,7 +725,7 @@ class Distribution(object):
             elif (
                 (
                     hasattr(locale_extents_descr[0], "start")
-                    or
+                    and
                     hasattr(locale_extents_descr[0], "stop")
                 )
             ):
@@ -825,7 +825,7 @@ class Distribution(object):
 
     def create_globale_extent(self, globale_extent, halo=0):
         """
-        Factory function for creating :obj:`GlobaleExtent` object.
+        Factory method for creating :obj:`GlobaleExtent` object.
 
         :type globale_extent: :obj:`object`
         :param globale_extent: Can be specified as a *sequence-of-int* shape,
@@ -881,90 +881,6 @@ class Distribution(object):
 
         return globale_extent
 
-    def create_locale_extent(
-            self,
-            inter_locale_rank,
-            locale_extent,
-            globale_extent,
-            halo=0,
-            **kwargs
-    ):
-        """
-        Factory function for creating :obj:`LocaleExtent` object.
-        The :samp:`**kwargs` are passed through to
-        the :samp:`self._locale_extent_type` constructor.
-
-        :type inter_locale_rank: :obj:`int`
-        :param inter_locale_rank: Rank of :samp:`inter_locale_comm` which is
-            responsible for exchanging data to/from the array region defined
-            by the returned locale extent.
-        :type locale_extent: :obj:`object`
-        :param locale_extent: Can be specified as a *sequence-of-int* shape,
-            *sequence-of-slice* slice or a :obj:`mpi_array.indexing.IndexingExtent`.
-            Defines the locale extent of the array.
-        :type globale_extent: :obj:`GlobaleExtent`
-        :param globale_extent: The globale array extent.
-        :type halo: :obj:`int`, sequence of :obj:`int`,...
-        :param halo: Locale array halo (ghost elements).
-        :rtype: :obj:`LocaleExtent`
-        :return: A :samp:`self._locale_extent_type` instance.
-        """
-        peer_rank = self.get_peer_rank(inter_locale_rank)
-        if hasattr(locale_extent, "start") and hasattr(locale_extent, "stop"):
-            locale_extent = \
-                self._locale_extent_type(
-                    peer_rank=peer_rank,
-                    inter_locale_rank=inter_locale_rank,
-                    globale_extent=globale_extent,
-                    start=locale_extent.start,
-                    stop=locale_extent.stop,
-                    halo=halo,
-                    **kwargs
-                )
-        elif (
-            (hasattr(locale_extent, "__iter__") or hasattr(locale_extent, "__getitem__"))
-            and
-            _np.all([isinstance(e, slice) for e in locale_extent])
-        ):
-            locale_extent = \
-                self._locale_extent_type(
-                    peer_rank=peer_rank,
-                    inter_locale_rank=inter_locale_rank,
-                    globale_extent=globale_extent,
-                    slice=locale_extent,
-                    halo=halo,
-                    **kwargs
-                )
-        elif (
-            (hasattr(locale_extent, "__iter__") or hasattr(locale_extent, "__getitem__"))
-            and
-            _np.all(
-                [
-                    (hasattr(e, "__int__") or hasattr(e, "__long__"))
-                    for e in iter(locale_extent)
-                ]
-            )
-        ):
-            stop = _np.array(locale_extent)
-            locale_extent = \
-                self._locale_extent_type(
-                    peer_rank=peer_rank,
-                    inter_locale_rank=inter_locale_rank,
-                    globale_extent=globale_extent,
-                    start=_np.zeros_like(stop),
-                    stop=stop,
-                    halo=halo,
-                    **kwargs
-                )
-        else:
-            raise ValueError(
-                "Could not construct %s instance from locale_extent=%s."
-                %
-                (self._locale_extent_type.__name__, locale_extent,)
-            )
-
-        return locale_extent
-
     def get_extent_for_rank(self, inter_locale_rank):
         """
         Returns extent associated with the specified rank
@@ -976,6 +892,8 @@ class Distribution(object):
         :rtype: :obj:`LocaleExtent`
         :return: The locale extent for the specified :samp:`{inter_locale_rank}` rank.
         """
+        if self._locale_extents is None:
+            self._locale_extents = self.create_locale_extents(self._struct_locale_extents)
         return self._locale_extents[inter_locale_rank]
 
     @property
@@ -1000,6 +918,8 @@ class Distribution(object):
         Sequence of :obj:`LocaleExtent` objects where :samp:`locale_extents[r]`
         is the extent assigned to locale with :samp:`inter_locale_comm` rank :samp:`r`.
         """
+        if self._locale_extents is None:
+            self._locale_extents = self.create_locale_extents(self._struct_locale_extents)
         return self._locale_extents
 
     @property
@@ -1007,7 +927,7 @@ class Distribution(object):
         """
         An :obj:`int` specifying the number of locales in this distribution.
         """
-        return len(self._locale_extents)
+        return len(self._struct_locale_extents)
 
     @property
     def peer_ranks_per_locale(self):
@@ -1217,22 +1137,22 @@ class BlockPartition(Distribution):
                 )
             self._split_cache[key] = splt
 
-        locale_extents = _np.empty(splt.size, dtype=splt.dtype)
-        for i in range(locale_extents.size):
-            cart_coord = tuple(_np.unravel_index(i, splt.shape))
-            locale_extents[cart_coord_to_cart_rank[cart_coord]] = splt[cart_coord]
+        num_locales = splt.size
 
+        if isinstance(cart_coord_to_cart_rank, dict):
+            cc2cr = _np.zeros(self._dims, dtype="int64")
+            for cart_coord in cart_coord_to_cart_rank.keys():
+                cc2cr[cart_coord] = cart_coord_to_cart_rank[cart_coord]
+            cart_coord_to_cart_rank = cc2cr
         self._cart_coord_to_cart_rank = cart_coord_to_cart_rank
-        self._cart_rank_to_cart_coord_map = \
-            {cart_coord_to_cart_rank[c]: c for c in cart_coord_to_cart_rank.keys()}
-        self._cart_rank_to_cart_coord_map = \
-            _np.array(
-                tuple(
-                    self._cart_rank_to_cart_coord_map[cart_rank]
-                    for cart_rank in range(len(self._cart_rank_to_cart_coord_map.keys()))
-                ),
-                dtype="int64"
-            )
+        self._cart_rank_to_cart_coord_map = _np.zeros((num_locales, ndim), dtype="int64")
+        cart_coords_idx = _np.unravel_index(_np.arange(num_locales), self._dims)
+        cart_ranks = self._cart_coord_to_cart_rank[cart_coords_idx]
+        self._cart_rank_to_cart_coord_map[cart_ranks] = _np.array(cart_coords_idx).T
+
+        locale_extents = _np.empty(num_locales, dtype=splt.dtype)
+        locale_extents[cart_ranks] = splt[cart_coords_idx]
+
         Distribution.__init__(
             self,
             globale_extent=globale_extent,
@@ -1258,32 +1178,6 @@ class BlockPartition(Distribution):
             struct_locale_extents[CART_COORD_STR] = \
                 self._cart_rank_to_cart_coord_map[_np.arange(num_locales)]
             struct_locale_extents[CART_SHAPE_STR] = self._dims
-
-    def create_locale_extent(
-            self,
-            inter_locale_rank,
-            locale_extent,
-            globale_extent,
-            halo=0,
-            **kwargs
-    ):
-        """
-        Over-rides :meth:`Distrbution.create_locale_extent`.
-
-        :rtype: :obj:`CartLocaleExtent`
-        :returns: A :obj:`CartLocaleExtent` instance.
-        """
-        return \
-            Distribution.create_locale_extent(
-                self,
-                inter_locale_rank,
-                locale_extent,
-                globale_extent,
-                halo,
-                cart_coord=self._cart_rank_to_cart_coord_map[inter_locale_rank],
-                cart_shape=self._dims,
-                **kwargs
-            )
 
     def __str__(self):
         """

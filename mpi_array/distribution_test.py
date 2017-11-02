@@ -686,6 +686,7 @@ class DistributionTest(_unittest.TestCase):
             GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
             d.globale_extent
         )
+        self.assertEqual(_mpi.UNDEFINED, d.get_peer_rank(0))
         self.assertEqual(
             LocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
@@ -697,12 +698,63 @@ class DistributionTest(_unittest.TestCase):
             d.locale_extents[0]
         )
 
+        d = \
+            Distribution(
+                globale_extent=globale_extent.to_slice(),
+                locale_extents=[locale_extent.to_slice(), ]
+            )
+        self.assertEqual(
+            GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
+            d.globale_extent
+        )
+        self.assertEqual(_mpi.UNDEFINED, d.get_peer_rank(0))
         self.assertEqual(
             LocaleExtent(
                 peer_rank=_mpi.UNDEFINED,
                 inter_locale_rank=0,
                 start=locale_extent.start,
                 stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.locale_extents[0]
+        )
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            ),
+            d.get_extent_for_rank(0)
+        )
+
+        le = \
+            LocaleExtent(
+                peer_rank=_mpi.UNDEFINED,
+                inter_locale_rank=0,
+                start=locale_extent.start,
+                stop=locale_extent.stop,
+                globale_extent=None
+            )
+
+        d = \
+            Distribution(
+                globale_extent=globale_extent.to_slice(),
+                locale_extents=[le, ],
+                inter_locale_rank_to_peer_rank=[5]
+            )
+        self.assertEqual(
+            GlobaleExtent(start=globale_extent.start, stop=globale_extent.stop),
+            d.globale_extent
+        )
+        self.assertEqual(5, d.get_peer_rank(0))
+        self.assertEqual(
+            LocaleExtent(
+                peer_rank=5,
+                inter_locale_rank=0,
+                start=le.start,
+                stop=le.stop,
                 globale_extent=None
             ),
             d.get_extent_for_rank(0)

@@ -71,16 +71,6 @@ class IndexingExtent(object):
             cls.struct_dtype_dict[ndim] = dtype
         return dtype
 
-    def create_struct_dtype(self, ndim):
-        """
-        Creates a :obj:`numpy.dtype` structure for holding start and stop indices.
-
-        :rtype: :obj:`numpy.dtype`
-        :return: :obj:`numpy.dtype` with :samp:`"start"` and :samp:`"stop"` multi-index
-           fields of dimension :samp:`{ndim}`.
-        """
-        return self.__class__.create_struct_dtype_from_ndim(self.__class__, ndim)
-
     def get_struct_dtype(self, ndim):
         """
         """
@@ -150,7 +140,7 @@ class IndexingExtent(object):
     @start.setter
     def start(self, start):
         if len(start) != len(self._struct[self.START]):
-            self._struct = self.create_struct_dtype(ndim=len(start))
+            raise ValueError("len(start)=%s != self.ndim=%s" % (len(start), self.ndim))
         self._struct[self.START][...] = start
 
     @property
@@ -164,7 +154,7 @@ class IndexingExtent(object):
     @stop.setter
     def stop(self, stop):
         if len(stop) != len(self._struct[self.STOP]):
-            self._struct = self.create_struct_dtype(ndim=len(stop))
+            raise ValueError("len(ststopart)=%s != self.ndim=%s" % (len(stop), self.ndim))
         self._struct[self.STOP][...] = stop
 
     @property
