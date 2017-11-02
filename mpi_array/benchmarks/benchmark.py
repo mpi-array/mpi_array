@@ -15,6 +15,7 @@ import sys
 import datetime
 try:
     import cProfile as profile
+    import pstats
 except BaseException:
     profile = None
 from hashlib import sha256
@@ -146,6 +147,7 @@ class Benchmark(object):
         self._current_params = None
         self._comm = None
         self._setup_error = None
+        self._profiler = None
 
     def initialise(self):
         """
@@ -311,24 +313,24 @@ class Benchmark(object):
     def do_run(self):
         return self.run(*self._current_params)
 
-    def do_profile(self, filename=None):
-        def method_caller():
-            self.run(*self._current_params)
-
+    def do_profile_run(self):
         if profile is None:
             raise RuntimeError("cProfile could not be imported")
 
-        if filename is not None:
-            if hasattr(method_caller, 'func_code'):
-                code = method_caller.func_code
-            else:
-                code = method_caller.__code__
+        self._profiler = None
 
-            self.redo_setup()
+        self.redo_setup()
 
-            profile.runctx(
-                code, {'run': self.func, 'params': self._current_params},
-                {}, filename)
+        if self.comm.rank == self.root_rank:
+            self._profiler = profile.Profile()
+            self._profiler.disable()
+
+        self.run(*self._current_params)
+
+        profiler = self._profiler
+        self._profiler = None
+
+        return profiler
 
 
 class TimeBenchmark(Benchmark):
@@ -526,7 +528,12 @@ class TimeBenchmark(Benchmark):
             self.barrier()
             gc.disable()
             start = self.wall_time()
+            if self._profiler is not None:
+                self._profiler.enable()
             timing = timer.timeit(number)
+            if self._profiler is not None:
+                self._profiler.disable()
+
             end_pre_barrier = self.wall_time()
             self.barrier()
             end_post_barrier = self.wall_time()
@@ -645,7 +652,20 @@ def create_runner_argument_parser():
     ap.add_argument(
         "-q", "--quick",
         action='store_true',
-        help="Quick benchmark run, only execute each benchmark once, skip repeats."
+        help="Quick benchmark run, only execute each benchmark once, skip repeats.",
+        default=False
+    )
+    ap.add_argument(
+        "-p", "--profile",
+        action='store_true',
+        help="Profile the run.",
+        default=False
+    )
+    ap.add_argument(
+        "--profile-file",
+        action='store',
+        help="Name of file to store profile data.",
+        default="mpia_profile.dat"
     )
     ap.add_argument(
         "-o", "--results_file",
@@ -717,6 +737,7 @@ class BenchmarkRunner(object):
         self._bench_module_names = None
         self._bench_results = None
         self._benchmarks = None
+        self._profile_stats = None
         if self._args.default_timer == "Wtime":
             self._default_timer = mpi.Wtime
         elif self._args.default_timer == "process_time":
@@ -779,6 +800,35 @@ class BenchmarkRunner(object):
         is only executed once.
         """
         return self._args.quick
+
+    @property
+    def do_profile(self):
+        """
+        A :obj:`bool`, if :samp:`True`, performs a *profile* run in addition to the run.
+        """
+        return self._args.profile
+
+    @property
+    def profile_file_name(self):
+        """
+        A :obj:`str` indicating the file name in which profile info is saved.
+        """
+        return self._args.profile_file
+
+    @property
+    def profile_stats(self):
+        """
+        A :obj:`pstats.Stats` object in which profile info is accumulated.
+        """
+        if self._profile_stats is None:
+            if sys.version_info[0] <= 2:
+                from StringIO import StringIO
+            else:
+                from io import StringIO
+
+            self._profile_stats = pstats.Stats(stream=StringIO())
+
+        return self._profile_stats
 
     @property
     def discover_only(self):
@@ -870,6 +920,13 @@ class BenchmarkRunner(object):
         else:
             self._benchmarks = None
 
+    def handle_profile(self, profiler):
+        """
+        """
+        if profiler is not None:
+            profiler.dump_stats(self.profile_file_name)
+            self.profile_stats.add(self.profile_file_name)
+
     def run_benchmarks(self):
         """
         Runs the benchmarks, results are stored in :attr:`bench_results`.
@@ -889,6 +946,22 @@ class BenchmarkRunner(object):
         benchmarks = self.comm.bcast(benchmarks, self.root_rank)
 
         results = []
+        self.root_logger.info(
+            "Running %4d benchmarks, COMM_WORLD.size=%4d (benchmarks found in modules %s)...",
+            len(benchmarks) if benchmarks is not None else 0,
+            mpi.COMM_WORLD.size,
+            self.benchmark_module_names
+        )
+        self.root_logger.info(
+            "%68s,%16s,%16s,%6s,%8s, %s",
+            "benchmark.name",
+            "min sample (sec)",
+            "max sample (sec)",
+            "repeat",
+            "number",
+            "params"
+        )
+
         if benchmarks is not None:
             for benchmark in benchmarks:
                 if self.do_quick_run:
@@ -932,6 +1005,9 @@ class BenchmarkRunner(object):
                                 }
                         else:
                             result = benchmark.do_run()
+                            if self.do_profile:
+                                profiler = benchmark.do_profile_run()
+                                self.handle_profile(profiler)
                     finally:
                         benchmark.do_teardown()
 
@@ -1011,6 +1087,35 @@ class BenchmarkRunner(object):
             with open(benchmarks_file_name, "wt") as fd:
                 json.dump(benchmark_dicts, fd, indent=2, sort_keys=True)
 
+    def write_profile_stats(self, profile_stats, profile_file_name):
+        """
+        Dump the profile stats from the :obj:`pstats.Stats` object to file.
+
+        :type profile_stats: :obj:`pstat.Stats`
+        :param profile_stats: The stats to dump to file.
+        :type profile_file_name: :obj:`str`
+        :param profile_file_name: The name of the file where stats are dumped
+            (overwritten if it exists).
+
+        .. seealso: :meth:`pstat.Stats.dump_stats`
+
+        """
+        if (profile_stats is not None) and (profile_file_name is not None):
+            profile_stats.dump_stats(profile_file_name)
+
+    def log_profile_stats(self, profile_stats, sort_keys=('cumtime',)):
+        """
+        Logs the output from :meth:`pstats.Stats.print_stats.
+
+        :type profile_stats: :obj:`pstat.Stats`
+        :param profile_stats: The stats to dump to file.
+        """
+        if profile_stats is not None:
+            profile_stats.sort_stats(*sort_keys)
+            profile_stats.print_stats()
+            s = profile_stats.stream.getvalue()
+            self.rank_logger.info(s)
+
     def run_and_write_results(self):
         """
         Discovers, runs and records benchmark results in files.
@@ -1020,6 +1125,9 @@ class BenchmarkRunner(object):
             self.write_bench_results(self.bench_results, self.bench_results_file_name)
         if self.benchmarks is not None:
             self.write_benchmarks(self.benchmarks, self.benchmarks_file_name)
+        if self.do_profile:
+            self.write_profile_stats(self._profile_stats, self.profile_file_name)
+            self.log_profile_stats(self._profile_stats)
 
 
 def run_main(argv):
