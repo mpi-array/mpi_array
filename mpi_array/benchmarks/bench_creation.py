@@ -20,7 +20,7 @@ class CreateBench(object):
     param_names = ["shape"]
 
     # Goal time (seconds) for a single repeat.
-    goal_time = 2.0
+    goal_time = 5.0
 
     # Execute benchmark for this time (seconds) as a *warm-up* prior to real timing.
     warmup_time = 2.0
@@ -157,9 +157,9 @@ class BlockPartitionCreateBench(object):
     param_names = ["num_locales"]
 
     goal_time = 0.25
-    warmup_time = 0.25
+    warmup_time = 0.15
 
-    repeats = 8
+    repeat = 8
 
     def setup(self, num_locales):
         """
@@ -182,6 +182,43 @@ class BlockPartitionCreateBench(object):
             dims=self.dims,
             cart_coord_to_cart_rank=self.cart_coord_to_cart_rank
         )
+
+
+class MpiArrayCreateLikeBench(CreateBench):
+    """
+    Benchmarks for :func:`mpi_array.empty_like`, :func:`mpi_array.zeros_like` etc.
+    """
+
+    def setup(self, shape):
+        """
+        Import :mod:`mpi_array` module and assign to :samp:`self.module`.
+        """
+        self.module = _try_import_for_setup("mpi_array")
+        self._like_array = self.module.empty(self.get_globale_shape(shape), dtype="int32")
+
+    def teardown(self, shape):
+        """
+        Free the *like* array.
+        """
+        self.free(self._like_array)
+
+    def free(self, a):
+        """
+        See :meth:`free_mpi_array_obj`.
+        """
+        self.free_mpi_array_obj(a)
+
+    def time_empty_like(self, shape):
+        """
+        Test creation of *uninitialised* array using another array as template.
+        """
+        self.free(self.module.empty_like(self._like_array))
+
+    def time_ones_like(self, shape):
+        """
+        Test creation of *one initialised* array using another array as template.
+        """
+        self.free(self.module.ones_like(self._like_array))
 
 
 class CommsCreateBench(CreateBench):
