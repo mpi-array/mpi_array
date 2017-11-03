@@ -1118,7 +1118,7 @@ class BenchmarkRunner(object):
 
     def log_profile_stats(self, profile_stats, sort_keys=('cumtime',)):
         """
-        Logs the output from :meth:`pstats.Stats.print_stats.
+        Logs the output from :meth:`pstats.Stats.print_stats`.
 
         :type profile_stats: :obj:`pstat.Stats`
         :param profile_stats: The stats to dump to file.
