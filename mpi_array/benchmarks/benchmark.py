@@ -662,7 +662,7 @@ def create_runner_argument_parser():
         default=False
     )
     ap.add_argument(
-        "--profile-file",
+        "--profile_file",
         action='store',
         help="Name of file to store profile data.",
         default="mpia_profile.dat"
