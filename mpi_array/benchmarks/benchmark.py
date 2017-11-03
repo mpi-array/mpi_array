@@ -820,15 +820,25 @@ class BenchmarkRunner(object):
         """
         A :obj:`pstats.Stats` object in which profile info is accumulated.
         """
-        if self._profile_stats is None:
-            if sys.version_info[0] <= 2:
-                from StringIO import StringIO
-            else:
-                from io import StringIO
-
-            self._profile_stats = pstats.Stats(stream=StringIO())
-
         return self._profile_stats
+
+    def create_profile_stats(self, profile_file_name):
+        """
+        Factory function for creating a :obj:`pstats.Stats` instance.
+
+        :type profile_file_name: :obj:`str`
+        :param profile_file_name: Name of file which contains profile data.
+        :rtype: :obj:`pstats.Stats`
+        :return: Stats object initialised with data from :samp:`{profile_file_name}`.
+        """
+        if sys.version_info[0] <= 2:
+            from StringIO import StringIO
+        else:
+            from io import StringIO
+
+        profile_stats = pstats.Stats(profile_file_name, stream=StringIO())
+
+        return profile_stats
 
     @property
     def discover_only(self):
@@ -925,7 +935,10 @@ class BenchmarkRunner(object):
         """
         if profiler is not None:
             profiler.dump_stats(self.profile_file_name)
-            self.profile_stats.add(self.profile_file_name)
+            if self._profile_stats is None:
+                self._profile_stats = self.create_profile_stats(self.profile_file_name)
+            else:
+                self._profile_stats.add(self.profile_file_name)
 
     def run_benchmarks(self):
         """
