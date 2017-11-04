@@ -789,9 +789,9 @@ def empty(
     intra_locale_rank = comms_and_distrib.locale_comms.intra_locale_comm.rank
     intra_locale_size = comms_and_distrib.locale_comms.intra_locale_comm.size
     locale_extent = \
-        comms_and_distrib.distribution.locale_extents[
-            comms_and_distrib.this_locale.inter_locale_rank
-        ]
+        comms_and_distrib.distribution.get_extent_for_rank(
+            inter_locale_rank=comms_and_distrib.this_locale.inter_locale_rank
+        )
 
     rma_window_buffer = \
         comms_and_distrib.locale_comms.alloc_locale_buffer(

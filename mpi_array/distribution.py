@@ -892,9 +892,11 @@ class Distribution(object):
         :rtype: :obj:`LocaleExtent`
         :return: The locale extent for the specified :samp:`{inter_locale_rank}` rank.
         """
-        if self._locale_extents is None:
-            self._locale_extents = self.create_locale_extents(self._struct_locale_extents)
-        return self._locale_extents[inter_locale_rank]
+        if self._locale_extents is not None:
+            extent = self._locale_extents[inter_locale_rank]
+        else:
+            extent = self._locale_extent_type(struct=self._struct_locale_extents[inter_locale_rank])
+        return extent
 
     @property
     def halo(self):
