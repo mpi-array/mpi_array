@@ -433,6 +433,7 @@ class GndarrayTest(_unittest.TestCase):
                 as gnd_ary:
 
             # Wait for all procs to finish copying.
+            gnd_ary.initialise_windows()
             gnd_ary.locale_comms.peer_comm.barrier()
 
             num_locales = gnd_ary.distribution.num_locales

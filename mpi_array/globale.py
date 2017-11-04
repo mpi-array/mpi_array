@@ -724,6 +724,12 @@ class gndarray(_NDArrayOperatorsMixin):
         """
         return self._comms_and_distrib.locale_comms.root_logger
 
+    def initialise_windows(self):
+        """
+        Creates the RMA windows required for inter-locale (and peer) one-sided RMA comms.
+        """
+        self.rma_window_buffer.initialise_windows()
+
     def intra_locale_barrier(self):
         """
         """
@@ -905,6 +911,14 @@ class gndarray(_NDArrayOperatorsMixin):
         shared memory and performs one-sided RMA to fetch data from
         remote locales.
         """
+        if not self.rma_window_buffer.inter_locale_win_initialised:
+            raise ValueError(
+                "Attempting inter-locale one-sided RMA without having created"
+                +
+                " the inter-locale window, call the initialise_windows method (all *peer* ranks)"
+                +
+                " to create windows before performing one-sided RMA."
+            )
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:
             # Need to fetch remote data
@@ -954,6 +968,15 @@ class gndarray(_NDArrayOperatorsMixin):
         otherwise allocates non-shared memory and performs one-sided RMA
         to fetch data from remote locales.
         """
+        if not self.rma_window_buffer.peer_win_initialised:
+            raise ValueError(
+                "Attempting peer one-sided RMA without having created"
+                +
+                " the peer window, call the initialise_windows method (all *peer* ranks)"
+                +
+                " to create windows before performing one-sided RMA."
+            )
+
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:
             # Need to fetch remote data
