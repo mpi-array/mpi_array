@@ -266,6 +266,8 @@ class RmaWindowBuffer(object):
     @property
     def root_logger(self):
         """
+        A :obj:`logging.Logger` for logging messages from the *root* MPI
+        process of :attr:`peer_comm`.
         """
         if self._root_logger is None:
             self._root_logger = \
@@ -278,6 +280,8 @@ class RmaWindowBuffer(object):
     @property
     def rank_logger(self):
         """
+        A :obj:`logging.Logger` for logging messages from all rank MPI
+        processes of :attr:`peer_comm`.
         """
         if self._rank_logger is None:
             self._rank_logger = \
@@ -350,6 +354,20 @@ class RmaWindowBuffer(object):
         return self._inter_locale_win
 
     @property
+    def peer_comm(self):
+        """
+        The *peer* :obj:`mpi4py.MPI.Comm` MPI communicator.
+        """
+        return self._peer_comm
+
+    @property
+    def inter_locale_comm(self):
+        """
+        The *inter-locale* :obj:`mpi4py.MPI.Win` MPI communicator.
+        """
+        return self._inter_locale_comm
+
+    @property
     def intra_locale_win_memory(self):
         """
         The memory allocated using one of :meth:`mpi4py.MPI.Win.Allocate`
@@ -374,6 +392,13 @@ class RmaWindowBuffer(object):
 
     def create_inter_locale_win(self):
         """
+        Creates a :obj:`mpi4py.MPI.Win` window (over the :attr:`inter_locale_comm`
+        communicator) exposing the :attr:`buffer` memory.
+
+        :rtype: :obj:`mpi4py.MPI.Win`
+        :return: Newly created window exposing the :attr:`buffer` memory.
+           Returns :attr:`mpi4py.MPI.WIN_NULL` on processes which
+           have :attr:`inter_locale_comm` equal to :attr:`mpi4py.MPI.COMM_NULL`.
         """
         inter_locale_win = _mpi.WIN_NULL
         if (self._inter_locale_comm != _mpi.COMM_NULL) and (self._inter_locale_comm is not None):
@@ -389,6 +414,11 @@ class RmaWindowBuffer(object):
 
     def create_peer_win(self):
         """
+        Creates a :obj:`mpi4py.MPI.Win` window (over the :attr:`peer_win`
+        communicator) exposing the :attr:`buffer` memory.
+
+        :rtype: :obj:`mpi4py.MPI.Win`
+        :return: Newly created window exposing the :attr:`buffer` memory.
         """
         if self._inter_locale_comm != _mpi.COMM_NULL:
             peer_buffer = self.intra_locale_win_memory
@@ -412,7 +442,8 @@ class RmaWindowBuffer(object):
     @property
     def peer_win_initialised(self):
         """
-        Returns :samp:`True` if *peer* RMA window (:attr:`peer_win`) has been created.
+        Returns :samp:`True` if *peer* RMA window (:attr:`peer_win`) has been
+        created. :samp:`False` otherwise.
         """
         return self._peer_win is not None
 
@@ -420,7 +451,7 @@ class RmaWindowBuffer(object):
     def inter_locale_win_initialised(self):
         """
         Returns :samp:`True` if *inter-locale* RMA window (:attr:`inter_locale_win`)
-        has been created.
+        has been created. :samp:`False` otherwise.
         """
         return self._inter_locale_win is not None
 
@@ -429,12 +460,14 @@ class RmaWindowBuffer(object):
         """
         Returns :samp:`True` if both *peer* RMA window (:attr:`peer_win`)
         and *inter-locale* RMA window (:attr:`inter_locale_win`) have been
-        created.
+        created. :samp:`False` otherwise.
         """
         return (self._peer_win is not None) and (self._inter_locale_win is not None)
 
     def initialise_windows(self):
         """
+        Creates both of the :attr:`peer_win`
+        and :attr:`inter_locale_win` :obj:`mpi4py.MPI.Win` objects.
         """
         return self.peer_win, self.inter_locale_win
 
