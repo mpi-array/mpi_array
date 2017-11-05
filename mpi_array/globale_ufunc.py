@@ -704,6 +704,8 @@ class GndarrayArrayUfuncExecutor(object):
     def execute___call__(self):
         """
         """
+        from .globale import gndarray as _gndarray
+
         # Calculate the shape of the output arrays.
         result_shape = broadcast_shape(*(self.get_inputs_shapes()))
         self.array_like_obj.rank_logger.debug("result_shape=%s", result_shape)
@@ -721,6 +723,9 @@ class GndarrayArrayUfuncExecutor(object):
         # TODO: Should really check whether remote fetch of data is needed
         # for any locale before calling this barrier. If all locales
         # have local data then this barrier shouldn't be necessary.
+        for i in self.inputs:
+            if isinstance(i, _gndarray):
+                i.initialise_windows()
         gndarray_outputs[0].inter_locale_barrier()
 
         # Fetch the peer-rank sub-arrays of the input arrays needed
