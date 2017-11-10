@@ -915,6 +915,14 @@ class Distribution(object):
         return self._globale_extent
 
     @property
+    def struct_locale_extents(self):
+        """
+        A structure :obj:`numpy.ndarray` where :samp:`struct_locale_extents[r]`
+        is the extent assigned to locale with :samp:`inter_locale_comm` rank :samp:`r`.
+        """
+        return self._struct_locale_extents
+
+    @property
     def locale_extents(self):
         """
         Sequence of :obj:`LocaleExtent` objects where :samp:`locale_extents[r]`

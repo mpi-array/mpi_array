@@ -31,6 +31,7 @@ Functions
 from __future__ import absolute_import
 
 import numpy as _np
+import mpi4py.MPI as _mpi
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import logging as _logging  # noqa: E402,F401
@@ -310,13 +311,26 @@ def shape_extend_dims(ndim, shape):
 
 def get_extents(input, locale_info):
     """
-    Returns a :obj:`LocaleExtent` for the given input.
+    Returns a :samp:`(locale_extent, globale_extent)` pair for
+    the given :samp:`input`, where :samp:`locale_extent` is
+    a :obj:`mpi_array.distribution.LocaleExtent` instance and :samp:`globale_extent` is
+    a :obj:`mpi_array.distribution.GlobaleExtent` instance.
+
+    :type input: scalar, array like or :obj:`mpi_array.globale.gndarray`
+    :param input: Return extents for this input.
+    :type locale_info: :obj:`mpi_array.comms.ThisLocaleInfo`
+    :param locale_info: The rank info required for constructing
+        a :obj:`mpi_array.distribution.LocaleExtent` instance
+        for :samp:`input` types which are not :obj:`mpi_array.globale.gndarray`.
+    :rtype: :obj:`tuple`
+    :return: A :samp:`(locale_extent, globale_extent)` pair indicating the
+       extents of the :samp:`{input}` array-like.
     """
     locale_extent = None
     globale_extent = None
     if not (hasattr(input, "shape") and hasattr(input, "ndim")):
         input = _np.asanyarray(input)
-    if hasattr(input, "lndarray_proxy"):
+    if hasattr(input, "lndarray_proxy") and hasattr(input, "distribution"):
         locale_extent = input.lndarray_proxy.locale_extent
         globale_extent = input.distribution.globale_extent
     elif input.ndim > 0:
@@ -345,11 +359,25 @@ def calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_local
     """
     Returns :obj:`tuple` of :obj:`slice` (one tuple for each pair-element
     in :samp:`{inp_locale_extents}`). The returned *slices* indicate the
-    portion of the input which matches the specified locale
-    extent :samp:`{out_locale_extent}` for broadcasting.
+    portion of the corresponding input extent which broadcasts
+    to the output extent :samp:`{out_locale_extent}`.
 
     Assumes :samp:`{out_locale_extent}.ndim >= {inp_locale_extents}[i].ndim`
     for :samp:`i in range(0, len({inp_locale_extents})`.
+
+    :type out_locale_extent: :obj:`mpi_array.distribution.LocaleExtent`
+    :param out_locale_extent: A locale extent of the output array.
+    :type out_globale_extent: :obj:`mpi_array.distribution.GlobaleExtent`
+    :param out_globale_extent: The globale extent of the output :obj:`mpi_array.globale.gndarray`.
+    :type inp_locale_extents: sequence of extent pairs
+    :param inp_locale_extents: This is the sequence
+       of :samp:`(inp_locale_extent, inp_globale_extent)` pairs, one pair for
+       each ufunc input.
+    :rtype: :obj:`tuple` of :obj:`tuple` elements
+    :return: For each pair :samp:`(inp_locale_extent, inp_globale_extent)`
+       in :samp:`{inp_locale_extents}` returns a :obj:`tuple`-of-:obj:`slice`
+       indicating the portion of :samp:`inp_locale_extent` which is to be broadcast
+       with :samp:`{out_locale_extent}`. Tuple indices are globale.
     """
     slice_list = []
     out_loc_start = out_locale_extent.start
@@ -381,6 +409,8 @@ def calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_local
 
 def calc_matching_peer_rank_slices(out_slice, inp_arys):
     """
+    For each input array in :samp:`{inp_arys}, calculates the portion
+    which broadcasts to the :samp:`{out_slice}`.
     Returns :obj:`tuple` of :obj:`slice` (one tuple for each array/scalar element
     in :samp:`{inp_arys}`). The returned *slices* indicate the
     portion of the input which matches the specified :samp:`{out_slice}`
@@ -388,6 +418,11 @@ def calc_matching_peer_rank_slices(out_slice, inp_arys):
 
     Assumes :samp:`len({out_slice}) >= {inp_arys}[i].ndim`
     for :samp:`i in range(0, len({inp_arys})`.
+
+    :type out_slice: :obj:`tuple` of :obj:`slice`
+    :param out_slice: Slice indicating a portion (sub-array) of an output array.
+    :type inp_arys: Sequence of :obj:`numpy.ndarray`
+    :param inp_arys: The ufunc input arrays.
     """
     slice_list = []
     for inp_ary in inp_arys:
@@ -452,13 +487,27 @@ class GndarrayArrayUfuncExecutor(object):
 
     """
     Instances execute a ufunc for a :obj:`mpi_array.globale.gndarray`.
-    Takes care of creating outputs, fetching required parts of inputs
+    Takes care of creating outputs, remote fetching of required parts of inputs
     and forwarding call to :obj:`numpy.ufunc` instance to perform
-    the computation.
+    the computation on the locale :obj:`numpy.ndarray` instances.
     """
 
     def __init__(self, array_like_obj, ufunc, method, *inputs, **kwargs):
         """
+        Initialise.
+
+        :type array_like_obj: :obj:`mpi_array.globale.gndarray`
+        :param array_like_obj: The :obj:`mpi_array.globale.gndarray` which
+           triggered the :samp:`__array_ufunc__` call.
+        :type ufunc: :obj:`numpy.ufunc`
+        :param ufunc: The ufunc to be executed.
+        :type method: :obj:`str`
+        :param method: The name of the method of :samp:`{ufunc}` which is
+           to be executed.
+        :type inputs: array like
+        :param inputs: The ufunc inputs.
+        :type kwargs: keyword args
+        :param kwargs: The ufunc keyword arguments.
         """
         self._array_like_obj = array_like_obj
         self._ufunc = ufunc
@@ -485,53 +534,65 @@ class GndarrayArrayUfuncExecutor(object):
     @property
     def peer_comm(self):
         """
+        The peer :obj:`mpi4py.MPI.Comm` communicator.
         """
         return self._array_like_obj.locale_comms.peer_comm
 
     @property
     def intra_locale_comm(self):
         """
+        The intra-locale :obj:`mpi4py.MPI.Comm` communicator.
         """
         return self._array_like_obj.locale_comms.intra_locale_comm
 
     @property
     def inter_locale_comm(self):
         """
+        The inter-locale :obj:`mpi4py.MPI.Comm` communicator.
         """
         return self._array_like_obj.locale_comms.inter_locale_comm
 
     @property
     def ufunc(self):
         """
+        The :obj:`numpy.ufunc` to be executed.
         """
         return self._ufunc
 
     @property
     def outputs(self):
         """
+        The ufunc :obj:`mpi_array.globale.gndarray` output arrays.
         """
         return self._outputs
 
     @property
     def inputs(self):
         """
+        The sequence of ufunc inputs.
         """
         return self._inputs
 
     @property
     def casting(self):
         """
+        A :obj:`str` indicating the casting mode.
         """
         return self._casting
 
     @property
     def method(self):
         """
+        A :obj:`str` indicating the method of the :attr:`ufunc` to be executed.
         """
         return self._method
 
     def get_inputs_shapes(self):
         """
+        Returns a *shape* :obj:`tuple` for each element of :attr:`inputs`.
+
+        :rtype: :obj:`tuple`
+        :return: Shape of each ufunc input.
         """
         return \
             tuple(
@@ -543,6 +604,12 @@ class GndarrayArrayUfuncExecutor(object):
 
     def get_best_match_input(self, result_shape):
         """
+        Returns the element of :attr:`inputs` whose globale shape
+        best matches :samp:`{result_shape}`.
+
+        :rtype: :samp:`None` or :obj:`mpi_array.globale.gndarray`.
+        :return: The input array whose shape matches :samp:`{result_shape}`,
+           or :samp:`None` if none of the inputs are a good match.
         """
         best_input = None
         result_shape = _np.array(result_shape, dtype="int64")
@@ -593,6 +660,7 @@ class GndarrayArrayUfuncExecutor(object):
 
         template_output_gary = None
         if (outputs is not None) and (len(outputs) > 0):
+            self.check_equivalent_inter_locale_comms(outputs)
             template_output_gary = outputs[-1]
         else:
             best_match_input = self.get_best_match_input(result_shape)
@@ -634,6 +702,17 @@ class GndarrayArrayUfuncExecutor(object):
 
     def get_input_extents(self, locale_info):
         """
+        Returns tuple of :samp:`(locale_extent, globale_extent)` pairs,
+        one for each of the :attr:`inputs`.
+
+        :type locale_info: :obj:`mpi_array.comms.ThisLocaleInfo`
+        :param locale_info: The rank info required for constructing
+            a :obj:`mpi_array.distribution.LocaleExtent` instance
+            for :samp:`input` types which are not :obj:`mpi_array.globale.gndarray`.
+        :rtype: :obj:`tuple`
+        :return: Pairs which indicate the locale extent of the ufunc :attr:`inputs`.
+
+        .. seealso:: :func:`get_extents`
         """
         return \
             tuple(
@@ -644,6 +723,15 @@ class GndarrayArrayUfuncExecutor(object):
         """
         Returns two element tuple of :samp:`(input_arrays, output_arrays)` which
         are to be passed to the :obj:`numpy.ufunc` object :attr:`ufunc`.
+
+        :type gndarray_outputs: sequence of :obj:`mpi_array.globale.gndarray`
+        :param gndarray_outputs: The output arrays. All arrays should be the
+           same shape and same distribution.
+        :rtype: :samp:`None` or :obj:`tuple`
+        :return: A tuple :samp:`(input_arrays, output_arrays)` of inputs and
+           outputs which are to be passed to :obj:`numpy.ufunc` call.
+           Returns :samp:`None` if the output locale extents are empty (i.e. no
+           array elements to compute on this locale).
         """
         # First fetch/slice the parts of the input required for the locale extent
         out_gndarray = gndarray_outputs[0]
@@ -655,7 +743,10 @@ class GndarrayArrayUfuncExecutor(object):
                 self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
             inp_locale_slices = \
                 calc_matching_locale_slices(
-                    out_locale_extent, out_globale_extent, inp_locale_extents)
+                    out_locale_extent,
+                    out_globale_extent,
+                    inp_locale_extents
+                )
 
             inp_locale_arys = [None, ] * len(self.inputs)
             for i in range(len(self.inputs)):
@@ -701,6 +792,115 @@ class GndarrayArrayUfuncExecutor(object):
                 )
         return ret
 
+    def check_equivalent_inter_locale_comms(
+        self,
+        gndarrays,
+        equivalent_compare=(_mpi.IDENT, _mpi.CONGRUENT)
+    ):
+        """
+        Checks that all the :obj:`mpi_array.globale.gndarray` elements
+        of :samp:`{gndarrays}` have equivalent inter-locale communicators.
+
+        :raises ValueError: if the arrays do not have equivalent inter-locale communicators.
+        """
+        if (gndarrays is not None) and (len(gndarrays) > 0):
+            inter_locale_comm0 = gndarrays[0].locale_comms.inter_locale_comm
+            for c in (gndary.locale_comms.inter_locale_comm for gndary in gndarrays[1:]):
+                if _mpi.Comm.compare(inter_locale_comm0, c) not in equivalent_compare:
+                    raise ValueError(
+                        "Got inter_locale_comm=%s (name=%s) non-congruent with "
+                        + " inter_locale_comm=%s (name=%s)."
+                        %
+                        (
+                            inter_locale_comm0,
+                            inter_locale_comm0.name,
+                            c,
+                            c.name
+                        )
+                    )
+
+    def need_remote_data(self, gndarray_outputs):
+        """
+        Returns :samp:`True` if any locale needs to fetch remote
+        input data in order to compute the all elements of the
+        outputs :samp:`{gndarray_outputs}`.
+
+        :type gndarray_outputs: sequence of :obj:`mpi_array.globale.gndarray`
+        :param gndarray_outputs: Check whether any of the locales require remote
+           data in order to compute these outputs.
+        :rtype: :obj:`bool`
+        :return: :samp:`True` if remote fetch of input data is required
+           in order to compute ufunc for the given outputs.
+        """
+        out_gndary = gndarray_outputs[0]
+        need_remote = False
+        if out_gndary.locale_comms.inter_locale_comm != _mpi.COMM_NULL:
+            START_STR = LocaleExtent.START_N_STR
+            STOP_STR = LocaleExtent.STOP_N_STR
+            gndarray_inputs = \
+                tuple(
+                    input for input in self.inputs
+                    if hasattr(input, "distribution") and hasattr(input, "locale_comms")
+                )
+            out_s_ext = out_gndary.distribution.struct_locale_extents
+            for inp_gndary in gndarray_inputs:
+                need_remote = \
+                    (
+                        _mpi.Comm.Compare(
+                            out_gndary.locale_comms.inter_locale_comm,
+                            inp_gndary.locale_comms.inter_locale_comm
+                        )
+                        ==
+                        _mpi.UNEQUAL
+                    )
+                if not need_remote:
+                    # first make sure that the inter_locale_comm is compatible
+                    # between input and output
+                    translated_ranks = \
+                        _mpi.Group.Translate_ranks(
+                            out_gndary.locale_comms.inter_locale_comm.group,
+                            _np.arange(out_gndary.locale_comms.inter_locale_comm.group.size),
+                            inp_gndary.locale_comms.inter_locale_comm.group
+                        )
+                    inp_s_ext = \
+                        inp_gndary.distribution.struct_locale_extents[_np.asarray(translated_ranks)]
+
+                    # Now check that the output locale extent is contained
+                    # within the input locale extent.
+                    # Dimension of input can be smaller than the output
+                    # because of broadcasting rules.
+                    need_remote = True
+                    not_out_empty = \
+                        _np.product(out_s_ext[STOP_STR] - out_s_ext[START_STR], axis=1) > 0
+
+                    ndim = inp_gndary.ndim
+
+                    beyond_out_extent = \
+                        _np.logical_or.reduce(
+                            (out_s_ext[START_STR][:, -ndim:] < inp_s_ext[START_STR])
+                            |
+                            (out_s_ext[STOP_STR][:, -ndim:] <= inp_s_ext[START_STR])
+                            |
+                            (out_s_ext[START_STR][:, -ndim:] >= inp_s_ext[STOP_STR])
+                            |
+                            (out_s_ext[STOP_STR][:, -ndim:] > inp_s_ext[STOP_STR]),
+                            axis=1
+                        )
+
+                    need_remote = \
+                        _np.any(
+                            not_out_empty
+                            &
+                            beyond_out_extent
+                        )
+
+                if need_remote:
+                    break
+        # All ranks in the locale need to know the result, broadcast.
+        need_remote = out_gndary.locale_comms.intra_locale_comm.bcast(need_remote, 0)
+
+        return need_remote
+
     def execute___call__(self):
         """
         """
@@ -720,13 +920,16 @@ class GndarrayArrayUfuncExecutor(object):
             "output shapes=%s", [o.shape for o in gndarray_outputs]
         )
 
-        # TODO: Should really check whether remote fetch of data is needed
+        # Check whether remote fetch of data is needed
         # for any locale before calling this barrier. If all locales
-        # have local data then this barrier shouldn't be necessary.
-        for i in self.inputs:
-            if isinstance(i, _gndarray):
-                i.initialise_windows()
-        gndarray_outputs[0].inter_locale_barrier()
+        # have local data then this barrier isn't be necessary.
+        # Otherwise, we have to sync to make sure that remote ranks have
+        # finished writing data before starting to fetch it.
+        if self.need_remote_data(gndarray_outputs):
+            for i in self.inputs:
+                if isinstance(i, _gndarray):
+                    i.initialise_windows()
+            gndarray_outputs[0].inter_locale_barrier()
 
         # Fetch the peer-rank sub-arrays of the input arrays needed
         # to calculate the corresponding sub-array of the outputs.
@@ -767,26 +970,31 @@ class GndarrayArrayUfuncExecutor(object):
 
     def execute_accumulate(self):
         """
+        Not implemented.
         """
         return NotImplemented
 
     def execute_reduce(self):
         """
+        Not implemented.
         """
         return NotImplemented
 
     def execute_reduceat(self):
         """
+        Not implemented.
         """
         return NotImplemented
 
     def execute_at(self):
         """
+        Not implemented.
         """
         return NotImplemented
 
     def execute_outer(self):
         """
+        Not implemented.
         """
         return NotImplemented
 
