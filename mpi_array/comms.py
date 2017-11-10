@@ -376,10 +376,8 @@ class RmaWindowBuffer(object):
         """
         if self.is_shared:
             buffer, itemsize = self.intra_locale_win.Shared_query(0)
-        elif hasattr(self.intra_locale_win, "memory"):
-            buffer = self.intra_locale_win.memory
         else:
-            buffer = self.intra_locale_win.tomemory()
+            buffer = get_win_memory(self.intra_locale_win)
         return buffer
 
     @property
@@ -695,6 +693,21 @@ def get_locale_comms_info(
     return comms_info
 
 
+def get_win_memory(win):
+    """
+    Returns the memory buffer associated with the specified :samp:`{win}` MPI window.
+
+    :type win: :obj:`mpi4py.MPI.Win`
+    :param win: Return memory for this window.
+    """
+    if hasattr(win, "memory"):
+        buffer = win.memory
+    else:
+        buffer = win.tomemory()
+
+    return buffer
+
+
 class LocaleComms(object):
 
     """
@@ -815,7 +828,8 @@ class LocaleComms(object):
             )
             intra_locale_win = \
                 _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
-            buffer = intra_locale_win.memory
+            buffer = get_win_memory(intra_locale_win)
+
             itemsize = dtype.itemsize
             _log_memory_alloc(
                 self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
