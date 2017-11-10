@@ -36,9 +36,12 @@ from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import LT_NODE, LT_PROCESS, DT_CLONED, DT_SINGLE_LOCALE, DT_BLOCK  # , DT_SLAB
 from . import comms as _comms
-from .globale_ufunc import broadcast_shape, ufunc_result_type
+from . import distribution as _distribution
+from .globale_ufunc import broadcast_shape, ufunc_result_type, get_extents
+from .globale_ufunc import check_equivalent_inter_locale_comms
 from .globale import gndarray as _gndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
+from .globale_creation import empty as _empty
 from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
@@ -282,6 +285,29 @@ class ToGndarrayConverter(object):
         return gnd_ary
 
 
+class GetExtentsTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.get_extents`.
+    """
+
+    def setUp(self):
+        """
+        """
+        locale_comms, inter_locale_rank_to_peer_rank, this_locale = _comms.create_locale_comms()
+        self.comms = locale_comms
+        self.locale_info = this_locale
+        del inter_locale_rank_to_peer_rank
+
+    def test_scalar(self):
+        """
+        Test :func:`mpi_array.globale_ufunc.get_extents` with scalar input.
+        """
+        l, g = get_extents(5.0, self.locale_info)
+        self.assertTrue(isinstance(l, _distribution.ScalarLocaleExtent))
+        self.assertTrue(isinstance(g, _distribution.ScalarGlobaleExtent))
+
+
 class GndarrayUfuncTest(_unittest.TestCase):
 
     """
@@ -411,7 +437,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
         converter = ToGndarrayConverter(locale_type=LT_PROCESS, distrib_type=DT_CLONED)
         self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
-        converter = ToGndarrayConverter(locale_type=LT_NODE, distrib_type=DT_CLONED)
+        converter = ToGndarrayConverter(locale_type=LT_NODE, distrib_type=DT_CLONED, halo=0)
         self.do_convert_execute_and_compare(mpi_cln_npy_result_ary, converter, func, *func_args)
 
     def do_single_locale_distribution_test(self, mpi_cln_npy_result_ary, func, *func_args):
@@ -757,6 +783,48 @@ class GndarrayUfuncTest(_unittest.TestCase):
             halo_a=[[2, 1], [4, 3], [1, 2]],
             halo_b=[[1, 2], [3, 4], [2, 1]]
         )
+
+    def test_ufunc_casting_arg(self):
+        """
+        Test ufunc with casting argument.
+        """
+        self.rank_logger.info("Calling ufunc with 'casting' kwarg.")
+        with \
+                _ones(
+                    (64, 32, 100),
+                    dtype="float32",
+                    locale_type=_comms.LT_PROCESS,
+                    dims=(0, 0, 0),
+                    halo=2
+                ) as a:
+
+            _np.add(a, 1, casting="same_kind", out=a)
+            self.assertTrue((a == 2).all())
+
+    def test_check_equivalent_inter_locale_comms(self):
+
+        with \
+                _empty((50, 50, 50), locale_type=LT_NODE) as gary0,\
+                _empty((50, 50, 50), locale_type=LT_PROCESS) as gary1:
+
+            if gary1.distribution.num_locales > 1:
+                self.assertRaises(
+                    ValueError,
+                    check_equivalent_inter_locale_comms,
+                    (gary0, gary1)
+                )
+
+    def test_not_implemented(self):
+        uf = _np.add
+        with _empty((50, 50, 50), locale_type=LT_NODE) as gary0:
+
+            for method in ["reduce", "accumulate", "reduceat", "at", "outer"]:
+                self.assertRaises(
+                    TypeError,
+                    getattr(uf, method),
+                    gary0,
+                    5.0
+                )
 
 
 _unittest.main(__name__)

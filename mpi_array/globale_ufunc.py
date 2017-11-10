@@ -483,6 +483,50 @@ def convert_to_array_like(inputs):
         )
 
 
+def check_equivalent_inter_locale_comms(
+    gndarrays,
+    equivalent_compare=(_mpi.IDENT, _mpi.CONGRUENT)
+):
+    """
+    Checks that all the :obj:`mpi_array.globale.gndarray` elements
+    of :samp:`{gndarrays}` have equivalent inter-locale communicators.
+
+    :raises ValueError: if the arrays do not have equivalent inter-locale communicators.
+    """
+    if (gndarrays is not None) and (len(gndarrays) > 0):
+        inter_locale_comm0 = gndarrays[0].locale_comms.inter_locale_comm
+        for c in (gndary.locale_comms.inter_locale_comm for gndary in gndarrays[1:]):
+            if (
+                (
+                    (c == _mpi.COMM_NULL)
+                    and
+                    (inter_locale_comm0 != _mpi.COMM_NULL)
+                )
+                or
+                (
+                    (c != _mpi.COMM_NULL)
+                    and
+                    (inter_locale_comm0 == _mpi.COMM_NULL)
+                )
+                or
+                _mpi.Comm.Compare(inter_locale_comm0, c) not in equivalent_compare
+            ):
+                raise ValueError(
+                    (
+                        "Got inter_locale_comm=%s (name=%s) non-congruent with "
+                        +
+                        " inter_locale_comm=%s (name=%s)."
+                    )
+                    %
+                    (
+                        inter_locale_comm0,
+                        inter_locale_comm0.name if inter_locale_comm0 != _mpi.COMM_NULL else "",
+                        c,
+                        c.name if c != _mpi.COMM_NULL else ""
+                    )
+                )
+
+
 class GndarrayArrayUfuncExecutor(object):
 
     """
@@ -660,7 +704,7 @@ class GndarrayArrayUfuncExecutor(object):
 
         template_output_gary = None
         if (outputs is not None) and (len(outputs) > 0):
-            self.check_equivalent_inter_locale_comms(outputs)
+            check_equivalent_inter_locale_comms(outputs)
             template_output_gary = outputs[-1]
         else:
             best_match_input = self.get_best_match_input(result_shape)
@@ -791,33 +835,6 @@ class GndarrayArrayUfuncExecutor(object):
                     )
                 )
         return ret
-
-    def check_equivalent_inter_locale_comms(
-        self,
-        gndarrays,
-        equivalent_compare=(_mpi.IDENT, _mpi.CONGRUENT)
-    ):
-        """
-        Checks that all the :obj:`mpi_array.globale.gndarray` elements
-        of :samp:`{gndarrays}` have equivalent inter-locale communicators.
-
-        :raises ValueError: if the arrays do not have equivalent inter-locale communicators.
-        """
-        if (gndarrays is not None) and (len(gndarrays) > 0):
-            inter_locale_comm0 = gndarrays[0].locale_comms.inter_locale_comm
-            for c in (gndary.locale_comms.inter_locale_comm for gndary in gndarrays[1:]):
-                if _mpi.Comm.compare(inter_locale_comm0, c) not in equivalent_compare:
-                    raise ValueError(
-                        "Got inter_locale_comm=%s (name=%s) non-congruent with "
-                        + " inter_locale_comm=%s (name=%s)."
-                        %
-                        (
-                            inter_locale_comm0,
-                            inter_locale_comm0.name,
-                            c,
-                            c.name
-                        )
-                    )
 
     def need_remote_data(self, gndarray_outputs):
         """

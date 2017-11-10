@@ -260,7 +260,7 @@ class RmaWindowBuffer(object):
         self._inter_locale_win = inter_locale_win
         self._peer_comm = peer_comm
         self._inter_locale_comm = inter_locale_comm
-        self._root_logger = rank_logger
+        self._root_logger = root_logger
         self._rank_logger = rank_logger
 
     @property
@@ -376,8 +376,10 @@ class RmaWindowBuffer(object):
         """
         if self.is_shared:
             buffer, itemsize = self.intra_locale_win.Shared_query(0)
-        else:
+        elif hasattr(self.intra_locale_win, "memory"):
             buffer = self.intra_locale_win.memory
+        else:
+            buffer = self.intra_locale_win.tomemory()
         return buffer
 
     @property
@@ -1369,6 +1371,8 @@ def create_locale_comms(
     :rtype: :obj:`LocaleComms`
     :return: A :obj:`LocaleComms` object.
     """
+    if locale_type is None:
+        locale_type = LT_NODE
     if locale_type.lower() == LT_PROCESS:
         if (intra_locale_comm is not None) and (intra_locale_comm.size > 1):
             raise ValueError(
