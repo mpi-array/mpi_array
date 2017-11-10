@@ -61,7 +61,7 @@ from array_split.split import convert_halo_to_array_form as _convert_halo_to_arr
 import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
-from .comms import create_distribution
+from .comms import create_distribution, get_win_memory
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
@@ -185,7 +185,7 @@ class win_lndarray(_np.ndarray):
                 _log_memory_alloc(
                     logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
                 )
-                buffer = win.memory
+                buffer = get_win_memory(win)
         buffer = _np.array(buffer, dtype='B', copy=False)
         self = \
             _np.ndarray.__new__(
