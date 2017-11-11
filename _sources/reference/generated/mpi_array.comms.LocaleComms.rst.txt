@@ -1,0 +1,41 @@
+mpi_array.comms.LocaleComms
+===========================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: LocaleComms
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LocaleComms.__init__
+      ~LocaleComms.alloc_locale_buffer
+      ~LocaleComms.free
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LocaleComms.have_valid_inter_locale_comm
+      ~LocaleComms.inter_locale_comm
+      ~LocaleComms.inter_locale_rank_to_peer_rank_map
+      ~LocaleComms.intra_locale_comm
+      ~LocaleComms.num_locales
+      ~LocaleComms.peer_comm
+      ~LocaleComms.peer_ranks_per_locale
+      ~LocaleComms.rank_logger
+      ~LocaleComms.root_logger
+      ~LocaleComms.this_locale_rank_info
+   
+   

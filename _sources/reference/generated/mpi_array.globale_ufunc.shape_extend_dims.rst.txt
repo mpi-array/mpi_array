@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.shape\_extend\_dims
+===============================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autofunction:: shape_extend_dims

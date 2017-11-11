@@ -1,0 +1,6 @@
+mpi\_array\.update\.HaloSingleExtentUpdate\.dst\_extent
+=======================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: HaloSingleExtentUpdate.dst_extent

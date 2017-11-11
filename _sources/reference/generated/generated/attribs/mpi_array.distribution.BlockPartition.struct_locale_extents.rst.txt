@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.struct\_locale\_extents
+=================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: BlockPartition.struct_locale_extents

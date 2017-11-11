@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.current\_params
+=============================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: Benchmark.current_params

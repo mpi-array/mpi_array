@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.check\_is\_single\_locale\_distribution
+========================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.check_is_single_locale_distribution

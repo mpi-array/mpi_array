@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.test\_construct\_single\_locale\_1d
+=======================================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.test_construct_single_locale_1d

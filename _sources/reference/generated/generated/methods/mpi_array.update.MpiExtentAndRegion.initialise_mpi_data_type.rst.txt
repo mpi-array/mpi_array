@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiExtentAndRegion\.initialise\_mpi\_data\_type
+===================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiExtentAndRegion.initialise_mpi_data_type

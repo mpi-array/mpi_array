@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.catchbreak
+=============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestProgram.catchbreak

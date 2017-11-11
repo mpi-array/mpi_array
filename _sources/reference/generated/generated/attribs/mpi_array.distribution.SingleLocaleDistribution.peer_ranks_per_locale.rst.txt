@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.peer\_ranks\_per\_locale
+============================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.peer_ranks_per_locale

@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.shape
+====================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.shape

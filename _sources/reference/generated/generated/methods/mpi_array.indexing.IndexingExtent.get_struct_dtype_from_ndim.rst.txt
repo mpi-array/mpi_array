@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.get\_struct\_dtype\_from\_ndim
+====================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.get_struct_dtype_from_ndim

@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.broadcast\_shape
+============================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autofunction:: broadcast_shape

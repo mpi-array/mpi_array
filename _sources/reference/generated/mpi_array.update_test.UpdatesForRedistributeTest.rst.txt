@@ -1,0 +1,48 @@
+mpi_array.update_test.UpdatesForRedistributeTest
+================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoclass:: UpdatesForRedistributeTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~UpdatesForRedistributeTest.__init__
+      ~UpdatesForRedistributeTest.addCleanup
+      ~UpdatesForRedistributeTest.addTypeEqualityFunc
+      ~UpdatesForRedistributeTest.assertArraySplitEqual
+      ~UpdatesForRedistributeTest.countTestCases
+      ~UpdatesForRedistributeTest.debug
+      ~UpdatesForRedistributeTest.defaultTestResult
+      ~UpdatesForRedistributeTest.doCleanups
+      ~UpdatesForRedistributeTest.id
+      ~UpdatesForRedistributeTest.run
+      ~UpdatesForRedistributeTest.setUp
+      ~UpdatesForRedistributeTest.setUpClass
+      ~UpdatesForRedistributeTest.shortDescription
+      ~UpdatesForRedistributeTest.skipTest
+      ~UpdatesForRedistributeTest.subTest
+      ~UpdatesForRedistributeTest.tearDown
+      ~UpdatesForRedistributeTest.tearDownClass
+      ~UpdatesForRedistributeTest.test_slab_to_block
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~UpdatesForRedistributeTest.longMessage
+      ~UpdatesForRedistributeTest.maxDiff
+   
+   

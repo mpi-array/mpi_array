@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.longMessage
+===============================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. autoattribute:: TypesTest.longMessage

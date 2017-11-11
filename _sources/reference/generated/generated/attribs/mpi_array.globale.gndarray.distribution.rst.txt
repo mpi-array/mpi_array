@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.distribution
+===========================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.distribution

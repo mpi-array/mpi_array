@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.root\_logger
+================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: BenchmarkRunner.root_logger

@@ -1,0 +1,61 @@
+mpi_array.globale_creation_test.GndarrayCreationTest
+====================================================
+
+.. currentmodule:: mpi_array.globale_creation_test
+
+.. autoclass:: GndarrayCreationTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~GndarrayCreationTest.__init__
+      ~GndarrayCreationTest.addCleanup
+      ~GndarrayCreationTest.addTypeEqualityFunc
+      ~GndarrayCreationTest.assertArraySplitEqual
+      ~GndarrayCreationTest.countTestCases
+      ~GndarrayCreationTest.debug
+      ~GndarrayCreationTest.defaultTestResult
+      ~GndarrayCreationTest.doCleanups
+      ~GndarrayCreationTest.id
+      ~GndarrayCreationTest.run
+      ~GndarrayCreationTest.setUp
+      ~GndarrayCreationTest.setUpClass
+      ~GndarrayCreationTest.shortDescription
+      ~GndarrayCreationTest.skipTest
+      ~GndarrayCreationTest.subTest
+      ~GndarrayCreationTest.tearDown
+      ~GndarrayCreationTest.tearDownClass
+      ~GndarrayCreationTest.test_asanyarray_with_subclass
+      ~GndarrayCreationTest.test_asanyarray_with_tuple
+      ~GndarrayCreationTest.test_asarray_with_scalar
+      ~GndarrayCreationTest.test_asarray_with_subclass
+      ~GndarrayCreationTest.test_asarray_with_tuple
+      ~GndarrayCreationTest.test_copy_non_shared_1d
+      ~GndarrayCreationTest.test_copy_shared_1d
+      ~GndarrayCreationTest.test_empty_non_shared_1d
+      ~GndarrayCreationTest.test_empty_scalar
+      ~GndarrayCreationTest.test_empty_shared_1d
+      ~GndarrayCreationTest.test_ones_non_shared_1d
+      ~GndarrayCreationTest.test_ones_shared_1d
+      ~GndarrayCreationTest.test_zeros_non_shared_1d
+      ~GndarrayCreationTest.test_zeros_shared_1d
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~GndarrayCreationTest.longMessage
+      ~GndarrayCreationTest.maxDiff
+   
+   

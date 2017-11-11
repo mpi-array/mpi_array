@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.tearDownClass
+==============================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.tearDownClass

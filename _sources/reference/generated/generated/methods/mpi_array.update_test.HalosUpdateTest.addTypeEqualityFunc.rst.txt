@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.HalosUpdateTest\.addTypeEqualityFunc
+==============================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: HalosUpdateTest.addTypeEqualityFunc

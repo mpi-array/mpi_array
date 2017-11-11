@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\.copy
+===================================
+
+.. currentmodule:: mpi_array.globale_creation
+
+.. autofunction:: copy

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CommsAndDistribution\.this\_locale
+=====================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CommsAndDistribution.this_locale

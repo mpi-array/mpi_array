@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.get\_extent\_for\_rank
+====================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: ClonedDistribution.get_extent_for_rank

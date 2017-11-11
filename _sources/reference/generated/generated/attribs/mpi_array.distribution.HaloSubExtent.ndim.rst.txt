@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.ndim
+=============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: HaloSubExtent.ndim

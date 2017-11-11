@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.warnings
+===========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestProgram.warnings

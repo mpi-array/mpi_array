@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\_test\.GndarrayCreationTest\.setUp
+================================================================
+
+.. currentmodule:: mpi_array.globale_creation_test
+
+.. automethod:: GndarrayCreationTest.setUp

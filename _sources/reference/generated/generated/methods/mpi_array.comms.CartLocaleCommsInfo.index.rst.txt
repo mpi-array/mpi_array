@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleCommsInfo\.index
+=============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CartLocaleCommsInfo.index

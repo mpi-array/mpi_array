@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdate\.conclude
+=================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiPairExtentUpdate.conclude

@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdateDifferentDtypes\.copyto
+==============================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiPairExtentUpdateDifferentDtypes.copyto

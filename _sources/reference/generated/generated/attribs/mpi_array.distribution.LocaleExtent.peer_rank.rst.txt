@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.peer\_rank
+==================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.peer_rank

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.CartLocaleExtentTest\.addTypeEqualityFunc
+=========================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: CartLocaleExtentTest.addTypeEqualityFunc

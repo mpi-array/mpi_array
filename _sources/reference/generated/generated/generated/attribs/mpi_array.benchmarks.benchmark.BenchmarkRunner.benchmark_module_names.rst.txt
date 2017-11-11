@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.benchmark\_module\_names
+============================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: BenchmarkRunner.benchmark_module_names

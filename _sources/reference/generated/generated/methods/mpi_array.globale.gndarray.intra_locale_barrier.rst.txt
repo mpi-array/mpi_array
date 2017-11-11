@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.intra\_locale\_barrier
+=====================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.intra_locale_barrier

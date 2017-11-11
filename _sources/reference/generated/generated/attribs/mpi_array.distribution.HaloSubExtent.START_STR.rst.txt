@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.START\_STR
+===================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: HaloSubExtent.START_STR

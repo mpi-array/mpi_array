@@ -1,0 +1,6 @@
+mpi\_array\.logging\.initialise\_loggers
+========================================
+
+.. currentmodule:: mpi_array.logging
+
+.. autofunction:: initialise_loggers

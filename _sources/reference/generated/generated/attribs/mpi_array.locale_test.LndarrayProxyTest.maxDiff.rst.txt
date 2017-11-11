@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayProxyTest\.maxDiff
+====================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. autoattribute:: LndarrayProxyTest.maxDiff

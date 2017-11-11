@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.rank\_view\_slice\_n
+=======================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: LndarrayProxy.rank_view_slice_n

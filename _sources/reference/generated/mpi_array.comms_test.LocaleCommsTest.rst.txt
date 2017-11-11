@@ -1,0 +1,51 @@
+mpi_array.comms_test.LocaleCommsTest
+====================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoclass:: LocaleCommsTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LocaleCommsTest.__init__
+      ~LocaleCommsTest.addCleanup
+      ~LocaleCommsTest.addTypeEqualityFunc
+      ~LocaleCommsTest.assertArraySplitEqual
+      ~LocaleCommsTest.countTestCases
+      ~LocaleCommsTest.debug
+      ~LocaleCommsTest.defaultTestResult
+      ~LocaleCommsTest.doCleanups
+      ~LocaleCommsTest.id
+      ~LocaleCommsTest.run
+      ~LocaleCommsTest.setUp
+      ~LocaleCommsTest.setUpClass
+      ~LocaleCommsTest.shortDescription
+      ~LocaleCommsTest.skipTest
+      ~LocaleCommsTest.subTest
+      ~LocaleCommsTest.tearDown
+      ~LocaleCommsTest.tearDownClass
+      ~LocaleCommsTest.test_construct
+      ~LocaleCommsTest.test_construct_invalid_comms
+      ~LocaleCommsTest.test_construct_no_shared
+      ~LocaleCommsTest.test_get_shared_mem_usage_percent_string
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LocaleCommsTest.longMessage
+      ~LocaleCommsTest.maxDiff
+   
+   

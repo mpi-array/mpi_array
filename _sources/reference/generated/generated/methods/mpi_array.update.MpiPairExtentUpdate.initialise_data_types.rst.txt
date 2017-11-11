@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdate\.initialise\_data\_types
+================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiPairExtentUpdate.initialise_data_types

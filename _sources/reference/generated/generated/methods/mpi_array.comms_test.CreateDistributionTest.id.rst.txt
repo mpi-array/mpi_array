@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.id
+===================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.id

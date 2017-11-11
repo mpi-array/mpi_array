@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.addUnexpectedSuccess
+==========================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.addUnexpectedSuccess

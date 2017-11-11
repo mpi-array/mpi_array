@@ -1,0 +1,46 @@
+mpi_array.comms.CartLocaleComms
+===============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: CartLocaleComms
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CartLocaleComms.__init__
+      ~CartLocaleComms.alloc_locale_buffer
+      ~CartLocaleComms.free
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CartLocaleComms.cart_comm
+      ~CartLocaleComms.cart_coord_to_cart_rank_map
+      ~CartLocaleComms.dims
+      ~CartLocaleComms.have_valid_cart_comm
+      ~CartLocaleComms.have_valid_inter_locale_comm
+      ~CartLocaleComms.inter_locale_comm
+      ~CartLocaleComms.inter_locale_rank_to_peer_rank_map
+      ~CartLocaleComms.intra_locale_comm
+      ~CartLocaleComms.ndim
+      ~CartLocaleComms.num_locales
+      ~CartLocaleComms.peer_comm
+      ~CartLocaleComms.peer_ranks_per_locale
+      ~CartLocaleComms.rank_logger
+      ~CartLocaleComms.root_logger
+      ~CartLocaleComms.this_locale_rank_info
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.HalosUpdateTest\.maxDiff
+==================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoattribute:: HalosUpdateTest.maxDiff

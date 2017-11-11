@@ -1,0 +1,6 @@
+mpi\_array\.locale\.lndarray\.\_\_array\_finalize\_\_
+=====================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: lndarray.__array_finalize__

@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayProxyTest\.test\_copy\_non\_shared\_1d
+========================================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: LndarrayProxyTest.test_copy_non_shared_1d

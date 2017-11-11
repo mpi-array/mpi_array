@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.bcast
+=======================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: TimeBenchmark.bcast

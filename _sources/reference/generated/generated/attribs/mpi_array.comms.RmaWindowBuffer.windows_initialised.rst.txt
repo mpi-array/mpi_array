@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.windows\_initialised
+========================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.windows_initialised

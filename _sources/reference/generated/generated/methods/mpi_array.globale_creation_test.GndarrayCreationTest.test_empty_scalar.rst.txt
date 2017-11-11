@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\_test\.GndarrayCreationTest\.test\_empty\_scalar
+==============================================================================
+
+.. currentmodule:: mpi_array.globale_creation_test
+
+.. automethod:: GndarrayCreationTest.test_empty_scalar

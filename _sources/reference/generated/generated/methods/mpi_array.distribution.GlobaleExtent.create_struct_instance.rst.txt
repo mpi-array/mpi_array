@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.create\_struct\_instance
+=================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.create_struct_instance

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.peer\_comm
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.peer_comm

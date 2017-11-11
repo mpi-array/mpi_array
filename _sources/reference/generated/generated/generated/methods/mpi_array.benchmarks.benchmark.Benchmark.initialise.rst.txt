@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.initialise
+========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: Benchmark.initialise

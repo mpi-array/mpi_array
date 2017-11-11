@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.BroadcastShapeTest\.longMessage
+=================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. autoattribute:: BroadcastShapeTest.longMessage

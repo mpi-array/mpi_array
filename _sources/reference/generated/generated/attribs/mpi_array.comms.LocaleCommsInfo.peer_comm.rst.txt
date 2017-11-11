@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleCommsInfo\.peer\_comm
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: LocaleCommsInfo.peer_comm

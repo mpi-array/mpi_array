@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.doCleanups
+==============================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.doCleanups

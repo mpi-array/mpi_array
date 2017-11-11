@@ -1,0 +1,44 @@
+mpi_array.benchmarks.bench_creation.NumpyCreateBench
+====================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: NumpyCreateBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~NumpyCreateBench.__init__
+      ~NumpyCreateBench.free
+      ~NumpyCreateBench.free_mpi_array_obj
+      ~NumpyCreateBench.get_globale_shape
+      ~NumpyCreateBench.setup
+      ~NumpyCreateBench.time_empty
+      ~NumpyCreateBench.time_full
+      ~NumpyCreateBench.time_ones
+      ~NumpyCreateBench.time_zeros
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~NumpyCreateBench.cart_comm_dims
+      ~NumpyCreateBench.goal_time
+      ~NumpyCreateBench.module
+      ~NumpyCreateBench.param_names
+      ~NumpyCreateBench.params
+      ~NumpyCreateBench.repeat
+      ~NumpyCreateBench.warmup_time
+   
+   

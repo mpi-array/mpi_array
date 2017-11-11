@@ -1,0 +1,6 @@
+mpi\_array\.logging\.SplitStreamHandler\.terminator
+===================================================
+
+.. currentmodule:: mpi_array.logging
+
+.. autoattribute:: SplitStreamHandler.terminator

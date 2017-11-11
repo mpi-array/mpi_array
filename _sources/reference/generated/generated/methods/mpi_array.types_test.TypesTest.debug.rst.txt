@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.debug
+=========================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.debug

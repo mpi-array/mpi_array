@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.\_\_init\_\_
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CartLocaleComms.__init__

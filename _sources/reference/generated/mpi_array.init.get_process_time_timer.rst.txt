@@ -1,0 +1,6 @@
+mpi\_array\.init\.get\_process\_time\_timer
+===========================================
+
+.. currentmodule:: mpi_array.init
+
+.. autofunction:: get_process_time_timer

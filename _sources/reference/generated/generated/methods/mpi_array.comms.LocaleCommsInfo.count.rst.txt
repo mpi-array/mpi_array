@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleCommsInfo\.count
+=========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: LocaleCommsInfo.count

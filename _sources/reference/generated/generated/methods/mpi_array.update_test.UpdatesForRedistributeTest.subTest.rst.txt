@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.UpdatesForRedistributeTest\.subTest
+=============================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: UpdatesForRedistributeTest.subTest

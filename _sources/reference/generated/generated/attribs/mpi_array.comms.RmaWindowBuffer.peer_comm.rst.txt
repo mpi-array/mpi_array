@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.peer\_comm
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.peer_comm

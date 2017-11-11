@@ -1,0 +1,6 @@
+mpi\_array\.locale\.NdarrayMetaData\.\_\_init\_\_
+=================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: NdarrayMetaData.__init__

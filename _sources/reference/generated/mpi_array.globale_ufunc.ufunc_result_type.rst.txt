@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.ufunc\_result\_type
+===============================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autofunction:: ufunc_result_type

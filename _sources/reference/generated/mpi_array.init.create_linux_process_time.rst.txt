@@ -1,0 +1,6 @@
+mpi\_array\.init\.create\_linux\_process\_time
+==============================================
+
+.. currentmodule:: mpi_array.init
+
+.. autofunction:: create_linux_process_time

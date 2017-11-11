@@ -1,0 +1,91 @@
+mpi_array.distribution.CartLocaleExtent
+=======================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: CartLocaleExtent
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CartLocaleExtent.__init__
+      ~CartLocaleExtent.calc_intersection
+      ~CartLocaleExtent.calc_intersection_split
+      ~CartLocaleExtent.create_struct_dtype_from_ndim
+      ~CartLocaleExtent.create_struct_instance
+      ~CartLocaleExtent.get_struct_dtype
+      ~CartLocaleExtent.get_struct_dtype_from_ndim
+      ~CartLocaleExtent.globale_to_locale_extent_h
+      ~CartLocaleExtent.globale_to_locale_h
+      ~CartLocaleExtent.globale_to_locale_n
+      ~CartLocaleExtent.globale_to_locale_slice_h
+      ~CartLocaleExtent.globale_to_locale_slice_n
+      ~CartLocaleExtent.halo_slab_extent
+      ~CartLocaleExtent.locale_to_globale_extent_h
+      ~CartLocaleExtent.locale_to_globale_h
+      ~CartLocaleExtent.locale_to_globale_n
+      ~CartLocaleExtent.locale_to_globale_slice_h
+      ~CartLocaleExtent.locale_to_globale_slice_n
+      ~CartLocaleExtent.no_halo_extent
+      ~CartLocaleExtent.split
+      ~CartLocaleExtent.to_slice
+      ~CartLocaleExtent.to_slice_h
+      ~CartLocaleExtent.to_slice_n
+      ~CartLocaleExtent.to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CartLocaleExtent.CART_COORD
+      ~CartLocaleExtent.CART_COORD_STR
+      ~CartLocaleExtent.CART_SHAPE
+      ~CartLocaleExtent.CART_SHAPE_STR
+      ~CartLocaleExtent.HALO
+      ~CartLocaleExtent.HALO_STR
+      ~CartLocaleExtent.HI
+      ~CartLocaleExtent.INTER_LOCALE_RANK
+      ~CartLocaleExtent.INTER_LOCALE_RANK_STR
+      ~CartLocaleExtent.LO
+      ~CartLocaleExtent.PEER_RANK
+      ~CartLocaleExtent.PEER_RANK_STR
+      ~CartLocaleExtent.START
+      ~CartLocaleExtent.START_N
+      ~CartLocaleExtent.START_N_STR
+      ~CartLocaleExtent.START_STR
+      ~CartLocaleExtent.STOP
+      ~CartLocaleExtent.STOP_N
+      ~CartLocaleExtent.STOP_N_STR
+      ~CartLocaleExtent.STOP_STR
+      ~CartLocaleExtent.cart_coord
+      ~CartLocaleExtent.cart_rank
+      ~CartLocaleExtent.cart_shape
+      ~CartLocaleExtent.halo
+      ~CartLocaleExtent.inter_locale_rank
+      ~CartLocaleExtent.ndim
+      ~CartLocaleExtent.peer_rank
+      ~CartLocaleExtent.shape
+      ~CartLocaleExtent.shape_h
+      ~CartLocaleExtent.shape_n
+      ~CartLocaleExtent.size_h
+      ~CartLocaleExtent.size_n
+      ~CartLocaleExtent.start
+      ~CartLocaleExtent.start_h
+      ~CartLocaleExtent.start_n
+      ~CartLocaleExtent.stop
+      ~CartLocaleExtent.stop_h
+      ~CartLocaleExtent.stop_n
+      ~CartLocaleExtent.struct_dtype_dict
+   
+   

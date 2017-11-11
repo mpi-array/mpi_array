@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.\_\_init\_\_
+===============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestProgram.__init__

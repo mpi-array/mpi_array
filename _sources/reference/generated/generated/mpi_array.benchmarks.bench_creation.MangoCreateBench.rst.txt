@@ -1,0 +1,44 @@
+mpi_array.benchmarks.bench_creation.MangoCreateBench
+====================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: MangoCreateBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MangoCreateBench.__init__
+      ~MangoCreateBench.free
+      ~MangoCreateBench.free_mpi_array_obj
+      ~MangoCreateBench.get_globale_shape
+      ~MangoCreateBench.setup
+      ~MangoCreateBench.time_empty
+      ~MangoCreateBench.time_full
+      ~MangoCreateBench.time_ones
+      ~MangoCreateBench.time_zeros
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MangoCreateBench.cart_comm_dims
+      ~MangoCreateBench.goal_time
+      ~MangoCreateBench.module
+      ~MangoCreateBench.param_names
+      ~MangoCreateBench.params
+      ~MangoCreateBench.repeat
+      ~MangoCreateBench.warmup_time
+   
+   

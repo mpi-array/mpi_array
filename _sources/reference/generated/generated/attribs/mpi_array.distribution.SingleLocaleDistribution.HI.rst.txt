@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.HI
+======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.HI

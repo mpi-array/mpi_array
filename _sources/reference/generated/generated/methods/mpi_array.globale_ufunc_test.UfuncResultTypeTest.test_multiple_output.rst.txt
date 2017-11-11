@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.UfuncResultTypeTest\.test\_multiple\_output
+=============================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: UfuncResultTypeTest.test_multiple_output

@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayProxyTest\.countTestCases
+===========================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: LndarrayProxyTest.countTestCases

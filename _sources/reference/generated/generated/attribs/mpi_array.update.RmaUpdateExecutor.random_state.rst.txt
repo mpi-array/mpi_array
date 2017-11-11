@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.random\_state
+====================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: RmaUpdateExecutor.random_state

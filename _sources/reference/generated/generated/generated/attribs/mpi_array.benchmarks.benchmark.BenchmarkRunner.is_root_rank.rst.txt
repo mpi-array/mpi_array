@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.is\_root\_rank
+==================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: BenchmarkRunner.is_root_rank

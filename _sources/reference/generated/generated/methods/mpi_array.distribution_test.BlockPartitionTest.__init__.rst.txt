@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.\_\_init\_\_
+================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.__init__

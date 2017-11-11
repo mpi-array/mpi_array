@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.locale\_extent
+=================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: LndarrayProxy.locale_extent

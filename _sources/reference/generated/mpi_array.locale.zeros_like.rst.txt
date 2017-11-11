@@ -1,0 +1,6 @@
+mpi\_array\.locale\.zeros\_like
+===============================
+
+.. currentmodule:: mpi_array.locale
+
+.. autofunction:: zeros_like

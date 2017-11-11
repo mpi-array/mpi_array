@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.struct\_locale\_extents
+=====================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: ClonedDistribution.struct_locale_extents

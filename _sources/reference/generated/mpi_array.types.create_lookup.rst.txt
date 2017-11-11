@@ -1,0 +1,6 @@
+mpi\_array\.types\.create\_lookup
+=================================
+
+.. currentmodule:: mpi_array.types
+
+.. autofunction:: create_lookup

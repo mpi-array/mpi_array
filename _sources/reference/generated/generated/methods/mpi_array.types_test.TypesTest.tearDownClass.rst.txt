@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.tearDownClass
+=================================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.tearDownClass

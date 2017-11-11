@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.test\_construct\_1d\_empty\_tiles
+=====================================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.test_construct_1d_empty_tiles

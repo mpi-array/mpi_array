@@ -1,0 +1,6 @@
+mpi\_array\.globale\.PerAxisRmaHaloUpdater\.locale\_extents
+===========================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: PerAxisRmaHaloUpdater.locale_extents

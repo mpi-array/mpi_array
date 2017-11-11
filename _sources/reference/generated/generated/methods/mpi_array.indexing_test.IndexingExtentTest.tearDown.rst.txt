@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.IndexingExtentTest\.tearDown
+========================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: IndexingExtentTest.tearDown

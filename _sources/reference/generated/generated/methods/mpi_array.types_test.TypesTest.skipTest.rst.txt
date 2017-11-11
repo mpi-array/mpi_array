@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.skipTest
+============================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.skipTest

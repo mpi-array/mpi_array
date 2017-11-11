@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.get\_struct\_dtype
+==============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.get_struct_dtype

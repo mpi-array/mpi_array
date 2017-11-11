@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleCommsInfo\.count
+=============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CartLocaleCommsInfo.count

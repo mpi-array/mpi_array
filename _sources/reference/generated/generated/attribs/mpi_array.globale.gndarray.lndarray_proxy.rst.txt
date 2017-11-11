@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.lndarray\_proxy
+==============================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.lndarray_proxy

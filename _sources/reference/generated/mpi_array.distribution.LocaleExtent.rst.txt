@@ -1,0 +1,84 @@
+mpi_array.distribution.LocaleExtent
+===================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: LocaleExtent
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LocaleExtent.__init__
+      ~LocaleExtent.calc_intersection
+      ~LocaleExtent.calc_intersection_split
+      ~LocaleExtent.create_struct_dtype_from_ndim
+      ~LocaleExtent.create_struct_instance
+      ~LocaleExtent.get_struct_dtype
+      ~LocaleExtent.get_struct_dtype_from_ndim
+      ~LocaleExtent.globale_to_locale_extent_h
+      ~LocaleExtent.globale_to_locale_h
+      ~LocaleExtent.globale_to_locale_n
+      ~LocaleExtent.globale_to_locale_slice_h
+      ~LocaleExtent.globale_to_locale_slice_n
+      ~LocaleExtent.halo_slab_extent
+      ~LocaleExtent.locale_to_globale_extent_h
+      ~LocaleExtent.locale_to_globale_h
+      ~LocaleExtent.locale_to_globale_n
+      ~LocaleExtent.locale_to_globale_slice_h
+      ~LocaleExtent.locale_to_globale_slice_n
+      ~LocaleExtent.no_halo_extent
+      ~LocaleExtent.split
+      ~LocaleExtent.to_slice
+      ~LocaleExtent.to_slice_h
+      ~LocaleExtent.to_slice_n
+      ~LocaleExtent.to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LocaleExtent.HALO
+      ~LocaleExtent.HALO_STR
+      ~LocaleExtent.HI
+      ~LocaleExtent.INTER_LOCALE_RANK
+      ~LocaleExtent.INTER_LOCALE_RANK_STR
+      ~LocaleExtent.LO
+      ~LocaleExtent.PEER_RANK
+      ~LocaleExtent.PEER_RANK_STR
+      ~LocaleExtent.START
+      ~LocaleExtent.START_N
+      ~LocaleExtent.START_N_STR
+      ~LocaleExtent.START_STR
+      ~LocaleExtent.STOP
+      ~LocaleExtent.STOP_N
+      ~LocaleExtent.STOP_N_STR
+      ~LocaleExtent.STOP_STR
+      ~LocaleExtent.halo
+      ~LocaleExtent.inter_locale_rank
+      ~LocaleExtent.ndim
+      ~LocaleExtent.peer_rank
+      ~LocaleExtent.shape
+      ~LocaleExtent.shape_h
+      ~LocaleExtent.shape_n
+      ~LocaleExtent.size_h
+      ~LocaleExtent.size_n
+      ~LocaleExtent.start
+      ~LocaleExtent.start_h
+      ~LocaleExtent.start_n
+      ~LocaleExtent.stop
+      ~LocaleExtent.stop_h
+      ~LocaleExtent.stop_n
+      ~LocaleExtent.struct_dtype_dict
+   
+   

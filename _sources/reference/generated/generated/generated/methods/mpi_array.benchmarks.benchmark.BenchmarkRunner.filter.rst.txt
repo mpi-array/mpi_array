@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.filter
+==========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: BenchmarkRunner.filter

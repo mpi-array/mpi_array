@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.peer\_win
+=============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.peer_win

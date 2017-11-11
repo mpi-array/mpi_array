@@ -1,0 +1,6 @@
+mpi\_array\.rtd\.initialise\_mock\_modules
+==========================================
+
+.. currentmodule:: mpi_array.rtd
+
+.. autofunction:: initialise_mock_modules

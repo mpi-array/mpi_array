@@ -1,0 +1,56 @@
+mpi_array.indexing_test.HaloIndexingExtentTest
+==============================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. autoclass:: HaloIndexingExtentTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~HaloIndexingExtentTest.__init__
+      ~HaloIndexingExtentTest.addCleanup
+      ~HaloIndexingExtentTest.addTypeEqualityFunc
+      ~HaloIndexingExtentTest.assertArraySplitEqual
+      ~HaloIndexingExtentTest.countTestCases
+      ~HaloIndexingExtentTest.debug
+      ~HaloIndexingExtentTest.defaultTestResult
+      ~HaloIndexingExtentTest.doCleanups
+      ~HaloIndexingExtentTest.id
+      ~HaloIndexingExtentTest.run
+      ~HaloIndexingExtentTest.setUp
+      ~HaloIndexingExtentTest.setUpClass
+      ~HaloIndexingExtentTest.shortDescription
+      ~HaloIndexingExtentTest.skipTest
+      ~HaloIndexingExtentTest.subTest
+      ~HaloIndexingExtentTest.tearDown
+      ~HaloIndexingExtentTest.tearDownClass
+      ~HaloIndexingExtentTest.test_attributes
+      ~HaloIndexingExtentTest.test_calc_intersection_split
+      ~HaloIndexingExtentTest.test_globale_and_locale_extent_conversion
+      ~HaloIndexingExtentTest.test_globale_and_locale_index_conversion
+      ~HaloIndexingExtentTest.test_globale_and_locale_slice_conversion
+      ~HaloIndexingExtentTest.test_repr
+      ~HaloIndexingExtentTest.test_start_stop_shape
+      ~HaloIndexingExtentTest.test_to_slice
+      ~HaloIndexingExtentTest.test_to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~HaloIndexingExtentTest.longMessage
+      ~HaloIndexingExtentTest.maxDiff
+   
+   

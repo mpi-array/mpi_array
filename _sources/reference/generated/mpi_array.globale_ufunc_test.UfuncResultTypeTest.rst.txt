@@ -1,0 +1,51 @@
+mpi_array.globale_ufunc_test.UfuncResultTypeTest
+================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. autoclass:: UfuncResultTypeTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~UfuncResultTypeTest.__init__
+      ~UfuncResultTypeTest.addCleanup
+      ~UfuncResultTypeTest.addTypeEqualityFunc
+      ~UfuncResultTypeTest.assertArraySplitEqual
+      ~UfuncResultTypeTest.countTestCases
+      ~UfuncResultTypeTest.debug
+      ~UfuncResultTypeTest.defaultTestResult
+      ~UfuncResultTypeTest.doCleanups
+      ~UfuncResultTypeTest.id
+      ~UfuncResultTypeTest.run
+      ~UfuncResultTypeTest.setUp
+      ~UfuncResultTypeTest.setUpClass
+      ~UfuncResultTypeTest.shortDescription
+      ~UfuncResultTypeTest.skipTest
+      ~UfuncResultTypeTest.subTest
+      ~UfuncResultTypeTest.tearDown
+      ~UfuncResultTypeTest.tearDownClass
+      ~UfuncResultTypeTest.test_example
+      ~UfuncResultTypeTest.test_multiple_output
+      ~UfuncResultTypeTest.test_single_output
+      ~UfuncResultTypeTest.test_tuple_input
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~UfuncResultTypeTest.longMessage
+      ~UfuncResultTypeTest.maxDiff
+   
+   

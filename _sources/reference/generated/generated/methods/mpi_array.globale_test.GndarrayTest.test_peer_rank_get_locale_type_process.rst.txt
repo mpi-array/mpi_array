@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_peer\_rank\_get\_locale\_type\_process
+=====================================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_peer_rank_get_locale_type_process

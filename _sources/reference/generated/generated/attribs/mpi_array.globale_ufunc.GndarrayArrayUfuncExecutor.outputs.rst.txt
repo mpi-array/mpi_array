@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.outputs
+===============================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autoattribute:: GndarrayArrayUfuncExecutor.outputs

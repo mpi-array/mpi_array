@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.\_\_init\_\_
+=====================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.__init__

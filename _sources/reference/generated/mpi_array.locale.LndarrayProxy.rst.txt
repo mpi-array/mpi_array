@@ -1,0 +1,49 @@
+mpi_array.locale.LndarrayProxy
+==============================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoclass:: LndarrayProxy
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LndarrayProxy.calculate_intra_partition
+      ~LndarrayProxy.fill
+      ~LndarrayProxy.fill_h
+      ~LndarrayProxy.free
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LndarrayProxy.HI
+      ~LndarrayProxy.LO
+      ~LndarrayProxy.dtype
+      ~LndarrayProxy.halo
+      ~LndarrayProxy.intra_partition
+      ~LndarrayProxy.intra_partition_dims
+      ~LndarrayProxy.lndarray
+      ~LndarrayProxy.locale_extent
+      ~LndarrayProxy.md
+      ~LndarrayProxy.rank_view_h
+      ~LndarrayProxy.rank_view_n
+      ~LndarrayProxy.rank_view_partition_h
+      ~LndarrayProxy.rank_view_slice_h
+      ~LndarrayProxy.rank_view_slice_n
+      ~LndarrayProxy.shape
+      ~LndarrayProxy.view_h
+      ~LndarrayProxy.view_n
+   
+   

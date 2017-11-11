@@ -1,0 +1,6 @@
+mpi\_array\.comms\.ThisLocaleInfo\.inter\_locale\_rank
+======================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: ThisLocaleInfo.inter_locale_rank

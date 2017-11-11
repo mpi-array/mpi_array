@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.HaloIndexingExtentTest\.defaultTestResult
+=====================================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: HaloIndexingExtentTest.defaultTestResult

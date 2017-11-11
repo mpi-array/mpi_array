@@ -1,0 +1,34 @@
+mpi_array.update.PairExtentUpdate
+=================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: PairExtentUpdate
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~PairExtentUpdate.__init__
+      ~PairExtentUpdate.copyto
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~PairExtentUpdate.dst_extent
+      ~PairExtentUpdate.dst_update_extent
+      ~PairExtentUpdate.src_extent
+      ~PairExtentUpdate.src_update_extent
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.root\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.root_logger

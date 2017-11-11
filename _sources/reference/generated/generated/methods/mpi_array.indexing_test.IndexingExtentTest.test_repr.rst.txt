@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.IndexingExtentTest\.test\_repr
+==========================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: IndexingExtentTest.test_repr

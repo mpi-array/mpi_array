@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayProxyTest\.test\_construct\_arg\_checking
+===========================================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: LndarrayProxyTest.test_construct_arg_checking

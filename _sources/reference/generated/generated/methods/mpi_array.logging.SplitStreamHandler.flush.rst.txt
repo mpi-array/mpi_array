@@ -1,0 +1,6 @@
+mpi\_array\.logging\.SplitStreamHandler\.flush
+==============================================
+
+.. currentmodule:: mpi_array.logging
+
+.. automethod:: SplitStreamHandler.flush

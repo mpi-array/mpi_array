@@ -1,0 +1,54 @@
+mpi_array.comms_test.CreateDistributionTest
+===========================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoclass:: CreateDistributionTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CreateDistributionTest.__init__
+      ~CreateDistributionTest.addCleanup
+      ~CreateDistributionTest.addTypeEqualityFunc
+      ~CreateDistributionTest.assertArraySplitEqual
+      ~CreateDistributionTest.check_is_single_locale_distribution
+      ~CreateDistributionTest.countTestCases
+      ~CreateDistributionTest.debug
+      ~CreateDistributionTest.defaultTestResult
+      ~CreateDistributionTest.doCleanups
+      ~CreateDistributionTest.id
+      ~CreateDistributionTest.run
+      ~CreateDistributionTest.setUp
+      ~CreateDistributionTest.setUpClass
+      ~CreateDistributionTest.shortDescription
+      ~CreateDistributionTest.skipTest
+      ~CreateDistributionTest.subTest
+      ~CreateDistributionTest.tearDown
+      ~CreateDistributionTest.tearDownClass
+      ~CreateDistributionTest.test_check_distrib_type
+      ~CreateDistributionTest.test_check_locale_type
+      ~CreateDistributionTest.test_create_distribution_single_locale
+      ~CreateDistributionTest.test_create_distribution_slab
+      ~CreateDistributionTest.test_create_locale_comms_invalid_args
+      ~CreateDistributionTest.test_create_single_locale_distribution
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CreateDistributionTest.longMessage
+      ~CreateDistributionTest.maxDiff
+   
+   

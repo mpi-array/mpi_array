@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.create\_pair\_extent\_update
+=========================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.create_pair_extent_update

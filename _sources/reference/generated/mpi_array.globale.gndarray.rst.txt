@@ -1,0 +1,61 @@
+mpi_array.globale.gndarray
+==========================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoclass:: gndarray
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~gndarray.all
+      ~gndarray.calculate_copyfrom_updates
+      ~gndarray.copy
+      ~gndarray.copyfrom
+      ~gndarray.fill
+      ~gndarray.fill_h
+      ~gndarray.free
+      ~gndarray.get_view
+      ~gndarray.initialise_windows
+      ~gndarray.inter_locale_barrier
+      ~gndarray.intra_locale_barrier
+      ~gndarray.locale_get
+      ~gndarray.peer_rank_get
+      ~gndarray.reshape
+      ~gndarray.update
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~gndarray.comms_and_distrib
+      ~gndarray.distribution
+      ~gndarray.dtype
+      ~gndarray.halo_updater
+      ~gndarray.lndarray_proxy
+      ~gndarray.locale_comms
+      ~gndarray.ndim
+      ~gndarray.num_locales
+      ~gndarray.order
+      ~gndarray.rank_logger
+      ~gndarray.rank_view_h
+      ~gndarray.rank_view_n
+      ~gndarray.rma_window_buffer
+      ~gndarray.root_logger
+      ~gndarray.shape
+      ~gndarray.this_locale
+      ~gndarray.view_h
+      ~gndarray.view_n
+   
+   

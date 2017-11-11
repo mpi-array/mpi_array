@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.gndarray\_array\_ufunc
+==================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autofunction:: gndarray_array_ufunc

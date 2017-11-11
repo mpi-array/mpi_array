@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.dims
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.dims

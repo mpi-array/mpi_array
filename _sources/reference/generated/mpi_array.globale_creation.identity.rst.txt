@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\.identity
+=======================================
+
+.. currentmodule:: mpi_array.globale_creation
+
+.. autofunction:: identity

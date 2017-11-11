@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.repeat
+========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: TimeBenchmark.repeat

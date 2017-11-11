@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.to\_slice\_h
+====================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.to_slice_h

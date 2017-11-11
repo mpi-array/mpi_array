@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.warmup\_time
+==============================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: TimeBenchmark.warmup_time

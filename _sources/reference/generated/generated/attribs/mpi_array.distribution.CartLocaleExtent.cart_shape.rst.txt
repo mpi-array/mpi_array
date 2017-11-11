@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.cart\_shape
+=======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.cart_shape

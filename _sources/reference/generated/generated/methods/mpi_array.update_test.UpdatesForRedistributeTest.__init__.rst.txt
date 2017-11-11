@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.UpdatesForRedistributeTest\.\_\_init\_\_
+==================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: UpdatesForRedistributeTest.__init__

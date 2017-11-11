@@ -1,0 +1,6 @@
+mpi\_array\.logging\.get\_rank\_logger
+======================================
+
+.. currentmodule:: mpi_array.logging
+
+.. autofunction:: get_rank_logger

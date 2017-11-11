@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.root\_and\_package\_from\_name
+=================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: root_and_package_from_name

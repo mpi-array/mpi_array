@@ -1,0 +1,32 @@
+mpi_array.comms.ThisLocaleInfo
+==============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: ThisLocaleInfo
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~ThisLocaleInfo.count
+      ~ThisLocaleInfo.index
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~ThisLocaleInfo.inter_locale_rank
+      ~ThisLocaleInfo.peer_rank
+   
+   

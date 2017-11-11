@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.wasSuccessful
+===================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.wasSuccessful

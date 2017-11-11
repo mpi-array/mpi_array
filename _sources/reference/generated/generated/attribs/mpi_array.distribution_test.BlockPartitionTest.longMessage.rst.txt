@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.longMessage
+===============================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. autoattribute:: BlockPartitionTest.longMessage

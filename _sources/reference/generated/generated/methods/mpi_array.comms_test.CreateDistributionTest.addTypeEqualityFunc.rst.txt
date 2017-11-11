@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.addTypeEqualityFunc
+====================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.addTypeEqualityFunc

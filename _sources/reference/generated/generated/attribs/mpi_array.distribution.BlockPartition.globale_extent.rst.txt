@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.globale\_extent
+=========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: BlockPartition.globale_extent

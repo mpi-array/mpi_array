@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.stop
+============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.stop

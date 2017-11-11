@@ -1,0 +1,6 @@
+mpi\_array\.types\.find\_or\_create\_datatype
+=============================================
+
+.. currentmodule:: mpi_array.types
+
+.. autofunction:: find_or_create_datatype

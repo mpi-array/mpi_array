@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.peer\_ranks\_per\_locale
+======================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: ClonedDistribution.peer_ranks_per_locale

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.size\_h
+===============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.size_h

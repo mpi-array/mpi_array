@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.GndarrayUfuncTest\.shortDescription
+=====================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: GndarrayUfuncTest.shortDescription

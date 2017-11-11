@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.get\_extent\_for\_rank
+================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: BlockPartition.get_extent_for_rank

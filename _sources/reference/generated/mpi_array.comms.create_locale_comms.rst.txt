@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_locale\_comms
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_locale_comms

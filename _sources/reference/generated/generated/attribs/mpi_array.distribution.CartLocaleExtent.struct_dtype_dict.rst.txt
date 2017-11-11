@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.struct\_dtype\_dict
+===============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.struct_dtype_dict

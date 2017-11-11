@@ -1,0 +1,39 @@
+mpi_array.comms.CartLocaleCommsInfo
+===================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: CartLocaleCommsInfo
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CartLocaleCommsInfo.count
+      ~CartLocaleCommsInfo.index
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CartLocaleCommsInfo.cart_comm
+      ~CartLocaleCommsInfo.dims
+      ~CartLocaleCommsInfo.inter_locale_comm
+      ~CartLocaleCommsInfo.intra_locale_comm
+      ~CartLocaleCommsInfo.num_locales
+      ~CartLocaleCommsInfo.peer_comm
+      ~CartLocaleCommsInfo.peer_ranks_per_locale
+      ~CartLocaleCommsInfo.rank_logger
+      ~CartLocaleCommsInfo.root_logger
+   
+   

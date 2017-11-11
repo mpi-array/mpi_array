@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.test\_create\_distribution\_single\_locale
+===========================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.test_create_distribution_single_locale

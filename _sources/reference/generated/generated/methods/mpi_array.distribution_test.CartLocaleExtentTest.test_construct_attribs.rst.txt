@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.CartLocaleExtentTest\.test\_construct\_attribs
+==============================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: CartLocaleExtentTest.test_construct_attribs

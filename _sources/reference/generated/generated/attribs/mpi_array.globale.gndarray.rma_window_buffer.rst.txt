@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.rma\_window\_buffer
+==================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.rma_window_buffer

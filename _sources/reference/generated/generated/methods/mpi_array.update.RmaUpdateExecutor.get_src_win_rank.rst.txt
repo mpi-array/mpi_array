@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.get\_src\_win\_rank
+==========================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: RmaUpdateExecutor.get_src_win_rank

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.locale\_to\_globale\_slice\_h
+======================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: HaloSubExtent.locale_to_globale_slice_h

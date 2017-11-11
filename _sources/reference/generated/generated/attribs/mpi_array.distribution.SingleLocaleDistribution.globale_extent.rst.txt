@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.globale\_extent
+===================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.globale_extent

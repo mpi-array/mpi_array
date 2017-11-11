@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.locale\_to\_globale\_extent\_h
+=======================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.locale_to_globale_extent_h

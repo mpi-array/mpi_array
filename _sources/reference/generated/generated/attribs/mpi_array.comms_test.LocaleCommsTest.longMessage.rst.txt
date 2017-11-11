@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.longMessage
+=====================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoattribute:: LocaleCommsTest.longMessage

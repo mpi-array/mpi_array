@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.get\_setup\_cache\_key
+=========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: get_setup_cache_key

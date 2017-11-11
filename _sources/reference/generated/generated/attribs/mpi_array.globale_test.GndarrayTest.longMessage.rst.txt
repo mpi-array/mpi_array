@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.longMessage
+====================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. autoattribute:: GndarrayTest.longMessage

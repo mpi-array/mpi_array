@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.halo\_slab\_extent
+==============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.halo_slab_extent

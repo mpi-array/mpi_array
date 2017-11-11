@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.MpiPairExtentUpdateTest\.addTypeEqualityFunc
+======================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: MpiPairExtentUpdateTest.addTypeEqualityFunc

@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\.full\_like
+=========================================
+
+.. currentmodule:: mpi_array.globale_creation
+
+.. autofunction:: full_like

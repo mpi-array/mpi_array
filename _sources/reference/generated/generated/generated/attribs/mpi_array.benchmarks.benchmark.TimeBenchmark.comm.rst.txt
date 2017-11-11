@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.comm
+======================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoattribute:: TimeBenchmark.comm

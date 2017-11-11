@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleComms\.inter\_locale\_rank\_to\_peer\_rank\_map
+========================================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: LocaleComms.inter_locale_rank_to_peer_rank_map

@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.HalosUpdateTest\.doCleanups
+=====================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: HalosUpdateTest.doCleanups

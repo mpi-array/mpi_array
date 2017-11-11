@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LT\_NODE
+===========================
+
+.. currentmodule:: mpi_array.comms
+
+.. autodata:: LT_NODE

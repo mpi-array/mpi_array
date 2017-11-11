@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.GndarrayUfuncTest\.test\_umath\_multiply
+==========================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: GndarrayUfuncTest.test_umath_multiply

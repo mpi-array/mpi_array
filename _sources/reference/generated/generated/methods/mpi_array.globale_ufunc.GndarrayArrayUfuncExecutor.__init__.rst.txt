@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.\_\_init\_\_
+====================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. automethod:: GndarrayArrayUfuncExecutor.__init__

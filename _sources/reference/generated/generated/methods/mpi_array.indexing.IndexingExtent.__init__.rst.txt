@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.\_\_init\_\_
+==================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.__init__

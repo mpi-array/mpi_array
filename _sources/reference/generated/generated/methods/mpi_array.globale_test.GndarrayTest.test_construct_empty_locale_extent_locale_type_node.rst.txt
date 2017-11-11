@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_construct\_empty\_locale\_extent\_locale\_type\_node
+===================================================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_construct_empty_locale_extent_locale_type_node

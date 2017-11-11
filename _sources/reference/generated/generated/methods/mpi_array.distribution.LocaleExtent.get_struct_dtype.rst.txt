@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.get\_struct\_dtype
+==========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.get_struct_dtype

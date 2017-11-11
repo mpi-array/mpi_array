@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.calc\_intersection
+==============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.calc_intersection

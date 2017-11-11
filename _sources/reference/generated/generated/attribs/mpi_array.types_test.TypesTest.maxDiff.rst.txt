@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.maxDiff
+===========================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. autoattribute:: TypesTest.maxDiff

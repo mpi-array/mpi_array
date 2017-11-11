@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdateDifferentDtypes\.do\_get
+===============================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiPairExtentUpdateDifferentDtypes.do_get

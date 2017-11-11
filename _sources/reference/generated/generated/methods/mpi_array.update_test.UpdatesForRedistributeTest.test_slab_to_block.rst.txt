@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.UpdatesForRedistributeTest\.test\_slab\_to\_block
+===========================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: UpdatesForRedistributeTest.test_slab_to_block

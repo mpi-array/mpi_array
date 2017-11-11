@@ -1,0 +1,6 @@
+mpi\_array\.utils\.get\_shared\_mem\_usage\_percent\_string
+===========================================================
+
+.. currentmodule:: mpi_array.utils
+
+.. autofunction:: get_shared_mem_usage_percent_string

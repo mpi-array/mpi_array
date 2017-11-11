@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.usageExit
+============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestProgram.usageExit

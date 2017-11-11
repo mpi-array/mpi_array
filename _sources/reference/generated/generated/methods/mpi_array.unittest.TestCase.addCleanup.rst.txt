@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.addCleanup
+==========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.addCleanup

@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.halo
+==============================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.halo

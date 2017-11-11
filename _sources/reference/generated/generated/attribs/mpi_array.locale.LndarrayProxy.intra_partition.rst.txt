@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.intra\_partition
+===================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: LndarrayProxy.intra_partition

@@ -1,0 +1,6 @@
+mpi\_array\.locale\.copy
+========================
+
+.. currentmodule:: mpi_array.locale
+
+.. autofunction:: copy

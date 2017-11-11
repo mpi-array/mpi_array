@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_construct\_with\_structured\_array\_dtype
+========================================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_construct_with_structured_array_dtype

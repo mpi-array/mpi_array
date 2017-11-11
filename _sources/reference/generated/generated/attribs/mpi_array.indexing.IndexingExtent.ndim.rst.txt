@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.ndim
+==========================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: IndexingExtent.ndim

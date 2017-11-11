@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.start\_h
+==================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.start_h

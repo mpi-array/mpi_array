@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdate\.do\_rget
+=================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiPairExtentUpdate.do_rget

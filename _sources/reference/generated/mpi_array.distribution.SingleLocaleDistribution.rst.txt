@@ -1,0 +1,44 @@
+mpi_array.distribution.SingleLocaleDistribution
+===============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: SingleLocaleDistribution
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~SingleLocaleDistribution.__init__
+      ~SingleLocaleDistribution.create_globale_extent
+      ~SingleLocaleDistribution.create_locale_extents
+      ~SingleLocaleDistribution.create_struct_locale_extents
+      ~SingleLocaleDistribution.get_extent_for_rank
+      ~SingleLocaleDistribution.get_peer_rank
+      ~SingleLocaleDistribution.initialise_struct_locale_extents
+      ~SingleLocaleDistribution.initialise_struct_locale_extents_halos
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~SingleLocaleDistribution.HI
+      ~SingleLocaleDistribution.LO
+      ~SingleLocaleDistribution.globale_extent
+      ~SingleLocaleDistribution.halo
+      ~SingleLocaleDistribution.locale_extents
+      ~SingleLocaleDistribution.num_locales
+      ~SingleLocaleDistribution.peer_ranks_per_locale
+      ~SingleLocaleDistribution.struct_locale_extents
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.get\_cpy2\_src\_extents
+====================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.get_cpy2_src_extents

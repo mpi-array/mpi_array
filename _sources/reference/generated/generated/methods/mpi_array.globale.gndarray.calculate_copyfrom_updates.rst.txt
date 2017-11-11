@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.calculate\_copyfrom\_updates
+===========================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.calculate_copyfrom_updates

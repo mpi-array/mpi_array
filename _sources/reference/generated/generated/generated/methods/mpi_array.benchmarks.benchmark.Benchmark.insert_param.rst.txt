@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.insert\_param
+===========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: Benchmark.insert_param

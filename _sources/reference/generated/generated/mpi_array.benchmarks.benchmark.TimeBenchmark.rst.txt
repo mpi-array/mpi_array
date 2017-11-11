@@ -1,0 +1,56 @@
+mpi_array.benchmarks.benchmark.TimeBenchmark
+============================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoclass:: TimeBenchmark
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TimeBenchmark.__init__
+      ~TimeBenchmark.barrier
+      ~TimeBenchmark.bcast
+      ~TimeBenchmark.benchmark_timing
+      ~TimeBenchmark.do_profile_run
+      ~TimeBenchmark.do_run
+      ~TimeBenchmark.do_setup
+      ~TimeBenchmark.do_setup_cache
+      ~TimeBenchmark.do_teardown
+      ~TimeBenchmark.initialise
+      ~TimeBenchmark.insert_param
+      ~TimeBenchmark.redo_setup
+      ~TimeBenchmark.run
+      ~TimeBenchmark.set_param_idx
+      ~TimeBenchmark.wall_time
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~TimeBenchmark.comm
+      ~TimeBenchmark.current_params
+      ~TimeBenchmark.default_timer
+      ~TimeBenchmark.goal_time
+      ~TimeBenchmark.name_regex
+      ~TimeBenchmark.number
+      ~TimeBenchmark.params
+      ~TimeBenchmark.repeat
+      ~TimeBenchmark.root_rank
+      ~TimeBenchmark.setup_error
+      ~TimeBenchmark.timer
+      ~TimeBenchmark.wall_timer
+      ~TimeBenchmark.warmup_time
+   
+   

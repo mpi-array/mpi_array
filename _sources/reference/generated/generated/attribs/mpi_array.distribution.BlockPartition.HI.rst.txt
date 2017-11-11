@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.HI
+============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: BlockPartition.HI

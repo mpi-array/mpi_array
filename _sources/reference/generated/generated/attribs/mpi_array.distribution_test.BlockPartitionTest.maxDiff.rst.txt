@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.maxDiff
+===========================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. autoattribute:: BlockPartitionTest.maxDiff

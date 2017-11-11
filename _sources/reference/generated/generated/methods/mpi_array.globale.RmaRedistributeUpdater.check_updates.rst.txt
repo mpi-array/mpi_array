@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.check\_updates
+===========================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.check_updates

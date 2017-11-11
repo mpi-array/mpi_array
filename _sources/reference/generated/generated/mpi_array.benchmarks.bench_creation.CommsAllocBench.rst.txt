@@ -1,0 +1,43 @@
+mpi_array.benchmarks.bench_creation.CommsAllocBench
+===================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: CommsAllocBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CommsAllocBench.__init__
+      ~CommsAllocBench.free
+      ~CommsAllocBench.free_mpi_array_obj
+      ~CommsAllocBench.get_globale_shape
+      ~CommsAllocBench.setup
+      ~CommsAllocBench.teardown
+      ~CommsAllocBench.time_alloc_locale_buffer
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CommsAllocBench.cart_comm_dims
+      ~CommsAllocBench.goal_time
+      ~CommsAllocBench.locale_comms
+      ~CommsAllocBench.module
+      ~CommsAllocBench.param_names
+      ~CommsAllocBench.params
+      ~CommsAllocBench.repeat
+      ~CommsAllocBench.warmup_time
+   
+   

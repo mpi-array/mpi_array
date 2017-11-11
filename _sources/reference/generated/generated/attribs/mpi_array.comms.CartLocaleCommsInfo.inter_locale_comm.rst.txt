@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleCommsInfo\.inter\_locale\_comm
+===========================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleCommsInfo.inter_locale_comm

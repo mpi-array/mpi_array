@@ -1,0 +1,6 @@
+mpi\_array\.comms\.DT\_CLONED
+=============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autodata:: DT_CLONED

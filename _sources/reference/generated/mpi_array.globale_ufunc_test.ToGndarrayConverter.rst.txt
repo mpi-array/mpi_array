@@ -1,0 +1,23 @@
+mpi_array.globale_ufunc_test.ToGndarrayConverter
+================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. autoclass:: ToGndarrayConverter
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~ToGndarrayConverter.__init__
+   
+   
+
+   
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.order
+====================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.order

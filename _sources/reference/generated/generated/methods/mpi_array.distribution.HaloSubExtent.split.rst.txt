@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.split
+==============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: HaloSubExtent.split

@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.do\_teardown
+==========================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: Benchmark.do_teardown

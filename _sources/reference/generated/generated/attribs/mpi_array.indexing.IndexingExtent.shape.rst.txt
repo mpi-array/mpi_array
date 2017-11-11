@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.shape
+===========================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: IndexingExtent.shape

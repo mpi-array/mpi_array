@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.import\_module
+=================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: import_module

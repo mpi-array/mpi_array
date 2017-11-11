@@ -1,0 +1,6 @@
+mpi\_array\.globale\.PerAxisRmaHaloUpdater\.dtype
+=================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: PerAxisRmaHaloUpdater.dtype

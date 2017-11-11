@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.root\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.root_logger

@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.debug
+=====================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.debug

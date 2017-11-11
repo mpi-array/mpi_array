@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiHaloSingleExtentUpdate\.initialise\_data\_types
+======================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiHaloSingleExtentUpdate.initialise_data_types

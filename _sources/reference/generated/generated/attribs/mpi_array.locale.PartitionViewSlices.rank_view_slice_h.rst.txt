@@ -1,0 +1,6 @@
+mpi\_array\.locale\.PartitionViewSlices\.rank\_view\_slice\_h
+=============================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: PartitionViewSlices.rank_view_slice_h

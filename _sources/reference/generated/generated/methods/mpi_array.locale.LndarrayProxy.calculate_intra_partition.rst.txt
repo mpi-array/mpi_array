@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.calculate\_intra\_partition
+==============================================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: LndarrayProxy.calculate_intra_partition

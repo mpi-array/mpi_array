@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.shape\_n
+==================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.shape_n

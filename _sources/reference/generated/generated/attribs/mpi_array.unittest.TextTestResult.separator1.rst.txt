@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.separator1
+================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TextTestResult.separator1

@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.initialise\_rget\_updates
+=====================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.initialise_rget_updates

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.assertArraySplitEqual
+=========================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.assertArraySplitEqual

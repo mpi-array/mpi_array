@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.create\_pair\_extent\_update
+========================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.create_pair_extent_update

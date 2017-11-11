@@ -1,0 +1,55 @@
+mpi_array.distribution_test.BlockPartitionTest
+==============================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. autoclass:: BlockPartitionTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~BlockPartitionTest.__init__
+      ~BlockPartitionTest.addCleanup
+      ~BlockPartitionTest.addTypeEqualityFunc
+      ~BlockPartitionTest.assertArraySplitEqual
+      ~BlockPartitionTest.countTestCases
+      ~BlockPartitionTest.debug
+      ~BlockPartitionTest.defaultTestResult
+      ~BlockPartitionTest.doCleanups
+      ~BlockPartitionTest.do_test_construct_1d_with_halo
+      ~BlockPartitionTest.do_test_construct_2d_with_halo
+      ~BlockPartitionTest.id
+      ~BlockPartitionTest.run
+      ~BlockPartitionTest.setUp
+      ~BlockPartitionTest.setUpClass
+      ~BlockPartitionTest.shortDescription
+      ~BlockPartitionTest.skipTest
+      ~BlockPartitionTest.subTest
+      ~BlockPartitionTest.tearDown
+      ~BlockPartitionTest.tearDownClass
+      ~BlockPartitionTest.test_construct_1d_empty_tiles
+      ~BlockPartitionTest.test_construct_1d_no_halo
+      ~BlockPartitionTest.test_construct_1d_with_halo
+      ~BlockPartitionTest.test_construct_2d_no_halo
+      ~BlockPartitionTest.test_construct_2d_with_halo
+      ~BlockPartitionTest.test_construct_single_locale_1d
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~BlockPartitionTest.longMessage
+      ~BlockPartitionTest.maxDiff
+   
+   

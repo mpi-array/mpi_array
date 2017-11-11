@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.printErrors
+=================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.printErrors

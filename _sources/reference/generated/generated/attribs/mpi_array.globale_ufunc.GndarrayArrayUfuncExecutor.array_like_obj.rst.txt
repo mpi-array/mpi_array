@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.array\_like\_obj
+========================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autoattribute:: GndarrayArrayUfuncExecutor.array_like_obj

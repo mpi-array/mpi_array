@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.wait\_all
+======================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.wait_all

@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.STOP
+==========================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: IndexingExtent.STOP

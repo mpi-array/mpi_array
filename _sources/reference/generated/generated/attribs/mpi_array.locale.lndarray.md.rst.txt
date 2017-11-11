@@ -1,0 +1,6 @@
+mpi\_array\.locale\.lndarray\.md
+================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: lndarray.md

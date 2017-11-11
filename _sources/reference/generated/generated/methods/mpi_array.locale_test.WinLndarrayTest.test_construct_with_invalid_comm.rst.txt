@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.WinLndarrayTest\.test\_construct\_with\_invalid\_comm
+===============================================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: WinLndarrayTest.test_construct_with_invalid_comm

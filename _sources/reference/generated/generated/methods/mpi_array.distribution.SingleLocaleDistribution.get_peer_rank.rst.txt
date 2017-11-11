@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.get\_peer\_rank
+===================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: SingleLocaleDistribution.get_peer_rank

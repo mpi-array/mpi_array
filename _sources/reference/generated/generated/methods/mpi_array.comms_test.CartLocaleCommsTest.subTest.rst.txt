@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CartLocaleCommsTest\.subTest
+=====================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CartLocaleCommsTest.subTest

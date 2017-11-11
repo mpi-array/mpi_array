@@ -1,0 +1,6 @@
+mpi\_array\.comms\.get\_cart\_locale\_comms\_info
+=================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: get_cart_locale_comms_info

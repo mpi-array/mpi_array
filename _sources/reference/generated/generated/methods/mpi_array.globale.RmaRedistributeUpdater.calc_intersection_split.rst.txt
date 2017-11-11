@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.calc\_intersection\_split
+======================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.calc_intersection_split

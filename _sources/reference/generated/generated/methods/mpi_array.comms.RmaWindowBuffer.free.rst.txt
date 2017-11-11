@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.free
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: RmaWindowBuffer.free

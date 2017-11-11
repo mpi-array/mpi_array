@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CartLocaleCommsTest\.longMessage
+=========================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoattribute:: CartLocaleCommsTest.longMessage

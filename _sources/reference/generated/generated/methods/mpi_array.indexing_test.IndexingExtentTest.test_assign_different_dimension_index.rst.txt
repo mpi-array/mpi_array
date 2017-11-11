@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.IndexingExtentTest\.test\_assign\_different\_dimension\_index
+=========================================================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: IndexingExtentTest.test_assign_different_dimension_index

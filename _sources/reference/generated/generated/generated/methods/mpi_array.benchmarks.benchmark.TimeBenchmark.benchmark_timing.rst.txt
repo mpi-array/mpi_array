@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.benchmark\_timing
+===================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: TimeBenchmark.benchmark_timing

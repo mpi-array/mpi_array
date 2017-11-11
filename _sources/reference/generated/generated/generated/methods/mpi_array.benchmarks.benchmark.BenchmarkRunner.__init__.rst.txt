@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.\_\_init\_\_
+================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: BenchmarkRunner.__init__

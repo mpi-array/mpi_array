@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.inter\_locale\_rank
+===========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.inter_locale_rank

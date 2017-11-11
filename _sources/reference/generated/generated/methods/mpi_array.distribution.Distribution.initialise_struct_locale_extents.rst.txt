@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.initialise\_struct\_locale\_extents
+===========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: Distribution.initialise_struct_locale_extents

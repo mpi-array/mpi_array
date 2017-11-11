@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdate\.src\_data\_type
+========================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: MpiPairExtentUpdate.src_data_type

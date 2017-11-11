@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.is\_shared
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.is_shared

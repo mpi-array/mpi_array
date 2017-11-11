@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.MpiHaloSingleExtentUpdateTest\.test\_construct
+========================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: MpiHaloSingleExtentUpdateTest.test_construct

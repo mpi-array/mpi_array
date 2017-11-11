@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.get\_struct\_dtype\_from\_ndim
+========================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.get_struct_dtype_from_ndim

@@ -1,0 +1,6 @@
+mpi\_array\.license\.version
+============================
+
+.. currentmodule:: mpi_array.license
+
+.. autofunction:: version

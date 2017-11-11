@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.initialise\_rget\_updates
+======================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.initialise_rget_updates

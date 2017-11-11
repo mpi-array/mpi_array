@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.create\_struct\_dtype\_from\_ndim
+==========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: HaloSubExtent.create_struct_dtype_from_ndim

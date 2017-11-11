@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.get\_best\_match\_input
+===============================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. automethod:: GndarrayArrayUfuncExecutor.get_best_match_input

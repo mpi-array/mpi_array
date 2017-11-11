@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleCommsInfo\.root\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: LocaleCommsInfo.root_logger

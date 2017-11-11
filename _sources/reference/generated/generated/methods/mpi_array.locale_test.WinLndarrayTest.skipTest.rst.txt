@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.WinLndarrayTest\.skipTest
+===================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: WinLndarrayTest.skipTest

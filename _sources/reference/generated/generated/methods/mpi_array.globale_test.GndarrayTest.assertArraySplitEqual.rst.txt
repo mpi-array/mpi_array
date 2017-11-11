@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.assertArraySplitEqual
+==============================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.assertArraySplitEqual

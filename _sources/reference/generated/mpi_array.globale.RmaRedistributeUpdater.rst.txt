@@ -1,0 +1,38 @@
+mpi_array.globale.RmaRedistributeUpdater
+========================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoclass:: RmaRedistributeUpdater
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~RmaRedistributeUpdater.__init__
+      ~RmaRedistributeUpdater.barrier
+      ~RmaRedistributeUpdater.calc_can_use_existing_src_peer_comm
+      ~RmaRedistributeUpdater.calc_intersection_split
+      ~RmaRedistributeUpdater.check_updates
+      ~RmaRedistributeUpdater.create_pair_extent_update
+      ~RmaRedistributeUpdater.do_locale_cpy2_update
+      ~RmaRedistributeUpdater.do_locale_rma_update
+      ~RmaRedistributeUpdater.do_locale_update
+      ~RmaRedistributeUpdater.do_update
+      ~RmaRedistributeUpdater.get_cpy2_src_extents
+      ~RmaRedistributeUpdater.initialise
+      ~RmaRedistributeUpdater.initialise_cpy2_updates
+      ~RmaRedistributeUpdater.initialise_rget_updates
+      ~RmaRedistributeUpdater.initialise_updates
+      ~RmaRedistributeUpdater.wait_all
+   
+   
+
+   
+   
+   

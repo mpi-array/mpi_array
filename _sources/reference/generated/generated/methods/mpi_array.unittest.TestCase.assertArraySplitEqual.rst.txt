@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.assertArraySplitEqual
+=====================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.assertArraySplitEqual

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.globale\_extent
+=============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: ClonedDistribution.globale_extent

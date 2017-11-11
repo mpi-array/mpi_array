@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.IndexingExtentTest\.test\_to\_tuple
+===============================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: IndexingExtentTest.test_to_tuple

@@ -1,0 +1,6 @@
+mpi\_array\.update\.HaloSingleExtentUpdate\.\_\_init\_\_
+========================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: HaloSingleExtentUpdate.__init__

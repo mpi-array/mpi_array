@@ -1,0 +1,24 @@
+mpi_array.unittest.TextTestRunner
+=================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoclass:: TextTestRunner
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TextTestRunner.__init__
+      ~TextTestRunner.run
+   
+   
+
+   
+   
+   

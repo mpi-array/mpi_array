@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.BlockPartitionTest\.do\_test\_construct\_1d\_with\_halo
+=======================================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: BlockPartitionTest.do_test_construct_1d_with_halo

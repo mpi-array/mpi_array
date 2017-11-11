@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_cart\_locale\_comms\_info
+====================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_cart_locale_comms_info

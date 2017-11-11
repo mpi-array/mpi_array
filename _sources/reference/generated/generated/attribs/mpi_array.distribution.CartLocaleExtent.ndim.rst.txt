@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.ndim
+================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.ndim

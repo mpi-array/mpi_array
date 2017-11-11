@@ -1,0 +1,6 @@
+mpi\_array\.locale\.NdarrayMetaData\.order
+==========================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: NdarrayMetaData.order

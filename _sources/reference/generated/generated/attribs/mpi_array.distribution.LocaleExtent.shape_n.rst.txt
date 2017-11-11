@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.shape\_n
+================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.shape_n

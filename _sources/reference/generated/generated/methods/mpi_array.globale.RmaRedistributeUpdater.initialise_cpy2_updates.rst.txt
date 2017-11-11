@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.initialise\_cpy2\_updates
+======================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.initialise_cpy2_updates

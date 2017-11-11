@@ -1,0 +1,40 @@
+mpi_array.unittest.TestProgram
+==============================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoclass:: TestProgram
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TestProgram.__init__
+      ~TestProgram.createTests
+      ~TestProgram.parseArgs
+      ~TestProgram.runTests
+      ~TestProgram.usageExit
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~TestProgram.buffer
+      ~TestProgram.catchbreak
+      ~TestProgram.failfast
+      ~TestProgram.module
+      ~TestProgram.progName
+      ~TestProgram.verbosity
+      ~TestProgram.warnings
+   
+   

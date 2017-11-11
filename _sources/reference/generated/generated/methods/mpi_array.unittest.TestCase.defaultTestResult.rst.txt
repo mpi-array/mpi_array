@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.defaultTestResult
+=================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.defaultTestResult

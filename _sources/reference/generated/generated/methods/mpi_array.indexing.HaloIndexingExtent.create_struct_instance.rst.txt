@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.create\_struct\_instance
+==================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.create_struct_instance

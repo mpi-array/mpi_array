@@ -1,0 +1,6 @@
+mpi\_array\.locale\.lndarray\.\_\_new\_\_
+=========================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: lndarray.__new__

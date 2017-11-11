@@ -1,0 +1,51 @@
+mpi_array.globale_ufunc.GndarrayArrayUfuncExecutor
+==================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autoclass:: GndarrayArrayUfuncExecutor
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~GndarrayArrayUfuncExecutor.__init__
+      ~GndarrayArrayUfuncExecutor.create_outputs
+      ~GndarrayArrayUfuncExecutor.execute
+      ~GndarrayArrayUfuncExecutor.execute___call__
+      ~GndarrayArrayUfuncExecutor.execute_accumulate
+      ~GndarrayArrayUfuncExecutor.execute_at
+      ~GndarrayArrayUfuncExecutor.execute_outer
+      ~GndarrayArrayUfuncExecutor.execute_reduce
+      ~GndarrayArrayUfuncExecutor.execute_reduceat
+      ~GndarrayArrayUfuncExecutor.get_best_match_input
+      ~GndarrayArrayUfuncExecutor.get_input_extents
+      ~GndarrayArrayUfuncExecutor.get_inputs_shapes
+      ~GndarrayArrayUfuncExecutor.get_numpy_ufunc_peer_rank_inputs_outputs
+      ~GndarrayArrayUfuncExecutor.need_remote_data
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~GndarrayArrayUfuncExecutor.array_like_obj
+      ~GndarrayArrayUfuncExecutor.casting
+      ~GndarrayArrayUfuncExecutor.inputs
+      ~GndarrayArrayUfuncExecutor.inter_locale_comm
+      ~GndarrayArrayUfuncExecutor.intra_locale_comm
+      ~GndarrayArrayUfuncExecutor.method
+      ~GndarrayArrayUfuncExecutor.outputs
+      ~GndarrayArrayUfuncExecutor.peer_comm
+      ~GndarrayArrayUfuncExecutor.ufunc
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.buffer
+==========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.buffer

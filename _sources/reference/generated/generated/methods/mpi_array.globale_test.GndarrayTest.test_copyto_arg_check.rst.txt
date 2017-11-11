@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_copyto\_arg\_check
+=================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_copyto_arg_check

@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.MpiHaloSingleExtentUpdateTest\.tearDown
+=================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: MpiHaloSingleExtentUpdateTest.tearDown

@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.free
+=======================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: LndarrayProxy.free

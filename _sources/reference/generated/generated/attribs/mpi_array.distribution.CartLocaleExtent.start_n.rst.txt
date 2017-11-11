@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.start\_n
+====================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.start_n

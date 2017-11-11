@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.addSkip
+=============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.addSkip

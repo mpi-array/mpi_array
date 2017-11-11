@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.barrier
+=====================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: Benchmark.barrier

@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.addSubTest
+================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.addSubTest

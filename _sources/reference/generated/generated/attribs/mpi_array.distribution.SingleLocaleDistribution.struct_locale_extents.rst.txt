@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.struct\_locale\_extents
+===========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.struct_locale_extents

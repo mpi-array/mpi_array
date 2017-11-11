@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.fill\_h
+======================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.fill_h

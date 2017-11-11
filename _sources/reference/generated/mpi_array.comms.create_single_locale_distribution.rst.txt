@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_single\_locale\_distribution
+=======================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_single_locale_distribution

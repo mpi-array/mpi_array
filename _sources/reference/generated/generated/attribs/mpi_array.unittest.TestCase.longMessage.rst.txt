@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.longMessage
+===========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestCase.longMessage

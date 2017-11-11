@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CommsAndDistribution\.index
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CommsAndDistribution.index

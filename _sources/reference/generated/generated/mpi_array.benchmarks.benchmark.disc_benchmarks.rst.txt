@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.disc\_benchmarks
+===================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: disc_benchmarks

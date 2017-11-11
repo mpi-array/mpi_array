@@ -1,0 +1,44 @@
+mpi_array.distribution.BlockPartition
+=====================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: BlockPartition
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~BlockPartition.__init__
+      ~BlockPartition.create_globale_extent
+      ~BlockPartition.create_locale_extents
+      ~BlockPartition.create_struct_locale_extents
+      ~BlockPartition.get_extent_for_rank
+      ~BlockPartition.get_peer_rank
+      ~BlockPartition.initialise_struct_locale_extents
+      ~BlockPartition.initialise_struct_locale_extents_halos
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~BlockPartition.HI
+      ~BlockPartition.LO
+      ~BlockPartition.globale_extent
+      ~BlockPartition.halo
+      ~BlockPartition.locale_extents
+      ~BlockPartition.num_locales
+      ~BlockPartition.peer_ranks_per_locale
+      ~BlockPartition.struct_locale_extents
+   
+   

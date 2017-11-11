@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.get\_numpy\_ufunc\_peer\_rank\_inputs\_outputs
+======================================================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. automethod:: GndarrayArrayUfuncExecutor.get_numpy_ufunc_peer_rank_inputs_outputs

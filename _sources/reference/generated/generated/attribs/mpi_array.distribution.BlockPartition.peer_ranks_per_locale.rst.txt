@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.peer\_ranks\_per\_locale
+==================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: BlockPartition.peer_ranks_per_locale

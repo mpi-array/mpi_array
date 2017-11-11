@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CommsAndDistribution\.count
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CommsAndDistribution.count

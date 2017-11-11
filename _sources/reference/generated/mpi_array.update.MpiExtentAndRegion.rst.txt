@@ -1,0 +1,34 @@
+mpi_array.update.MpiExtentAndRegion
+===================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: MpiExtentAndRegion
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiExtentAndRegion.__init__
+      ~MpiExtentAndRegion.create_data_type
+      ~MpiExtentAndRegion.initialise_mpi_data_type
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiExtentAndRegion.locale_extent
+      ~MpiExtentAndRegion.mpi_data_type
+      ~MpiExtentAndRegion.region_extent
+   
+   

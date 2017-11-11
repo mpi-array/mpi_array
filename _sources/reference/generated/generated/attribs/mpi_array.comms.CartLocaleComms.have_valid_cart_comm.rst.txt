@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.have\_valid\_cart\_comm
+===========================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.have_valid_cart_comm

@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.TimeBenchmark\.do\_setup\_cache
+==================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: TimeBenchmark.do_setup_cache

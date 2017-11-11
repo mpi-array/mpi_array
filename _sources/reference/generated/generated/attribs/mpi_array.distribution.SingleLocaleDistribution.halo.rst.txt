@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.halo
+========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.halo

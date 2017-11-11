@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleComms\.inter\_locale\_comm
+===================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: LocaleComms.inter_locale_comm

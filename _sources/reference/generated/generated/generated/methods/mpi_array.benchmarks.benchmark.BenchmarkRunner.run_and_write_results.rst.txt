@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.run\_and\_write\_results
+============================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: BenchmarkRunner.run_and_write_results

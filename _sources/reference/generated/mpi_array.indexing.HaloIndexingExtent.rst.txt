@@ -1,0 +1,76 @@
+mpi_array.indexing.HaloIndexingExtent
+=====================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoclass:: HaloIndexingExtent
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~HaloIndexingExtent.__init__
+      ~HaloIndexingExtent.calc_intersection
+      ~HaloIndexingExtent.calc_intersection_split
+      ~HaloIndexingExtent.create_struct_dtype_from_ndim
+      ~HaloIndexingExtent.create_struct_instance
+      ~HaloIndexingExtent.get_struct_dtype
+      ~HaloIndexingExtent.get_struct_dtype_from_ndim
+      ~HaloIndexingExtent.globale_to_locale_extent_h
+      ~HaloIndexingExtent.globale_to_locale_h
+      ~HaloIndexingExtent.globale_to_locale_n
+      ~HaloIndexingExtent.globale_to_locale_slice_h
+      ~HaloIndexingExtent.globale_to_locale_slice_n
+      ~HaloIndexingExtent.locale_to_globale_extent_h
+      ~HaloIndexingExtent.locale_to_globale_h
+      ~HaloIndexingExtent.locale_to_globale_n
+      ~HaloIndexingExtent.locale_to_globale_slice_h
+      ~HaloIndexingExtent.locale_to_globale_slice_n
+      ~HaloIndexingExtent.split
+      ~HaloIndexingExtent.to_slice
+      ~HaloIndexingExtent.to_slice_h
+      ~HaloIndexingExtent.to_slice_n
+      ~HaloIndexingExtent.to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~HaloIndexingExtent.HALO
+      ~HaloIndexingExtent.HALO_STR
+      ~HaloIndexingExtent.HI
+      ~HaloIndexingExtent.LO
+      ~HaloIndexingExtent.START
+      ~HaloIndexingExtent.START_N
+      ~HaloIndexingExtent.START_N_STR
+      ~HaloIndexingExtent.START_STR
+      ~HaloIndexingExtent.STOP
+      ~HaloIndexingExtent.STOP_N
+      ~HaloIndexingExtent.STOP_N_STR
+      ~HaloIndexingExtent.STOP_STR
+      ~HaloIndexingExtent.halo
+      ~HaloIndexingExtent.ndim
+      ~HaloIndexingExtent.shape
+      ~HaloIndexingExtent.shape_h
+      ~HaloIndexingExtent.shape_n
+      ~HaloIndexingExtent.size_h
+      ~HaloIndexingExtent.size_n
+      ~HaloIndexingExtent.start
+      ~HaloIndexingExtent.start_h
+      ~HaloIndexingExtent.start_n
+      ~HaloIndexingExtent.stop
+      ~HaloIndexingExtent.stop_h
+      ~HaloIndexingExtent.stop_n
+      ~HaloIndexingExtent.struct_dtype_dict
+   
+   

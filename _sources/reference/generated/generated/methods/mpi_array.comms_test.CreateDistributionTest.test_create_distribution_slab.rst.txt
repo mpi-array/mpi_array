@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.test\_create\_distribution\_slab
+=================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.test_create_distribution_slab

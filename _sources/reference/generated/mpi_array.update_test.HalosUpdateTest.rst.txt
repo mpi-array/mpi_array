@@ -1,0 +1,48 @@
+mpi_array.update_test.HalosUpdateTest
+=====================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoclass:: HalosUpdateTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~HalosUpdateTest.__init__
+      ~HalosUpdateTest.addCleanup
+      ~HalosUpdateTest.addTypeEqualityFunc
+      ~HalosUpdateTest.assertArraySplitEqual
+      ~HalosUpdateTest.countTestCases
+      ~HalosUpdateTest.debug
+      ~HalosUpdateTest.defaultTestResult
+      ~HalosUpdateTest.doCleanups
+      ~HalosUpdateTest.id
+      ~HalosUpdateTest.run
+      ~HalosUpdateTest.setUp
+      ~HalosUpdateTest.setUpClass
+      ~HalosUpdateTest.shortDescription
+      ~HalosUpdateTest.skipTest
+      ~HalosUpdateTest.subTest
+      ~HalosUpdateTest.tearDown
+      ~HalosUpdateTest.tearDownClass
+      ~HalosUpdateTest.test_construct
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~HalosUpdateTest.longMessage
+      ~HalosUpdateTest.maxDiff
+   
+   

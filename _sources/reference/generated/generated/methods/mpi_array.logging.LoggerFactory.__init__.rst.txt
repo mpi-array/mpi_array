@@ -1,0 +1,6 @@
+mpi\_array\.logging\.LoggerFactory\.\_\_init\_\_
+================================================
+
+.. currentmodule:: mpi_array.logging
+
+.. automethod:: LoggerFactory.__init__

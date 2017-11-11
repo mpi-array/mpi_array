@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\.array
+====================================
+
+.. currentmodule:: mpi_array.globale_creation
+
+.. autofunction:: array

@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.verbosity
+============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestProgram.verbosity

@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.calc\_can\_use\_existing\_src\_peer\_comm
+======================================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.calc_can_use_existing_src_peer_comm

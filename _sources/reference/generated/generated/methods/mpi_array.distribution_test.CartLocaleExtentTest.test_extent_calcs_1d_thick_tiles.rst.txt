@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.CartLocaleExtentTest\.test\_extent\_calcs\_1d\_thick\_tiles
+===========================================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: CartLocaleExtentTest.test_extent_calcs_1d_thick_tiles

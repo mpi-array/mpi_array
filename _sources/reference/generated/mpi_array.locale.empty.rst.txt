@@ -1,0 +1,6 @@
+mpi\_array\.locale\.empty
+=========================
+
+.. currentmodule:: mpi_array.locale
+
+.. autofunction:: empty

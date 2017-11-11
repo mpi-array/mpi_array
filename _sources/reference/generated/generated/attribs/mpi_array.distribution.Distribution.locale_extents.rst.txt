@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.locale\_extents
+=======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: Distribution.locale_extents

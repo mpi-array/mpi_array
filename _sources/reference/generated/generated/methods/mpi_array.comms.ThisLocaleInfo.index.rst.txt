@@ -1,0 +1,6 @@
+mpi\_array\.comms\.ThisLocaleInfo\.index
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: ThisLocaleInfo.index

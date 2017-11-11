@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.get\_struct\_dtype
+========================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.get_struct_dtype

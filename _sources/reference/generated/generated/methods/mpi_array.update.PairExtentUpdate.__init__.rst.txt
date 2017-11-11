@@ -1,0 +1,6 @@
+mpi\_array\.update\.PairExtentUpdate\.\_\_init\_\_
+==================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: PairExtentUpdate.__init__

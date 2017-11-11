@@ -1,0 +1,6 @@
+mpi\_array\.comms\.DT\_SINGLE\_LOCALE
+=====================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autodata:: DT_SINGLE_LOCALE

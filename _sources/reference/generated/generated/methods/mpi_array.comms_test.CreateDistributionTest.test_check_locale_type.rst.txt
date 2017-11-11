@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.test\_check\_locale\_type
+==========================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.test_check_locale_type

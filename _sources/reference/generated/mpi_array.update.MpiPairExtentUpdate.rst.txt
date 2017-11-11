@@ -1,0 +1,43 @@
+mpi_array.update.MpiPairExtentUpdate
+====================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: MpiPairExtentUpdate
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiPairExtentUpdate.__init__
+      ~MpiPairExtentUpdate.conclude
+      ~MpiPairExtentUpdate.copyto
+      ~MpiPairExtentUpdate.do_get
+      ~MpiPairExtentUpdate.do_rget
+      ~MpiPairExtentUpdate.initialise_data_types
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiPairExtentUpdate.casting
+      ~MpiPairExtentUpdate.dst_data_type
+      ~MpiPairExtentUpdate.dst_dtype
+      ~MpiPairExtentUpdate.dst_extent
+      ~MpiPairExtentUpdate.dst_update_extent
+      ~MpiPairExtentUpdate.src_data_type
+      ~MpiPairExtentUpdate.src_dtype
+      ~MpiPairExtentUpdate.src_extent
+      ~MpiPairExtentUpdate.src_update_extent
+   
+   

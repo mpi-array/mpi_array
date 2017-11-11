@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.\_\_init\_\_
+========================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.__init__

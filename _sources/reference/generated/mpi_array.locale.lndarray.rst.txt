@@ -1,0 +1,32 @@
+..
+   Special template for mpi_array.locale.slndarray to avoid numpydoc
+   documentation style warnings/errors from numpy.ndarray inheritance.
+
+mpi_array.locale.lndarray
+=========================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoclass:: lndarray
+
+   
+
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+      ~lndarray.__new__
+      ~lndarray.__array_finalize__
+
+   
+
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+      
+      ~lndarray.md
+
+   

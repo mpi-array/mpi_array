@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.\_\_init\_\_
+================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: SingleLocaleDistribution.__init__

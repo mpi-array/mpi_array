@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.halo\_updater
+============================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.halo_updater

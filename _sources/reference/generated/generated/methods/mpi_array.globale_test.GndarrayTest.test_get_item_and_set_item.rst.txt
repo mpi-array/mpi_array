@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_get\_item\_and\_set\_item
+========================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_get_item_and_set_item

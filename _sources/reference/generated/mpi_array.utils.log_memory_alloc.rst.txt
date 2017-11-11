@@ -1,0 +1,6 @@
+mpi\_array\.utils\.log\_memory\_alloc
+=====================================
+
+.. currentmodule:: mpi_array.utils
+
+.. autofunction:: log_memory_alloc

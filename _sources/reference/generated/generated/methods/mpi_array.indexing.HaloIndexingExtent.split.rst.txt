@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.split
+===============================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.split

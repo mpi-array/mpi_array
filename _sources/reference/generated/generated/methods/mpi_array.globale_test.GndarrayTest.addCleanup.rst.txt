@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.addCleanup
+===================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.addCleanup

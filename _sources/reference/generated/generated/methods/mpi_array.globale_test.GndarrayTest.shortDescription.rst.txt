@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.shortDescription
+=========================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.shortDescription

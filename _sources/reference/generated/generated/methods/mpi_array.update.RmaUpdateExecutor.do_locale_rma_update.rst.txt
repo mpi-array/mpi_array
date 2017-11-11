@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.do\_locale\_rma\_update
+==============================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: RmaUpdateExecutor.do_locale_rma_update

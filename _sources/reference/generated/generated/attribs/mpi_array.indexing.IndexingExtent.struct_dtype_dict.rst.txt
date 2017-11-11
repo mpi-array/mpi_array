@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.struct\_dtype\_dict
+=========================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: IndexingExtent.struct_dtype_dict

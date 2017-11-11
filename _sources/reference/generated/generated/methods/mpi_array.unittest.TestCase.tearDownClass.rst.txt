@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.tearDownClass
+=============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.tearDownClass

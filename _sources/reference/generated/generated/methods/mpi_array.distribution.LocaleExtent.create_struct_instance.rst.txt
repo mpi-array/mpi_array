@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.create\_struct\_instance
+================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.create_struct_instance

@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.peer\_comm
+==================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autoattribute:: GndarrayArrayUfuncExecutor.peer_comm

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_cloned\_distribution
+===============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_cloned_distribution

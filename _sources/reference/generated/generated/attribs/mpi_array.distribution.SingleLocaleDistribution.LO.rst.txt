@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.LO
+======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: SingleLocaleDistribution.LO

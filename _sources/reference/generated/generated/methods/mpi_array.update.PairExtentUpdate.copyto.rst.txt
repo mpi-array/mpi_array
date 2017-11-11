@@ -1,0 +1,6 @@
+mpi\_array\.update\.PairExtentUpdate\.copyto
+============================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: PairExtentUpdate.copyto

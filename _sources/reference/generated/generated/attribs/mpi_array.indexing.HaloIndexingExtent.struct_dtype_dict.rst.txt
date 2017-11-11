@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.struct\_dtype\_dict
+=============================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.struct_dtype_dict

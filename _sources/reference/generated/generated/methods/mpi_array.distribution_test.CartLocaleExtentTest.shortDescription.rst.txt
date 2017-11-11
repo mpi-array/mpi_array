@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.CartLocaleExtentTest\.shortDescription
+======================================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: CartLocaleExtentTest.shortDescription

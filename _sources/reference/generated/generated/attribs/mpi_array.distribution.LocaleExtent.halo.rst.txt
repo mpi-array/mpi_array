@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.halo
+============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.halo

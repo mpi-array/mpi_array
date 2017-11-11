@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.get\_inputs\_shapes
+===========================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. automethod:: GndarrayArrayUfuncExecutor.get_inputs_shapes

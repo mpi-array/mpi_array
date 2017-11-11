@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayTest\.longMessage
+===================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. autoattribute:: LndarrayTest.longMessage

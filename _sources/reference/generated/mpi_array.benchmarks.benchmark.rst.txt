@@ -1,0 +1,41 @@
+mpi\_array\.benchmarks\.benchmark
+=================================
+
+.. automodule:: mpi_array.benchmarks.benchmark
+
+   
+   
+   .. rubric:: Functions
+
+   .. autosummary::
+      :toctree: generated/
+      
+         create_runner_argument_parser
+         disc_benchmarks
+         disc_files
+         get_process_time_timer
+         get_setup_cache_key
+         get_source_code
+         import_module
+         root_and_package_from_name
+         run_main
+         sha256
+   
+   
+
+   
+   
+   .. rubric:: Classes
+
+   .. autosummary::
+      :toctree: generated/
+      
+         Benchmark
+         BenchmarkRunner
+         TimeBenchmark
+   
+   
+
+   
+   
+   

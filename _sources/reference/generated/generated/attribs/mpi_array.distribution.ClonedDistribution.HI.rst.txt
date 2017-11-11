@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.HI
+================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: ClonedDistribution.HI

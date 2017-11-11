@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.rank\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.rank_logger

@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayProxyTest\.test\_fill
+=======================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: LndarrayProxyTest.test_fill

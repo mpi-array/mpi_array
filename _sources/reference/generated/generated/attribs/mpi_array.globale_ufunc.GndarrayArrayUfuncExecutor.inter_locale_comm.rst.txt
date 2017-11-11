@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.inter\_locale\_comm
+===========================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autoattribute:: GndarrayArrayUfuncExecutor.inter_locale_comm

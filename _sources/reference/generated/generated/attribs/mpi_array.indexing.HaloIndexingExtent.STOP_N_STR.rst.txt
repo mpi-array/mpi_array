@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.STOP\_N\_STR
+======================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.STOP_N_STR

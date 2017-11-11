@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.UfuncResultTypeTest\.debug
+============================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: UfuncResultTypeTest.debug

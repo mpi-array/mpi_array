@@ -1,0 +1,41 @@
+mpi_array.globale.PerAxisRmaHaloUpdater
+=======================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoclass:: PerAxisRmaHaloUpdater
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~PerAxisRmaHaloUpdater.__init__
+      ~PerAxisRmaHaloUpdater.calc_halo_updates
+      ~PerAxisRmaHaloUpdater.do_update_halos
+      ~PerAxisRmaHaloUpdater.update_halos
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~PerAxisRmaHaloUpdater.HI
+      ~PerAxisRmaHaloUpdater.LO
+      ~PerAxisRmaHaloUpdater.dst_buffer
+      ~PerAxisRmaHaloUpdater.dtype
+      ~PerAxisRmaHaloUpdater.halo_updates
+      ~PerAxisRmaHaloUpdater.locale_extents
+      ~PerAxisRmaHaloUpdater.order
+      ~PerAxisRmaHaloUpdater.rank_logger
+      ~PerAxisRmaHaloUpdater.root_logger
+   
+   

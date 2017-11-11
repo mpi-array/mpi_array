@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\_test\.GndarrayCreationTest\.test\_asanyarray\_with\_subclass
+===========================================================================================
+
+.. currentmodule:: mpi_array.globale_creation_test
+
+.. automethod:: GndarrayCreationTest.test_asanyarray_with_subclass

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.create\_globale\_extent
+=====================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: ClonedDistribution.create_globale_extent

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.\_\_init\_\_
+====================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.__init__

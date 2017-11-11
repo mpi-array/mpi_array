@@ -1,0 +1,6 @@
+mpi\_array\.logging\.SplitStreamHandler\.name
+=============================================
+
+.. currentmodule:: mpi_array.logging
+
+.. autoattribute:: SplitStreamHandler.name

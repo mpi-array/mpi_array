@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.\_\_init\_\_
+============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.__init__

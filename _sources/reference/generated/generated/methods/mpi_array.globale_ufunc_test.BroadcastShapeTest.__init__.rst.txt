@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.BroadcastShapeTest\.\_\_init\_\_
+==================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: BroadcastShapeTest.__init__

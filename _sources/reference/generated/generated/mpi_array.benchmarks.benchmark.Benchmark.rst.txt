@@ -1,0 +1,46 @@
+mpi_array.benchmarks.benchmark.Benchmark
+========================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoclass:: Benchmark
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~Benchmark.__init__
+      ~Benchmark.barrier
+      ~Benchmark.bcast
+      ~Benchmark.do_profile_run
+      ~Benchmark.do_run
+      ~Benchmark.do_setup
+      ~Benchmark.do_setup_cache
+      ~Benchmark.do_teardown
+      ~Benchmark.initialise
+      ~Benchmark.insert_param
+      ~Benchmark.redo_setup
+      ~Benchmark.set_param_idx
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~Benchmark.comm
+      ~Benchmark.current_params
+      ~Benchmark.name_regex
+      ~Benchmark.params
+      ~Benchmark.root_rank
+      ~Benchmark.setup_error
+   
+   

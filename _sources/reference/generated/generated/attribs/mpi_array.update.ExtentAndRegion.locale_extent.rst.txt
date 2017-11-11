@@ -1,0 +1,6 @@
+mpi\_array\.update\.ExtentAndRegion\.locale\_extent
+===================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: ExtentAndRegion.locale_extent

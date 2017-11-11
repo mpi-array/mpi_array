@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.inter\_locale\_rank\_to\_peer\_rank\_map
+============================================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.inter_locale_rank_to_peer_rank_map

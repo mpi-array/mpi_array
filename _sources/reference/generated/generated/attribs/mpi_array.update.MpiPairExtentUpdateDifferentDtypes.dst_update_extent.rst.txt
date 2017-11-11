@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdateDifferentDtypes\.dst\_update\_extent
+===========================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: MpiPairExtentUpdateDifferentDtypes.dst_update_extent

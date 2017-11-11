@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.create\_runner\_argument\_parser
+===================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: create_runner_argument_parser

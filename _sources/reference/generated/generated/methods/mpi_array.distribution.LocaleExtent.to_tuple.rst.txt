@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.to\_tuple
+=================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.to_tuple

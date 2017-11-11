@@ -1,0 +1,6 @@
+mpi\_array\.distribution\_test\.CartLocaleExtentTest\.run
+=========================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. automethod:: CartLocaleExtentTest.run

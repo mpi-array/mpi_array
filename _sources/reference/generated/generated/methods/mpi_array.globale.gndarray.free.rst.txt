@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.free
+===================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.free

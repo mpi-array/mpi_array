@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.addFailure
+================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.addFailure

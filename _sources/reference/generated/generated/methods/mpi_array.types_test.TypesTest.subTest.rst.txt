@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.subTest
+===========================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.subTest

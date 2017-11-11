@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.create\_locale\_extents
+===============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: Distribution.create_locale_extents

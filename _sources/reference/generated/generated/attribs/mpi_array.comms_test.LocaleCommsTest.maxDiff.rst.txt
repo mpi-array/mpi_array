@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.maxDiff
+=================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoattribute:: LocaleCommsTest.maxDiff

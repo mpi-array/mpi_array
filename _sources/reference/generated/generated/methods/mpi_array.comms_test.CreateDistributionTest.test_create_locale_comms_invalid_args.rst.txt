@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.test\_create\_locale\_comms\_invalid\_args
+===========================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.test_create_locale_comms_invalid_args

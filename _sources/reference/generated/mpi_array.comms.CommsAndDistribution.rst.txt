@@ -1,0 +1,33 @@
+mpi_array.comms.CommsAndDistribution
+====================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: CommsAndDistribution
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CommsAndDistribution.count
+      ~CommsAndDistribution.index
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CommsAndDistribution.distribution
+      ~CommsAndDistribution.locale_comms
+      ~CommsAndDistribution.this_locale
+   
+   

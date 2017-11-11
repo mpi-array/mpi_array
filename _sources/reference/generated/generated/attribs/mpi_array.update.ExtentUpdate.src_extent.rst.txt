@@ -1,0 +1,6 @@
+mpi\_array\.update\.ExtentUpdate\.src\_extent
+=============================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: ExtentUpdate.src_extent

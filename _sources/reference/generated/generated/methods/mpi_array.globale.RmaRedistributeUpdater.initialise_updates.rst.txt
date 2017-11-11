@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.initialise\_updates
+================================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.initialise_updates

@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.WinLndarrayTest\.\_\_init\_\_
+=======================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: WinLndarrayTest.__init__

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.get\_extent\_for\_rank
+==========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: SingleLocaleDistribution.get_extent_for_rank

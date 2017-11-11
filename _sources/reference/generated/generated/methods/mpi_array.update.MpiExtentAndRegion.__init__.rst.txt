@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiExtentAndRegion\.\_\_init\_\_
+====================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: MpiExtentAndRegion.__init__

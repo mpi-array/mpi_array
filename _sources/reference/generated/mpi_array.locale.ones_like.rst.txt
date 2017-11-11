@@ -1,0 +1,6 @@
+mpi\_array\.locale\.ones\_like
+==============================
+
+.. currentmodule:: mpi_array.locale
+
+.. autofunction:: ones_like

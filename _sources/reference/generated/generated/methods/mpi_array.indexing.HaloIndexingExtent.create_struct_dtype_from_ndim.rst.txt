@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.create\_struct\_dtype\_from\_ndim
+===========================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.create_struct_dtype_from_ndim

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleComms\.alloc\_locale\_buffer
+=====================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: LocaleComms.alloc_locale_buffer

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleCommsInfo\.rank\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: LocaleCommsInfo.rank_logger

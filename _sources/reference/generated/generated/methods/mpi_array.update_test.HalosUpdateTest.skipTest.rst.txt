@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.HalosUpdateTest\.skipTest
+===================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: HalosUpdateTest.skipTest

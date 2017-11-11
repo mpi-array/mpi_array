@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.get\_view
+========================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.get_view

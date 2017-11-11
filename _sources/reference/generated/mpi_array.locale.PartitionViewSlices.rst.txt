@@ -1,0 +1,35 @@
+mpi_array.locale.PartitionViewSlices
+====================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoclass:: PartitionViewSlices
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~PartitionViewSlices.count
+      ~PartitionViewSlices.index
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~PartitionViewSlices.lndarray_view_slice_n
+      ~PartitionViewSlices.rank_view_partition_slice_h
+      ~PartitionViewSlices.rank_view_relative_slice_n
+      ~PartitionViewSlices.rank_view_slice_h
+      ~PartitionViewSlices.rank_view_slice_n
+   
+   

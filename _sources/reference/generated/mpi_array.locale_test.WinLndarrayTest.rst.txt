@@ -1,0 +1,49 @@
+mpi_array.locale_test.WinLndarrayTest
+=====================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. autoclass:: WinLndarrayTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~WinLndarrayTest.__init__
+      ~WinLndarrayTest.addCleanup
+      ~WinLndarrayTest.addTypeEqualityFunc
+      ~WinLndarrayTest.assertArraySplitEqual
+      ~WinLndarrayTest.countTestCases
+      ~WinLndarrayTest.debug
+      ~WinLndarrayTest.defaultTestResult
+      ~WinLndarrayTest.doCleanups
+      ~WinLndarrayTest.id
+      ~WinLndarrayTest.run
+      ~WinLndarrayTest.setUp
+      ~WinLndarrayTest.setUpClass
+      ~WinLndarrayTest.shortDescription
+      ~WinLndarrayTest.skipTest
+      ~WinLndarrayTest.subTest
+      ~WinLndarrayTest.tearDown
+      ~WinLndarrayTest.tearDownClass
+      ~WinLndarrayTest.test_construct
+      ~WinLndarrayTest.test_construct_with_invalid_comm
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~WinLndarrayTest.longMessage
+      ~WinLndarrayTest.maxDiff
+   
+   

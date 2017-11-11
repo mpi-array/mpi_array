@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.rank\_view\_h
+============================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.rank_view_h

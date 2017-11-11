@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.struct\_dtype\_dict
+============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: GlobaleExtent.struct_dtype_dict

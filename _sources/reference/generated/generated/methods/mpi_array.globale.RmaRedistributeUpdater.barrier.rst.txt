@@ -1,0 +1,6 @@
+mpi\_array\.globale\.RmaRedistributeUpdater\.barrier
+====================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: RmaRedistributeUpdater.barrier

@@ -1,0 +1,47 @@
+mpi_array.indexing.IndexingExtent
+=================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoclass:: IndexingExtent
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~IndexingExtent.__init__
+      ~IndexingExtent.calc_intersection
+      ~IndexingExtent.calc_intersection_split
+      ~IndexingExtent.create_struct_dtype_from_ndim
+      ~IndexingExtent.create_struct_instance
+      ~IndexingExtent.get_struct_dtype
+      ~IndexingExtent.get_struct_dtype_from_ndim
+      ~IndexingExtent.split
+      ~IndexingExtent.to_slice
+      ~IndexingExtent.to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~IndexingExtent.START
+      ~IndexingExtent.START_STR
+      ~IndexingExtent.STOP
+      ~IndexingExtent.STOP_STR
+      ~IndexingExtent.ndim
+      ~IndexingExtent.shape
+      ~IndexingExtent.start
+      ~IndexingExtent.stop
+      ~IndexingExtent.struct_dtype_dict
+   
+   

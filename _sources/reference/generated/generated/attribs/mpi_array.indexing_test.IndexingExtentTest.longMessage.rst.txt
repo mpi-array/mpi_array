@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.IndexingExtentTest\.longMessage
+===========================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. autoattribute:: IndexingExtentTest.longMessage

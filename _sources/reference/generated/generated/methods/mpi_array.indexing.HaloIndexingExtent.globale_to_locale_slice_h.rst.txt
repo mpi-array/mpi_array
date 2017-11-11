@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.globale\_to\_locale\_slice\_h
+=======================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.globale_to_locale_slice_h

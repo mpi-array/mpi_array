@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.defaultTestResult
+==========================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.defaultTestResult

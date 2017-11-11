@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.\_\_init\_\_
+====================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: Distribution.__init__

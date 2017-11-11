@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiPairExtentUpdate\.casting
+================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: MpiPairExtentUpdate.casting

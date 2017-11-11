@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.GndarrayArrayUfuncExecutor\.execute\_reduce
+=======================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. automethod:: GndarrayArrayUfuncExecutor.execute_reduce

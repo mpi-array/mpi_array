@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.struct\_dtype\_dict
+============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: HaloSubExtent.struct_dtype_dict

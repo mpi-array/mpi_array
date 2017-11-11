@@ -1,0 +1,70 @@
+mpi_array.globale_test.GndarrayTest
+===================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. autoclass:: GndarrayTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~GndarrayTest.__init__
+      ~GndarrayTest.addCleanup
+      ~GndarrayTest.addTypeEqualityFunc
+      ~GndarrayTest.assertArraySplitEqual
+      ~GndarrayTest.countTestCases
+      ~GndarrayTest.debug
+      ~GndarrayTest.defaultTestResult
+      ~GndarrayTest.doCleanups
+      ~GndarrayTest.do_test_construct_empty_locale_extent
+      ~GndarrayTest.do_test_copyto_diff_locale_types
+      ~GndarrayTest.do_test_copyto_same_locale_types
+      ~GndarrayTest.do_test_peer_rank_get
+      ~GndarrayTest.id
+      ~GndarrayTest.run
+      ~GndarrayTest.setUp
+      ~GndarrayTest.setUpClass
+      ~GndarrayTest.shortDescription
+      ~GndarrayTest.skipTest
+      ~GndarrayTest.subTest
+      ~GndarrayTest.tearDown
+      ~GndarrayTest.tearDownClass
+      ~GndarrayTest.test_all
+      ~GndarrayTest.test_attr
+      ~GndarrayTest.test_construct_empty_locale_extent_locale_type_node
+      ~GndarrayTest.test_construct_empty_locale_extent_locale_type_process
+      ~GndarrayTest.test_construct_with_structured_array_dtype
+      ~GndarrayTest.test_copyto_arg_check
+      ~GndarrayTest.test_copyto_diff_locale_types_no_halo_diff_dtype
+      ~GndarrayTest.test_copyto_diff_locale_types_no_halo_same_dtype
+      ~GndarrayTest.test_copyto_diff_locale_types_wt_halo_diff_dtype
+      ~GndarrayTest.test_copyto_diff_locale_types_wt_halo_same_dtype
+      ~GndarrayTest.test_copyto_same_node_locale_types_no_halo_same_dtype
+      ~GndarrayTest.test_copyto_same_node_locale_types_wt_halo_same_dtype
+      ~GndarrayTest.test_copyto_same_process_locale_types_no_halo_same_dtype
+      ~GndarrayTest.test_copyto_same_process_locale_types_wt_halo_same_dtype
+      ~GndarrayTest.test_get_item_and_set_item
+      ~GndarrayTest.test_peer_rank_get_locale_type_node
+      ~GndarrayTest.test_peer_rank_get_locale_type_process
+      ~GndarrayTest.test_update
+      ~GndarrayTest.test_update_block
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~GndarrayTest.longMessage
+      ~GndarrayTest.maxDiff
+   
+   

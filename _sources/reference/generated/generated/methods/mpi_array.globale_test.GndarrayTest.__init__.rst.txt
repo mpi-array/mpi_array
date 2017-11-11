@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.\_\_init\_\_
+=====================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.__init__

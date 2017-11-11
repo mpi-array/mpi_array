@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.this\_locale\_rank\_info
+============================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.this_locale_rank_info

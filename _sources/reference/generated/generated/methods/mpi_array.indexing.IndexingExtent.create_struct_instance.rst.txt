@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.create\_struct\_instance
+==============================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.create_struct_instance

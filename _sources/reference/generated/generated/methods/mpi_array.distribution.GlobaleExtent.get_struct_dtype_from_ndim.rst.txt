@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.get\_struct\_dtype\_from\_ndim
+=======================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.get_struct_dtype_from_ndim

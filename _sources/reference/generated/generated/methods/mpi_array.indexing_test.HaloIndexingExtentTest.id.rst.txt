@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.HaloIndexingExtentTest\.id
+======================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: HaloIndexingExtentTest.id

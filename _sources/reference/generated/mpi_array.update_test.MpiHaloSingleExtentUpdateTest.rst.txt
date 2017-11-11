@@ -1,0 +1,50 @@
+mpi_array.update_test.MpiHaloSingleExtentUpdateTest
+===================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoclass:: MpiHaloSingleExtentUpdateTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiHaloSingleExtentUpdateTest.__init__
+      ~MpiHaloSingleExtentUpdateTest.addCleanup
+      ~MpiHaloSingleExtentUpdateTest.addTypeEqualityFunc
+      ~MpiHaloSingleExtentUpdateTest.assertArraySplitEqual
+      ~MpiHaloSingleExtentUpdateTest.countTestCases
+      ~MpiHaloSingleExtentUpdateTest.debug
+      ~MpiHaloSingleExtentUpdateTest.defaultTestResult
+      ~MpiHaloSingleExtentUpdateTest.doCleanups
+      ~MpiHaloSingleExtentUpdateTest.id
+      ~MpiHaloSingleExtentUpdateTest.run
+      ~MpiHaloSingleExtentUpdateTest.setUp
+      ~MpiHaloSingleExtentUpdateTest.setUpClass
+      ~MpiHaloSingleExtentUpdateTest.shortDescription
+      ~MpiHaloSingleExtentUpdateTest.skipTest
+      ~MpiHaloSingleExtentUpdateTest.subTest
+      ~MpiHaloSingleExtentUpdateTest.tearDown
+      ~MpiHaloSingleExtentUpdateTest.tearDownClass
+      ~MpiHaloSingleExtentUpdateTest.test_construct
+      ~MpiHaloSingleExtentUpdateTest.test_data_type
+      ~MpiHaloSingleExtentUpdateTest.test_str
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiHaloSingleExtentUpdateTest.longMessage
+      ~MpiHaloSingleExtentUpdateTest.maxDiff
+   
+   

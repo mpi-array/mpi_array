@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_block\_distribution
+==============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_block_distribution

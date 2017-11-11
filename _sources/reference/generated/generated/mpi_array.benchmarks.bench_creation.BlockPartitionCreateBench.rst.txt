@@ -1,0 +1,35 @@
+mpi_array.benchmarks.bench_creation.BlockPartitionCreateBench
+=============================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: BlockPartitionCreateBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~BlockPartitionCreateBench.setup
+      ~BlockPartitionCreateBench.time_block_partition
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~BlockPartitionCreateBench.goal_time
+      ~BlockPartitionCreateBench.param_names
+      ~BlockPartitionCreateBench.params
+      ~BlockPartitionCreateBench.repeat
+      ~BlockPartitionCreateBench.warmup_time
+   
+   

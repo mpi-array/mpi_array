@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.test\_copyto\_same\_node\_locale\_types\_wt\_halo\_same\_dtype
+=======================================================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.test_copyto_same_node_locale_types_wt_halo_same_dtype

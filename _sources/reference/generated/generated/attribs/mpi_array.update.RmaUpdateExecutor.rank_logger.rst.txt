@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.rank\_logger
+===================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: RmaUpdateExecutor.rank_logger

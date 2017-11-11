@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.dtype
+====================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.dtype

@@ -1,0 +1,44 @@
+mpi_array.distribution.ClonedDistribution
+=========================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: ClonedDistribution
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~ClonedDistribution.__init__
+      ~ClonedDistribution.create_globale_extent
+      ~ClonedDistribution.create_locale_extents
+      ~ClonedDistribution.create_struct_locale_extents
+      ~ClonedDistribution.get_extent_for_rank
+      ~ClonedDistribution.get_peer_rank
+      ~ClonedDistribution.initialise_struct_locale_extents
+      ~ClonedDistribution.initialise_struct_locale_extents_halos
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~ClonedDistribution.HI
+      ~ClonedDistribution.LO
+      ~ClonedDistribution.globale_extent
+      ~ClonedDistribution.halo
+      ~ClonedDistribution.locale_extents
+      ~ClonedDistribution.num_locales
+      ~ClonedDistribution.peer_ranks_per_locale
+      ~ClonedDistribution.struct_locale_extents
+   
+   

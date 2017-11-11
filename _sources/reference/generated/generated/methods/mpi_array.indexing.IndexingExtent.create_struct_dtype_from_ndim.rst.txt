@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.create\_struct\_dtype\_from\_ndim
+=======================================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.create_struct_dtype_from_ndim

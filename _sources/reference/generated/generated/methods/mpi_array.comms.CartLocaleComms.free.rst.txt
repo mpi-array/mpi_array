@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.free
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CartLocaleComms.free

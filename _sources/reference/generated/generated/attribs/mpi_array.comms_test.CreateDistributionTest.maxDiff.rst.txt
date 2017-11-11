@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.maxDiff
+========================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoattribute:: CreateDistributionTest.maxDiff

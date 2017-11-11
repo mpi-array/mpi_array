@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.\_\_init\_\_
+======================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: LocaleCommsTest.__init__

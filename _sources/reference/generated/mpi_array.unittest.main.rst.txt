@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.main
+==========================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autofunction:: main

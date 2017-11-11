@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.subTest
+=======================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.subTest

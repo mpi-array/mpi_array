@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.to\_tuple
+==================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: HaloSubExtent.to_tuple

@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.BenchmarkRunner\.handle\_profile
+===================================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: BenchmarkRunner.handle_profile

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.get\_struct\_dtype\_from\_ndim
+======================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.get_struct_dtype_from_ndim

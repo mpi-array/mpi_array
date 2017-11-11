@@ -1,0 +1,70 @@
+mpi_array.globale_ufunc_test.GndarrayUfuncTest
+==============================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. autoclass:: GndarrayUfuncTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~GndarrayUfuncTest.__init__
+      ~GndarrayUfuncTest.addCleanup
+      ~GndarrayUfuncTest.addTypeEqualityFunc
+      ~GndarrayUfuncTest.assertArraySplitEqual
+      ~GndarrayUfuncTest.compare_results
+      ~GndarrayUfuncTest.convert_func_args_to_gndarrays
+      ~GndarrayUfuncTest.countTestCases
+      ~GndarrayUfuncTest.debug
+      ~GndarrayUfuncTest.defaultTestResult
+      ~GndarrayUfuncTest.doCleanups
+      ~GndarrayUfuncTest.do_block_distribution_test
+      ~GndarrayUfuncTest.do_cloned_distribution_test
+      ~GndarrayUfuncTest.do_convert_execute_and_compare
+      ~GndarrayUfuncTest.do_multi_distribution_tests
+      ~GndarrayUfuncTest.do_single_locale_distribution_test
+      ~GndarrayUfuncTest.do_test_umath
+      ~GndarrayUfuncTest.do_test_umath_broadcast
+      ~GndarrayUfuncTest.do_test_umath_broadcast_upsized_result
+      ~GndarrayUfuncTest.do_test_umath_distributed_broadcast
+      ~GndarrayUfuncTest.id
+      ~GndarrayUfuncTest.run
+      ~GndarrayUfuncTest.setUp
+      ~GndarrayUfuncTest.setUpClass
+      ~GndarrayUfuncTest.shortDescription
+      ~GndarrayUfuncTest.skipTest
+      ~GndarrayUfuncTest.subTest
+      ~GndarrayUfuncTest.tearDown
+      ~GndarrayUfuncTest.tearDownClass
+      ~GndarrayUfuncTest.test_check_equivalent_inter_locale_comms
+      ~GndarrayUfuncTest.test_not_implemented
+      ~GndarrayUfuncTest.test_ufunc_casting_arg
+      ~GndarrayUfuncTest.test_umath_broadcast_halo
+      ~GndarrayUfuncTest.test_umath_broadcast_no_halo
+      ~GndarrayUfuncTest.test_umath_broadcast_upsized_result
+      ~GndarrayUfuncTest.test_umath_distributed_broadcast_halo
+      ~GndarrayUfuncTest.test_umath_distributed_broadcast_no_halo
+      ~GndarrayUfuncTest.test_umath_halo
+      ~GndarrayUfuncTest.test_umath_multiply
+      ~GndarrayUfuncTest.test_umath_no_halo
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~GndarrayUfuncTest.longMessage
+      ~GndarrayUfuncTest.maxDiff
+      ~GndarrayUfuncTest.rank_logger
+   
+   

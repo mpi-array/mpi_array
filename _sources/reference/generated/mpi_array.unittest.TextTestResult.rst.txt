@@ -1,0 +1,47 @@
+mpi_array.unittest.TextTestResult
+=================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoclass:: TextTestResult
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TextTestResult.__init__
+      ~TextTestResult.addError
+      ~TextTestResult.addExpectedFailure
+      ~TextTestResult.addFailure
+      ~TextTestResult.addSkip
+      ~TextTestResult.addSubTest
+      ~TextTestResult.addSuccess
+      ~TextTestResult.addUnexpectedSuccess
+      ~TextTestResult.getDescription
+      ~TextTestResult.printErrorList
+      ~TextTestResult.printErrors
+      ~TextTestResult.startTest
+      ~TextTestResult.startTestRun
+      ~TextTestResult.stop
+      ~TextTestResult.stopTest
+      ~TextTestResult.stopTestRun
+      ~TextTestResult.wasSuccessful
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~TextTestResult.separator1
+      ~TextTestResult.separator2
+   
+   

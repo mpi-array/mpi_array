@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.HaloIndexingExtentTest\.test\_globale\_and\_locale\_extent\_conversion
+==================================================================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. automethod:: HaloIndexingExtentTest.test_globale_and_locale_extent_conversion

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.DT\_BLOCK
+============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autodata:: DT_BLOCK

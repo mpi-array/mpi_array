@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.globale\_to\_locale\_extent\_h
+==========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.globale_to_locale_extent_h

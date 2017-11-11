@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.Benchmark\.set\_param\_idx
+=============================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. automethod:: Benchmark.set_param_idx

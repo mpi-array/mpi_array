@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.do\_test\_peer\_rank\_get
+==================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.do_test_peer_rank_get

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.split
+=================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.split

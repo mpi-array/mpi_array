@@ -1,0 +1,43 @@
+mpi_array.update.MpiPairExtentUpdateDifferentDtypes
+===================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: MpiPairExtentUpdateDifferentDtypes
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiPairExtentUpdateDifferentDtypes.__init__
+      ~MpiPairExtentUpdateDifferentDtypes.conclude
+      ~MpiPairExtentUpdateDifferentDtypes.copyto
+      ~MpiPairExtentUpdateDifferentDtypes.do_get
+      ~MpiPairExtentUpdateDifferentDtypes.do_rget
+      ~MpiPairExtentUpdateDifferentDtypes.initialise_data_types
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiPairExtentUpdateDifferentDtypes.casting
+      ~MpiPairExtentUpdateDifferentDtypes.dst_data_type
+      ~MpiPairExtentUpdateDifferentDtypes.dst_dtype
+      ~MpiPairExtentUpdateDifferentDtypes.dst_extent
+      ~MpiPairExtentUpdateDifferentDtypes.dst_update_extent
+      ~MpiPairExtentUpdateDifferentDtypes.src_data_type
+      ~MpiPairExtentUpdateDifferentDtypes.src_dtype
+      ~MpiPairExtentUpdateDifferentDtypes.src_extent
+      ~MpiPairExtentUpdateDifferentDtypes.src_update_extent
+   
+   

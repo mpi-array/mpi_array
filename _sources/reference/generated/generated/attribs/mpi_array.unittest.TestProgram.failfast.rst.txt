@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.failfast
+===========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestProgram.failfast

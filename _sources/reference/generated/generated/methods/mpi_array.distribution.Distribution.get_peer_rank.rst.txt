@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.get\_peer\_rank
+=======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: Distribution.get_peer_rank

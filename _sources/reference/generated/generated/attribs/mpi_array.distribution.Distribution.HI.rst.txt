@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.Distribution\.HI
+==========================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: Distribution.HI

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.SingleLocaleDistribution\.create\_locale\_extents
+===========================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: SingleLocaleDistribution.create_locale_extents

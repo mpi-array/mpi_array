@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.initialise\_cpy2\_updates
+=====================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.initialise_cpy2_updates

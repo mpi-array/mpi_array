@@ -1,0 +1,49 @@
+mpi_array.globale_ufunc_test.BroadcastShapeTest
+===============================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. autoclass:: BroadcastShapeTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~BroadcastShapeTest.__init__
+      ~BroadcastShapeTest.addCleanup
+      ~BroadcastShapeTest.addTypeEqualityFunc
+      ~BroadcastShapeTest.assertArraySplitEqual
+      ~BroadcastShapeTest.countTestCases
+      ~BroadcastShapeTest.debug
+      ~BroadcastShapeTest.defaultTestResult
+      ~BroadcastShapeTest.doCleanups
+      ~BroadcastShapeTest.id
+      ~BroadcastShapeTest.run
+      ~BroadcastShapeTest.setUp
+      ~BroadcastShapeTest.setUpClass
+      ~BroadcastShapeTest.shortDescription
+      ~BroadcastShapeTest.skipTest
+      ~BroadcastShapeTest.subTest
+      ~BroadcastShapeTest.tearDown
+      ~BroadcastShapeTest.tearDownClass
+      ~BroadcastShapeTest.test_broadcastable
+      ~BroadcastShapeTest.test_non_broadcastable
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~BroadcastShapeTest.longMessage
+      ~BroadcastShapeTest.maxDiff
+   
+   

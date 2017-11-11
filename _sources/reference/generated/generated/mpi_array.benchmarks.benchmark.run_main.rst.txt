@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.run\_main
+============================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: run_main

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.calc\_intersection
+===========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.calc_intersection

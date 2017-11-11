@@ -1,0 +1,31 @@
+mpi_array.update.UpdatesForRedistribute
+=======================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: UpdatesForRedistribute
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~UpdatesForRedistribute.__init__
+      ~UpdatesForRedistribute.calc_intersection_split
+      ~UpdatesForRedistribute.check_updates
+      ~UpdatesForRedistribute.create_pair_extent_update
+      ~UpdatesForRedistribute.get_cpy2_src_extents
+      ~UpdatesForRedistribute.initialise
+      ~UpdatesForRedistribute.initialise_cpy2_updates
+      ~UpdatesForRedistribute.initialise_rget_updates
+      ~UpdatesForRedistribute.initialise_updates
+   
+   
+
+   
+   
+   

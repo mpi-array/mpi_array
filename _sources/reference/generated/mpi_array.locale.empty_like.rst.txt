@@ -1,0 +1,6 @@
+mpi\_array\.locale\.empty\_like
+===============================
+
+.. currentmodule:: mpi_array.locale
+
+.. autofunction:: empty_like

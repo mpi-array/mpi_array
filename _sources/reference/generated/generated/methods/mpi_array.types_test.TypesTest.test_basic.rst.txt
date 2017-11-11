@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.test\_basic
+===============================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.test_basic

@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.bench\_creation\.CommsAllocBench\.repeat
+================================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoattribute:: CommsAllocBench.repeat

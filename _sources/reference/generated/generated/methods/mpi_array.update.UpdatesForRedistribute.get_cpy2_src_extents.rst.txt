@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.get\_cpy2\_src\_extents
+===================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.get_cpy2_src_extents

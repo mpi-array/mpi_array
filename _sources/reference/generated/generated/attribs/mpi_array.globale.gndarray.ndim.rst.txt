@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.ndim
+===================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.ndim

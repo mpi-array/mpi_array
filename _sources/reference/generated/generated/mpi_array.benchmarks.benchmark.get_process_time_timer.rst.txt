@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.get\_process\_time\_timer
+============================================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: get_process_time_timer

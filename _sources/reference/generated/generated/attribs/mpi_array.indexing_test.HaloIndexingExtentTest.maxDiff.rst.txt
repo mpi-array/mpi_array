@@ -1,0 +1,6 @@
+mpi\_array\.indexing\_test\.HaloIndexingExtentTest\.maxDiff
+===========================================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. autoattribute:: HaloIndexingExtentTest.maxDiff

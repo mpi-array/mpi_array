@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.calc\_intersection
+==========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.calc_intersection

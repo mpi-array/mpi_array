@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.MpiHaloSingleExtentUpdateTest\.id
+===========================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: MpiHaloSingleExtentUpdateTest.id

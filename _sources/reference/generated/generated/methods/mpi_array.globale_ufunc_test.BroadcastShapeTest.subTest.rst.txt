@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.BroadcastShapeTest\.subTest
+=============================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: BroadcastShapeTest.subTest

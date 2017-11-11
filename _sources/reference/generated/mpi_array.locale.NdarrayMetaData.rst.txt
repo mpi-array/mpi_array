@@ -1,0 +1,30 @@
+mpi_array.locale.NdarrayMetaData
+================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoclass:: NdarrayMetaData
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~NdarrayMetaData.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~NdarrayMetaData.order
+   
+   

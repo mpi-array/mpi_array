@@ -1,0 +1,51 @@
+mpi_array.types_test.TypesTest
+==============================
+
+.. currentmodule:: mpi_array.types_test
+
+.. autoclass:: TypesTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TypesTest.__init__
+      ~TypesTest.addCleanup
+      ~TypesTest.addTypeEqualityFunc
+      ~TypesTest.assertArraySplitEqual
+      ~TypesTest.countTestCases
+      ~TypesTest.debug
+      ~TypesTest.defaultTestResult
+      ~TypesTest.doCleanups
+      ~TypesTest.id
+      ~TypesTest.run
+      ~TypesTest.setUp
+      ~TypesTest.setUpClass
+      ~TypesTest.shortDescription
+      ~TypesTest.skipTest
+      ~TypesTest.subTest
+      ~TypesTest.tearDown
+      ~TypesTest.tearDownClass
+      ~TypesTest.test_basic
+      ~TypesTest.test_contiguous
+      ~TypesTest.test_struct
+      ~TypesTest.test_struct_bcast
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~TypesTest.longMessage
+      ~TypesTest.maxDiff
+   
+   

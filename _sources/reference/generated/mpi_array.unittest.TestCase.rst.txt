@@ -1,0 +1,47 @@
+mpi_array.unittest.TestCase
+===========================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoclass:: TestCase
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~TestCase.__init__
+      ~TestCase.addCleanup
+      ~TestCase.addTypeEqualityFunc
+      ~TestCase.assertArraySplitEqual
+      ~TestCase.countTestCases
+      ~TestCase.debug
+      ~TestCase.defaultTestResult
+      ~TestCase.doCleanups
+      ~TestCase.id
+      ~TestCase.run
+      ~TestCase.setUp
+      ~TestCase.setUpClass
+      ~TestCase.shortDescription
+      ~TestCase.skipTest
+      ~TestCase.subTest
+      ~TestCase.tearDown
+      ~TestCase.tearDownClass
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~TestCase.longMessage
+      ~TestCase.maxDiff
+   
+   

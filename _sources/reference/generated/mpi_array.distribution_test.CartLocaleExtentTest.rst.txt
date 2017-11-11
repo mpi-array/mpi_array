@@ -1,0 +1,52 @@
+mpi_array.distribution_test.CartLocaleExtentTest
+================================================
+
+.. currentmodule:: mpi_array.distribution_test
+
+.. autoclass:: CartLocaleExtentTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CartLocaleExtentTest.__init__
+      ~CartLocaleExtentTest.addCleanup
+      ~CartLocaleExtentTest.addTypeEqualityFunc
+      ~CartLocaleExtentTest.assertArraySplitEqual
+      ~CartLocaleExtentTest.countTestCases
+      ~CartLocaleExtentTest.debug
+      ~CartLocaleExtentTest.defaultTestResult
+      ~CartLocaleExtentTest.doCleanups
+      ~CartLocaleExtentTest.id
+      ~CartLocaleExtentTest.run
+      ~CartLocaleExtentTest.setUp
+      ~CartLocaleExtentTest.setUpClass
+      ~CartLocaleExtentTest.shortDescription
+      ~CartLocaleExtentTest.skipTest
+      ~CartLocaleExtentTest.subTest
+      ~CartLocaleExtentTest.tearDown
+      ~CartLocaleExtentTest.tearDownClass
+      ~CartLocaleExtentTest.test_construct_attribs
+      ~CartLocaleExtentTest.test_extent_calcs_1d_thick_tiles
+      ~CartLocaleExtentTest.test_extent_calcs_1d_thin_tiles
+      ~CartLocaleExtentTest.test_extent_calcs_2d_thick_tiles
+      ~CartLocaleExtentTest.test_repr
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CartLocaleExtentTest.longMessage
+      ~CartLocaleExtentTest.maxDiff
+   
+   

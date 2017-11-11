@@ -1,0 +1,52 @@
+mpi_array.comms_test.CartLocaleCommsTest
+========================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. autoclass:: CartLocaleCommsTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CartLocaleCommsTest.__init__
+      ~CartLocaleCommsTest.addCleanup
+      ~CartLocaleCommsTest.addTypeEqualityFunc
+      ~CartLocaleCommsTest.assertArraySplitEqual
+      ~CartLocaleCommsTest.countTestCases
+      ~CartLocaleCommsTest.debug
+      ~CartLocaleCommsTest.defaultTestResult
+      ~CartLocaleCommsTest.doCleanups
+      ~CartLocaleCommsTest.id
+      ~CartLocaleCommsTest.run
+      ~CartLocaleCommsTest.setUp
+      ~CartLocaleCommsTest.setUpClass
+      ~CartLocaleCommsTest.shortDescription
+      ~CartLocaleCommsTest.skipTest
+      ~CartLocaleCommsTest.subTest
+      ~CartLocaleCommsTest.tearDown
+      ~CartLocaleCommsTest.tearDownClass
+      ~CartLocaleCommsTest.test_alloc_locale_buffer
+      ~CartLocaleCommsTest.test_construct_invalid_cart_comm
+      ~CartLocaleCommsTest.test_construct_invalid_dims
+      ~CartLocaleCommsTest.test_construct_no_shared
+      ~CartLocaleCommsTest.test_construct_shared
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CartLocaleCommsTest.longMessage
+      ~CartLocaleCommsTest.maxDiff
+   
+   

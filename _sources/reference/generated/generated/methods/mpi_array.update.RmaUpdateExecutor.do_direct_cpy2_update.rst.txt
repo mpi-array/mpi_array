@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.do\_direct\_cpy2\_update
+===============================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: RmaUpdateExecutor.do_direct_cpy2_update

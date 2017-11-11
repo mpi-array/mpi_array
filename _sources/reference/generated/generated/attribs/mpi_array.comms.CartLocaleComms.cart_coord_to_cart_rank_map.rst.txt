@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.cart\_coord\_to\_cart\_rank\_map
+====================================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.cart_coord_to_cart_rank_map

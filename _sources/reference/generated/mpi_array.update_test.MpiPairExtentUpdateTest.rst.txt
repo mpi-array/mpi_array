@@ -1,0 +1,50 @@
+mpi_array.update_test.MpiPairExtentUpdateTest
+=============================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoclass:: MpiPairExtentUpdateTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiPairExtentUpdateTest.__init__
+      ~MpiPairExtentUpdateTest.addCleanup
+      ~MpiPairExtentUpdateTest.addTypeEqualityFunc
+      ~MpiPairExtentUpdateTest.assertArraySplitEqual
+      ~MpiPairExtentUpdateTest.countTestCases
+      ~MpiPairExtentUpdateTest.debug
+      ~MpiPairExtentUpdateTest.defaultTestResult
+      ~MpiPairExtentUpdateTest.doCleanups
+      ~MpiPairExtentUpdateTest.id
+      ~MpiPairExtentUpdateTest.run
+      ~MpiPairExtentUpdateTest.setUp
+      ~MpiPairExtentUpdateTest.setUpClass
+      ~MpiPairExtentUpdateTest.shortDescription
+      ~MpiPairExtentUpdateTest.skipTest
+      ~MpiPairExtentUpdateTest.subTest
+      ~MpiPairExtentUpdateTest.tearDown
+      ~MpiPairExtentUpdateTest.tearDownClass
+      ~MpiPairExtentUpdateTest.test_construct
+      ~MpiPairExtentUpdateTest.test_data_type
+      ~MpiPairExtentUpdateTest.test_str
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiPairExtentUpdateTest.longMessage
+      ~MpiPairExtentUpdateTest.maxDiff
+   
+   

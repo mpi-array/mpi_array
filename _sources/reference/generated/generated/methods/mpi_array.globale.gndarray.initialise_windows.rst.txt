@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.initialise\_windows
+==================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: gndarray.initialise_windows

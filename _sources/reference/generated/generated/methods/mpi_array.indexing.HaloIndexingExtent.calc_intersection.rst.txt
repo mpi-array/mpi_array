@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.calc\_intersection
+============================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.calc_intersection

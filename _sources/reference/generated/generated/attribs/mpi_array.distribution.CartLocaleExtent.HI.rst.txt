@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.HI
+==============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.HI

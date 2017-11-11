@@ -1,0 +1,49 @@
+mpi_array.comms.RmaWindowBuffer
+===============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoclass:: RmaWindowBuffer
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~RmaWindowBuffer.__init__
+      ~RmaWindowBuffer.create_inter_locale_win
+      ~RmaWindowBuffer.create_peer_win
+      ~RmaWindowBuffer.free
+      ~RmaWindowBuffer.initialise_windows
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~RmaWindowBuffer.buffer
+      ~RmaWindowBuffer.dtype
+      ~RmaWindowBuffer.inter_locale_comm
+      ~RmaWindowBuffer.inter_locale_win
+      ~RmaWindowBuffer.inter_locale_win_initialised
+      ~RmaWindowBuffer.intra_locale_win
+      ~RmaWindowBuffer.intra_locale_win_memory
+      ~RmaWindowBuffer.is_shared
+      ~RmaWindowBuffer.itemsize
+      ~RmaWindowBuffer.peer_comm
+      ~RmaWindowBuffer.peer_win
+      ~RmaWindowBuffer.peer_win_initialised
+      ~RmaWindowBuffer.rank_logger
+      ~RmaWindowBuffer.root_logger
+      ~RmaWindowBuffer.shape
+      ~RmaWindowBuffer.windows_initialised
+   
+   

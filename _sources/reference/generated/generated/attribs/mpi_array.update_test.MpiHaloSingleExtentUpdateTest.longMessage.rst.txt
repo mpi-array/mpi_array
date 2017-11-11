@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.MpiHaloSingleExtentUpdateTest\.longMessage
+====================================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. autoattribute:: MpiHaloSingleExtentUpdateTest.longMessage

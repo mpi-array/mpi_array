@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\.zeros
+====================================
+
+.. currentmodule:: mpi_array.globale_creation
+
+.. autofunction:: zeros

@@ -1,0 +1,6 @@
+mpi\_array\.globale\_creation\_test\.GndarrayCreationTest\.test\_ones\_shared\_1d
+=================================================================================
+
+.. currentmodule:: mpi_array.globale_creation_test
+
+.. automethod:: GndarrayCreationTest.test_ones_shared_1d

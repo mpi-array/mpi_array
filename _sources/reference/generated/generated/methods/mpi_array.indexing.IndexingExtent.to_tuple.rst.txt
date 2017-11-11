@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.to\_tuple
+===============================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.to_tuple

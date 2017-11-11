@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CartLocaleCommsTest\.countTestCases
+============================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CartLocaleCommsTest.countTestCases

@@ -1,0 +1,6 @@
+mpi\_array\.logging\.LoggerFactory\.get\_root\_logger
+=====================================================
+
+.. currentmodule:: mpi_array.logging
+
+.. automethod:: LoggerFactory.get_root_logger

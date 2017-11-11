@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.tearDownClass
+=======================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: LocaleCommsTest.tearDownClass

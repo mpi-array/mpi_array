@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.INTER\_LOCALE\_RANK
+===============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.INTER_LOCALE_RANK

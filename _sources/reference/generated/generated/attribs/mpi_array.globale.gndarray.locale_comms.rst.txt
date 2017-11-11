@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.locale\_comms
+============================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.locale_comms

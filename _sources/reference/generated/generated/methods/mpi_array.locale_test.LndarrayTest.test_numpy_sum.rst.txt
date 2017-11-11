@@ -1,0 +1,6 @@
+mpi\_array\.locale\_test\.LndarrayTest\.test\_numpy\_sum
+========================================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. automethod:: LndarrayTest.test_numpy_sum

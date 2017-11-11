@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.calc\_intersection
+===========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: HaloSubExtent.calc_intersection

@@ -1,0 +1,6 @@
+mpi\_array\.init\.create\_darwin\_process\_time
+===============================================
+
+.. currentmodule:: mpi_array.init
+
+.. autofunction:: create_darwin_process_time

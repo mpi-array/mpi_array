@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.getDescription
+====================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.getDescription

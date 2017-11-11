@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CreateDistributionTest\.addCleanup
+===========================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CreateDistributionTest.addCleanup

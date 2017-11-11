@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.inter\_win
+=================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: RmaUpdateExecutor.inter_win

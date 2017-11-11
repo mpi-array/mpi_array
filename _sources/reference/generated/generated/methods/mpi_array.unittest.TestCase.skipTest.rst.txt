@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.skipTest
+========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.skipTest

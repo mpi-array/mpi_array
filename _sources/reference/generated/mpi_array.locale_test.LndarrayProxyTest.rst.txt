@@ -1,0 +1,61 @@
+mpi_array.locale_test.LndarrayProxyTest
+=======================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. autoclass:: LndarrayProxyTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LndarrayProxyTest.__init__
+      ~LndarrayProxyTest.addCleanup
+      ~LndarrayProxyTest.addTypeEqualityFunc
+      ~LndarrayProxyTest.assertArraySplitEqual
+      ~LndarrayProxyTest.countTestCases
+      ~LndarrayProxyTest.debug
+      ~LndarrayProxyTest.defaultTestResult
+      ~LndarrayProxyTest.doCleanups
+      ~LndarrayProxyTest.do_test_views_2d
+      ~LndarrayProxyTest.id
+      ~LndarrayProxyTest.run
+      ~LndarrayProxyTest.setUp
+      ~LndarrayProxyTest.setUpClass
+      ~LndarrayProxyTest.shortDescription
+      ~LndarrayProxyTest.skipTest
+      ~LndarrayProxyTest.subTest
+      ~LndarrayProxyTest.tearDown
+      ~LndarrayProxyTest.tearDownClass
+      ~LndarrayProxyTest.test_construct_arg_checking
+      ~LndarrayProxyTest.test_copy_non_shared_1d
+      ~LndarrayProxyTest.test_copy_shared_1d
+      ~LndarrayProxyTest.test_empty_non_shared_1d
+      ~LndarrayProxyTest.test_empty_shared_1d
+      ~LndarrayProxyTest.test_fill
+      ~LndarrayProxyTest.test_get_and_set_item
+      ~LndarrayProxyTest.test_ones_non_shared_1d
+      ~LndarrayProxyTest.test_ones_shared_1d
+      ~LndarrayProxyTest.test_views_2d_halo
+      ~LndarrayProxyTest.test_views_2d_no_halo
+      ~LndarrayProxyTest.test_zeros_non_shared_1d
+      ~LndarrayProxyTest.test_zeros_shared_1d
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LndarrayProxyTest.longMessage
+      ~LndarrayProxyTest.maxDiff
+   
+   

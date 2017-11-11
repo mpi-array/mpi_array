@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.itemsize
+============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.itemsize

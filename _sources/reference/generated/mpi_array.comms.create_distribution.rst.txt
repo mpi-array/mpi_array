@@ -1,0 +1,6 @@
+mpi\_array\.comms\.create\_distribution
+=======================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autofunction:: create_distribution

@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.CartLocaleCommsTest\.test\_construct\_invalid\_cart\_comm
+==================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: CartLocaleCommsTest.test_construct_invalid_cart_comm

@@ -1,0 +1,6 @@
+mpi\_array\.locale\.LndarrayProxy\.halo
+=======================================
+
+.. currentmodule:: mpi_array.locale
+
+.. autoattribute:: LndarrayProxy.halo

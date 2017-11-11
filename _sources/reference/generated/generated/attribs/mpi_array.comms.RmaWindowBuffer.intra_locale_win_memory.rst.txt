@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.intra\_locale\_win\_memory
+==============================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: RmaWindowBuffer.intra_locale_win_memory

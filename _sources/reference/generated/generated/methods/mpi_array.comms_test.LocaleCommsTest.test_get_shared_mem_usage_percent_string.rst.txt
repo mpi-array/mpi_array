@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.test\_get\_shared\_mem\_usage\_percent\_string
+========================================================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: LocaleCommsTest.test_get_shared_mem_usage_percent_string

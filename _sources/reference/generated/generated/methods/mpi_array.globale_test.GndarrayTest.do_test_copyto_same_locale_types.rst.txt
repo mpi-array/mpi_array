@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.do\_test\_copyto\_same\_locale\_types
+==============================================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.do_test_copyto_same_locale_types

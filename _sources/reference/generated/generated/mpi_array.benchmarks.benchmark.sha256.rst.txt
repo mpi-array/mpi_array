@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.benchmark\.sha256
+=========================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autofunction:: sha256

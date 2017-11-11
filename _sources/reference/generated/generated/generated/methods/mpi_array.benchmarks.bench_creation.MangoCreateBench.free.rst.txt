@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.bench\_creation\.MangoCreateBench\.free
+===============================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. automethod:: MangoCreateBench.free

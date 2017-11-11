@@ -1,0 +1,6 @@
+mpi\_array\.types\.to\_datatype
+===============================
+
+.. currentmodule:: mpi_array.types
+
+.. autofunction:: to_datatype

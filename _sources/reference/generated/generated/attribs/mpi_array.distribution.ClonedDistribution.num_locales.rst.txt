@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.num\_locales
+==========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: ClonedDistribution.num_locales

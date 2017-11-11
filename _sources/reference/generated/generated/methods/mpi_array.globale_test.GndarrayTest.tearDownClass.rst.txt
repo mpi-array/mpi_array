@@ -1,0 +1,6 @@
+mpi\_array\.globale\_test\.GndarrayTest\.tearDownClass
+======================================================
+
+.. currentmodule:: mpi_array.globale_test
+
+.. automethod:: GndarrayTest.tearDownClass

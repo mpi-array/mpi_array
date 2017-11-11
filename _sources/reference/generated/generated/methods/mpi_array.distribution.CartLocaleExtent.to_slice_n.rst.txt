@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.to\_slice\_n
+========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: CartLocaleExtent.to_slice_n

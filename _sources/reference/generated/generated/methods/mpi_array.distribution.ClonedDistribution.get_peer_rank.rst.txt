@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.get\_peer\_rank
+=============================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: ClonedDistribution.get_peer_rank

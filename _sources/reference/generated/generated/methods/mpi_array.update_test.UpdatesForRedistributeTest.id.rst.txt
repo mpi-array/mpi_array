@@ -1,0 +1,6 @@
+mpi\_array\.update\_test\.UpdatesForRedistributeTest\.id
+========================================================
+
+.. currentmodule:: mpi_array.update_test
+
+.. automethod:: UpdatesForRedistributeTest.id

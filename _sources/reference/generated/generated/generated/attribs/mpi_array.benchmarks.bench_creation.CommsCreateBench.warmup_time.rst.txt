@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.bench\_creation\.CommsCreateBench\.warmup\_time
+=======================================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoattribute:: CommsCreateBench.warmup_time

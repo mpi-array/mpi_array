@@ -1,0 +1,6 @@
+mpi\_array\.update\.HaloSingleExtentUpdate\.src\_extent
+=======================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: HaloSingleExtentUpdate.src_extent

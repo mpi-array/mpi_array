@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.HaloSubExtent\.shape\_h
+=================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: HaloSubExtent.shape_h

@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.ndim
+==============================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autoattribute:: HaloIndexingExtent.ndim

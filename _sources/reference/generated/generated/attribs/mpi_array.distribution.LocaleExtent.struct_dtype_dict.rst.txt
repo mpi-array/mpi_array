@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.struct\_dtype\_dict
+===========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: LocaleExtent.struct_dtype_dict

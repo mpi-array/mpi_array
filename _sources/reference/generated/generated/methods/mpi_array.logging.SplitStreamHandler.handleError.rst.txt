@@ -1,0 +1,6 @@
+mpi\_array\.logging\.SplitStreamHandler\.handleError
+====================================================
+
+.. currentmodule:: mpi_array.logging
+
+.. automethod:: SplitStreamHandler.handleError

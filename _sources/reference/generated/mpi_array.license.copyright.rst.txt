@@ -1,0 +1,6 @@
+mpi\_array\.license\.copyright
+==============================
+
+.. currentmodule:: mpi_array.license
+
+.. autofunction:: copyright

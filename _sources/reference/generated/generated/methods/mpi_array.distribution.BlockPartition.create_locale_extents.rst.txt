@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.create\_locale\_extents
+=================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: BlockPartition.create_locale_extents

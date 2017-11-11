@@ -1,0 +1,50 @@
+mpi_array.locale_test.LndarrayTest
+==================================
+
+.. currentmodule:: mpi_array.locale_test
+
+.. autoclass:: LndarrayTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LndarrayTest.__init__
+      ~LndarrayTest.addCleanup
+      ~LndarrayTest.addTypeEqualityFunc
+      ~LndarrayTest.assertArraySplitEqual
+      ~LndarrayTest.countTestCases
+      ~LndarrayTest.debug
+      ~LndarrayTest.defaultTestResult
+      ~LndarrayTest.doCleanups
+      ~LndarrayTest.id
+      ~LndarrayTest.run
+      ~LndarrayTest.setUp
+      ~LndarrayTest.setUpClass
+      ~LndarrayTest.shortDescription
+      ~LndarrayTest.skipTest
+      ~LndarrayTest.subTest
+      ~LndarrayTest.tearDown
+      ~LndarrayTest.tearDownClass
+      ~LndarrayTest.test_construct
+      ~LndarrayTest.test_numpy_sum
+      ~LndarrayTest.test_view
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~LndarrayTest.longMessage
+      ~LndarrayTest.maxDiff
+   
+   

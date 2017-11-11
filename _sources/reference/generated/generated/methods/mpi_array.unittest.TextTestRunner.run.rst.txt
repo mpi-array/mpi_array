@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestRunner\.run
+=========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestRunner.run

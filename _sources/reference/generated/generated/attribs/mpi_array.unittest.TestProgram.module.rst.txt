@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestProgram\.module
+=========================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. autoattribute:: TestProgram.module

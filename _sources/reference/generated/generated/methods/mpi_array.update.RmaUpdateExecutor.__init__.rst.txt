@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.\_\_init\_\_
+===================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: RmaUpdateExecutor.__init__

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.halo
+=============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: GlobaleExtent.halo

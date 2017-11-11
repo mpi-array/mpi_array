@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestRunner\.\_\_init\_\_
+==================================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestRunner.__init__

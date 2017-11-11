@@ -1,0 +1,58 @@
+mpi_array.benchmarks.benchmark.BenchmarkRunner
+==============================================
+
+.. currentmodule:: mpi_array.benchmarks.benchmark
+
+.. autoclass:: BenchmarkRunner
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~BenchmarkRunner.__init__
+      ~BenchmarkRunner.create_argument_parser
+      ~BenchmarkRunner.create_profile_stats
+      ~BenchmarkRunner.discover_benchmarks
+      ~BenchmarkRunner.filter
+      ~BenchmarkRunner.handle_profile
+      ~BenchmarkRunner.log_profile_stats
+      ~BenchmarkRunner.run
+      ~BenchmarkRunner.run_and_write_results
+      ~BenchmarkRunner.run_benchmarks
+      ~BenchmarkRunner.write_bench_results
+      ~BenchmarkRunner.write_benchmarks
+      ~BenchmarkRunner.write_profile_stats
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~BenchmarkRunner.bench_results
+      ~BenchmarkRunner.bench_results_file_name
+      ~BenchmarkRunner.benchmark_module_names
+      ~BenchmarkRunner.benchmarks
+      ~BenchmarkRunner.benchmarks_file_name
+      ~BenchmarkRunner.comm
+      ~BenchmarkRunner.default_timer
+      ~BenchmarkRunner.discover_only
+      ~BenchmarkRunner.do_profile
+      ~BenchmarkRunner.do_quick_run
+      ~BenchmarkRunner.filter_name_regex
+      ~BenchmarkRunner.is_root_rank
+      ~BenchmarkRunner.profile_file_name
+      ~BenchmarkRunner.profile_stats
+      ~BenchmarkRunner.rank_logger
+      ~BenchmarkRunner.root_logger
+      ~BenchmarkRunner.root_rank
+   
+   

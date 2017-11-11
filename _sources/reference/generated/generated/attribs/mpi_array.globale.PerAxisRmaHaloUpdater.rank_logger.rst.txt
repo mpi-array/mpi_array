@@ -1,0 +1,6 @@
+mpi\_array\.globale\.PerAxisRmaHaloUpdater\.rank\_logger
+========================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: PerAxisRmaHaloUpdater.rank_logger

@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.ClonedDistribution\.initialise\_struct\_locale\_extents\_halos
+========================================================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: ClonedDistribution.initialise_struct_locale_extents_halos

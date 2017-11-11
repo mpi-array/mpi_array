@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CommsAndDistribution\.distribution
+=====================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CommsAndDistribution.distribution

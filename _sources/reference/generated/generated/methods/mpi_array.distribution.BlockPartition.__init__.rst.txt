@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.\_\_init\_\_
+======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: BlockPartition.__init__

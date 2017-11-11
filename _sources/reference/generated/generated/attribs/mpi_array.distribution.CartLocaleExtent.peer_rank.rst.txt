@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.CartLocaleExtent\.peer\_rank
+======================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: CartLocaleExtent.peer_rank

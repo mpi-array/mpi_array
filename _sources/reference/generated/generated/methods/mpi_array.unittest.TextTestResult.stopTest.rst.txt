@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TextTestResult\.stopTest
+==============================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TextTestResult.stopTest

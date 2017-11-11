@@ -1,0 +1,6 @@
+mpi\_array\.comms\_test\.LocaleCommsTest\.skipTest
+==================================================
+
+.. currentmodule:: mpi_array.comms_test
+
+.. automethod:: LocaleCommsTest.skipTest

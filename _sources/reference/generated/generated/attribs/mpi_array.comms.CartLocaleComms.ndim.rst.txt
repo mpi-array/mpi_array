@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.ndim
+========================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.ndim

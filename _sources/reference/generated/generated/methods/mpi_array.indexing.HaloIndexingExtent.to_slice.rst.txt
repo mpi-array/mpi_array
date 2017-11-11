@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.HaloIndexingExtent\.to\_slice
+===================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: HaloIndexingExtent.to_slice

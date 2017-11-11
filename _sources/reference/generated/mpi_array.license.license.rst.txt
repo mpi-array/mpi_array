@@ -1,0 +1,6 @@
+mpi\_array\.license\.license
+============================
+
+.. currentmodule:: mpi_array.license
+
+.. autofunction:: license

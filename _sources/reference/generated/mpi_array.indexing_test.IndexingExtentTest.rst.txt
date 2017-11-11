@@ -1,0 +1,55 @@
+mpi_array.indexing_test.IndexingExtentTest
+==========================================
+
+.. currentmodule:: mpi_array.indexing_test
+
+.. autoclass:: IndexingExtentTest
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~IndexingExtentTest.__init__
+      ~IndexingExtentTest.addCleanup
+      ~IndexingExtentTest.addTypeEqualityFunc
+      ~IndexingExtentTest.assertArraySplitEqual
+      ~IndexingExtentTest.countTestCases
+      ~IndexingExtentTest.debug
+      ~IndexingExtentTest.defaultTestResult
+      ~IndexingExtentTest.doCleanups
+      ~IndexingExtentTest.id
+      ~IndexingExtentTest.run
+      ~IndexingExtentTest.setUp
+      ~IndexingExtentTest.setUpClass
+      ~IndexingExtentTest.shortDescription
+      ~IndexingExtentTest.skipTest
+      ~IndexingExtentTest.subTest
+      ~IndexingExtentTest.tearDown
+      ~IndexingExtentTest.tearDownClass
+      ~IndexingExtentTest.test_assign_different_dimension_index
+      ~IndexingExtentTest.test_attributes
+      ~IndexingExtentTest.test_calc_intersection_split
+      ~IndexingExtentTest.test_intersection_1d
+      ~IndexingExtentTest.test_intersection_2d
+      ~IndexingExtentTest.test_repr
+      ~IndexingExtentTest.test_split
+      ~IndexingExtentTest.test_to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~IndexingExtentTest.longMessage
+      ~IndexingExtentTest.maxDiff
+   
+   

@@ -1,0 +1,26 @@
+mpi_array.logging.LoggerFactory
+===============================
+
+.. currentmodule:: mpi_array.logging
+
+.. autoclass:: LoggerFactory
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~LoggerFactory.__init__
+      ~LoggerFactory.get_formatter
+      ~LoggerFactory.get_rank_logger
+      ~LoggerFactory.get_root_logger
+   
+   
+
+   
+   
+   

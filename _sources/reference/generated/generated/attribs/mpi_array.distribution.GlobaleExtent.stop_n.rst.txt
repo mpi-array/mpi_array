@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.stop\_n
+================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoattribute:: GlobaleExtent.stop_n

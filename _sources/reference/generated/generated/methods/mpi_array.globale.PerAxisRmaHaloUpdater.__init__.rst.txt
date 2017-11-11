@@ -1,0 +1,6 @@
+mpi\_array\.globale\.PerAxisRmaHaloUpdater\.\_\_init\_\_
+========================================================
+
+.. currentmodule:: mpi_array.globale
+
+.. automethod:: PerAxisRmaHaloUpdater.__init__

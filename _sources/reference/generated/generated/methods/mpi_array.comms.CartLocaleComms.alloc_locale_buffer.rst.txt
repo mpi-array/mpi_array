@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.alloc\_locale\_buffer
+=========================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: CartLocaleComms.alloc_locale_buffer

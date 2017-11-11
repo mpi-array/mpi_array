@@ -1,0 +1,6 @@
+mpi\_array\.comms\.ThisLocaleInfo\.peer\_rank
+=============================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: ThisLocaleInfo.peer_rank

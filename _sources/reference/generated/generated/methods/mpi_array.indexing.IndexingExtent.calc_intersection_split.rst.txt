@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.IndexingExtent\.calc\_intersection\_split
+===============================================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. automethod:: IndexingExtent.calc_intersection_split

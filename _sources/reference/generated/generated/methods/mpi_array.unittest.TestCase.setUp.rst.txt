@@ -1,0 +1,6 @@
+mpi\_array\.unittest\.TestCase\.setUp
+=====================================
+
+.. currentmodule:: mpi_array.unittest
+
+.. automethod:: TestCase.setUp

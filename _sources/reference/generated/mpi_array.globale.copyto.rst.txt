@@ -1,0 +1,6 @@
+mpi\_array\.globale\.copyto
+===========================
+
+.. currentmodule:: mpi_array.globale
+
+.. autofunction:: copyto

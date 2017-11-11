@@ -1,0 +1,6 @@
+mpi\_array\.locale\.PartitionViewSlices\.index
+==============================================
+
+.. currentmodule:: mpi_array.locale
+
+.. automethod:: PartitionViewSlices.index

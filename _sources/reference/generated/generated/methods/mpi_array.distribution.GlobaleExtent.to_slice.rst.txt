@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.to\_slice
+==================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.to_slice

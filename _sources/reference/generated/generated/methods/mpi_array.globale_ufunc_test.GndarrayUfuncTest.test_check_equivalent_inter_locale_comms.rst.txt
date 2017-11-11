@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.GndarrayUfuncTest\.test\_check\_equivalent\_inter\_locale\_comms
+==================================================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: GndarrayUfuncTest.test_check_equivalent_inter_locale_comms

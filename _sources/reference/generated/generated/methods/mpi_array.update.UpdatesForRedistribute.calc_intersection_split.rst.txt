@@ -1,0 +1,6 @@
+mpi\_array\.update\.UpdatesForRedistribute\.calc\_intersection\_split
+=====================================================================
+
+.. currentmodule:: mpi_array.update
+
+.. automethod:: UpdatesForRedistribute.calc_intersection_split

@@ -1,0 +1,76 @@
+mpi_array.distribution.HaloSubExtent
+====================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. autoclass:: HaloSubExtent
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~HaloSubExtent.__init__
+      ~HaloSubExtent.calc_intersection
+      ~HaloSubExtent.calc_intersection_split
+      ~HaloSubExtent.create_struct_dtype_from_ndim
+      ~HaloSubExtent.create_struct_instance
+      ~HaloSubExtent.get_struct_dtype
+      ~HaloSubExtent.get_struct_dtype_from_ndim
+      ~HaloSubExtent.globale_to_locale_extent_h
+      ~HaloSubExtent.globale_to_locale_h
+      ~HaloSubExtent.globale_to_locale_n
+      ~HaloSubExtent.globale_to_locale_slice_h
+      ~HaloSubExtent.globale_to_locale_slice_n
+      ~HaloSubExtent.locale_to_globale_extent_h
+      ~HaloSubExtent.locale_to_globale_h
+      ~HaloSubExtent.locale_to_globale_n
+      ~HaloSubExtent.locale_to_globale_slice_h
+      ~HaloSubExtent.locale_to_globale_slice_n
+      ~HaloSubExtent.split
+      ~HaloSubExtent.to_slice
+      ~HaloSubExtent.to_slice_h
+      ~HaloSubExtent.to_slice_n
+      ~HaloSubExtent.to_tuple
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~HaloSubExtent.HALO
+      ~HaloSubExtent.HALO_STR
+      ~HaloSubExtent.HI
+      ~HaloSubExtent.LO
+      ~HaloSubExtent.START
+      ~HaloSubExtent.START_N
+      ~HaloSubExtent.START_N_STR
+      ~HaloSubExtent.START_STR
+      ~HaloSubExtent.STOP
+      ~HaloSubExtent.STOP_N
+      ~HaloSubExtent.STOP_N_STR
+      ~HaloSubExtent.STOP_STR
+      ~HaloSubExtent.halo
+      ~HaloSubExtent.ndim
+      ~HaloSubExtent.shape
+      ~HaloSubExtent.shape_h
+      ~HaloSubExtent.shape_n
+      ~HaloSubExtent.size_h
+      ~HaloSubExtent.size_n
+      ~HaloSubExtent.start
+      ~HaloSubExtent.start_h
+      ~HaloSubExtent.start_n
+      ~HaloSubExtent.stop
+      ~HaloSubExtent.stop_h
+      ~HaloSubExtent.stop_n
+      ~HaloSubExtent.struct_dtype_dict
+   
+   

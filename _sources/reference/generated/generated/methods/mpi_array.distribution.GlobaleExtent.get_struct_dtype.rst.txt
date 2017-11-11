@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.GlobaleExtent\.get\_struct\_dtype
+===========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: GlobaleExtent.get_struct_dtype

@@ -1,0 +1,31 @@
+mpi_array.update.ExtentUpdate
+=============================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: ExtentUpdate
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~ExtentUpdate.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~ExtentUpdate.dst_extent
+      ~ExtentUpdate.src_extent
+   
+   

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.CartLocaleComms\.rank\_logger
+================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. autoattribute:: CartLocaleComms.rank_logger

@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LT\_PROCESS
+==============================
+
+.. currentmodule:: mpi_array.comms
+
+.. autodata:: LT_PROCESS

@@ -1,0 +1,36 @@
+mpi_array.update.RmaUpdateExecutor
+==================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: RmaUpdateExecutor
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~RmaUpdateExecutor.__init__
+      ~RmaUpdateExecutor.do_direct_cpy2_update
+      ~RmaUpdateExecutor.do_locale_rma_update
+      ~RmaUpdateExecutor.get_src_win_rank
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~RmaUpdateExecutor.dst_lndarray
+      ~RmaUpdateExecutor.inter_win
+      ~RmaUpdateExecutor.random_state
+      ~RmaUpdateExecutor.rank_logger
+   
+   

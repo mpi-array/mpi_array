@@ -1,0 +1,6 @@
+mpi\_array\.types\_test\.TypesTest\.\_\_init\_\_
+================================================
+
+.. currentmodule:: mpi_array.types_test
+
+.. automethod:: TypesTest.__init__

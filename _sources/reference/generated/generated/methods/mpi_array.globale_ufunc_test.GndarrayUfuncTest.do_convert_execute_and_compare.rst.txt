@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\_test\.GndarrayUfuncTest\.do\_convert\_execute\_and\_compare
+=======================================================================================
+
+.. currentmodule:: mpi_array.globale_ufunc_test
+
+.. automethod:: GndarrayUfuncTest.do_convert_execute_and_compare

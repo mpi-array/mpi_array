@@ -1,0 +1,6 @@
+mpi\_array\.indexing\.calc\_intersection\_split
+===============================================
+
+.. currentmodule:: mpi_array.indexing
+
+.. autofunction:: calc_intersection_split

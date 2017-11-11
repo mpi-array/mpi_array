@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.LocaleExtent\.split
+=============================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: LocaleExtent.split

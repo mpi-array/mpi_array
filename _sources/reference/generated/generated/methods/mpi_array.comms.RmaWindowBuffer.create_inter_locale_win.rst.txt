@@ -1,0 +1,6 @@
+mpi\_array\.comms\.RmaWindowBuffer\.create\_inter\_locale\_win
+==============================================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: RmaWindowBuffer.create_inter_locale_win

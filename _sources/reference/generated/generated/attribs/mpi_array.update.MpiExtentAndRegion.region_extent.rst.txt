@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiExtentAndRegion\.region\_extent
+======================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: MpiExtentAndRegion.region_extent

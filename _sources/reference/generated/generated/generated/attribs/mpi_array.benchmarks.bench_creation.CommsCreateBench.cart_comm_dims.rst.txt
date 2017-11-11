@@ -1,0 +1,6 @@
+mpi\_array\.benchmarks\.bench\_creation\.CommsCreateBench\.cart\_comm\_dims
+===========================================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoattribute:: CommsCreateBench.cart_comm_dims

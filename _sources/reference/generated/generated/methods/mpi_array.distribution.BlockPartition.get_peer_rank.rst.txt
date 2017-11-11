@@ -1,0 +1,6 @@
+mpi\_array\.distribution\.BlockPartition\.get\_peer\_rank
+=========================================================
+
+.. currentmodule:: mpi_array.distribution
+
+.. automethod:: BlockPartition.get_peer_rank

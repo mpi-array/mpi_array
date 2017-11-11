@@ -1,0 +1,44 @@
+mpi_array.benchmarks.bench_creation.MpiArrayCreateBench
+=======================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: MpiArrayCreateBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~MpiArrayCreateBench.__init__
+      ~MpiArrayCreateBench.free
+      ~MpiArrayCreateBench.free_mpi_array_obj
+      ~MpiArrayCreateBench.get_globale_shape
+      ~MpiArrayCreateBench.setup
+      ~MpiArrayCreateBench.time_empty
+      ~MpiArrayCreateBench.time_full
+      ~MpiArrayCreateBench.time_ones
+      ~MpiArrayCreateBench.time_zeros
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~MpiArrayCreateBench.cart_comm_dims
+      ~MpiArrayCreateBench.goal_time
+      ~MpiArrayCreateBench.module
+      ~MpiArrayCreateBench.param_names
+      ~MpiArrayCreateBench.params
+      ~MpiArrayCreateBench.repeat
+      ~MpiArrayCreateBench.warmup_time
+   
+   

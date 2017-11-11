@@ -1,0 +1,42 @@
+mpi_array.benchmarks.bench_creation.CommsCreateBench
+====================================================
+
+.. currentmodule:: mpi_array.benchmarks.bench_creation
+
+.. autoclass:: CommsCreateBench
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~CommsCreateBench.__init__
+      ~CommsCreateBench.free
+      ~CommsCreateBench.free_mpi_array_obj
+      ~CommsCreateBench.get_globale_shape
+      ~CommsCreateBench.setup
+      ~CommsCreateBench.time_cart_locale_comms
+      ~CommsCreateBench.time_locale_comms
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~CommsCreateBench.cart_comm_dims
+      ~CommsCreateBench.goal_time
+      ~CommsCreateBench.module
+      ~CommsCreateBench.param_names
+      ~CommsCreateBench.params
+      ~CommsCreateBench.repeat
+      ~CommsCreateBench.warmup_time
+   
+   

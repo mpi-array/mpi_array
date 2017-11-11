@@ -1,0 +1,6 @@
+mpi\_array\.globale\.gndarray\.root\_logger
+===========================================
+
+.. currentmodule:: mpi_array.globale
+
+.. autoattribute:: gndarray.root_logger

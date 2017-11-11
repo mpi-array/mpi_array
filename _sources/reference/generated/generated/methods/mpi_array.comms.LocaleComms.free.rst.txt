@@ -1,0 +1,6 @@
+mpi\_array\.comms\.LocaleComms\.free
+====================================
+
+.. currentmodule:: mpi_array.comms
+
+.. automethod:: LocaleComms.free

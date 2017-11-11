@@ -1,0 +1,6 @@
+mpi\_array\.globale\_ufunc\.get\_dtype\_and\_ndim
+=================================================
+
+.. currentmodule:: mpi_array.globale_ufunc
+
+.. autofunction:: get_dtype_and_ndim

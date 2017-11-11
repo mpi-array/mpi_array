@@ -1,0 +1,6 @@
+mpi\_array\.update\.RmaUpdateExecutor\.dst\_lndarray
+====================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: RmaUpdateExecutor.dst_lndarray

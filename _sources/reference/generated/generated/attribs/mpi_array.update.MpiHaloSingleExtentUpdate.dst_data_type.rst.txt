@@ -1,0 +1,6 @@
+mpi\_array\.update\.MpiHaloSingleExtentUpdate\.dst\_data\_type
+==============================================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoattribute:: MpiHaloSingleExtentUpdate.dst_data_type

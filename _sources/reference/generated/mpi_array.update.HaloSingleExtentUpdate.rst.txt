@@ -1,0 +1,32 @@
+mpi_array.update.HaloSingleExtentUpdate
+=======================================
+
+.. currentmodule:: mpi_array.update
+
+.. autoclass:: HaloSingleExtentUpdate
+
+   
+
+   
+   .. rubric:: Methods
+
+   .. autosummary::
+      :toctree: generated/methods
+
+   
+      ~HaloSingleExtentUpdate.__init__
+   
+   
+
+   
+   
+   .. rubric:: Attributes
+
+   .. autosummary::
+      :toctree: generated/attribs
+   
+      ~HaloSingleExtentUpdate.dst_extent
+      ~HaloSingleExtentUpdate.src_extent
+      ~HaloSingleExtentUpdate.update_extent
+   
+   
