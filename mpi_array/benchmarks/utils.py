@@ -47,10 +47,12 @@ def try_import_for_setup(module_name):
     """
     Returns the imported module named :samp:`{module_name}`.
     Attempts to import the module named :samp:`{module_name}` and
-    translates any raised :obj:`ImportError` into a :onj:`NotImplementedError`.
+    translates any raised :obj:`ImportError` into a :obj:`NotImplementedError`.
     This is useful in :samp:`setup`, so that a failed import results in
     the benchmark getting *skipped*.
 
+    :type module_name: :obj:`str`
+    :param module_name: Attempt to import this module.
     :rtype:`module`
     :returns: The imported module named :samp:`{module_name}`.
     :raises NotImplementedError: if there is an :obj:`ImportError`.

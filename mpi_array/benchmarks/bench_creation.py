@@ -3,9 +3,10 @@ Benchmarks for array creation.
 """
 
 from .utils import try_import_for_setup as _try_import_for_setup
+from .core import Bench
 
 
-class CreateBench(object):
+class CreateBench(Bench):
     """
     Base class for array creation benchmarks.
     """
@@ -28,57 +29,6 @@ class CreateBench(object):
     #: Inter-locale cartesian communicator dims
     cart_comm_dims = None
 
-    def __init__(self):
-        """
-        Initialise, set :attr:`module` to :samp:`None`.
-        """
-        self._module = None
-
-    @property
-    def module(self):
-        """
-        The :obj:`module` used to create array instances.
-        """
-        return self._module
-
-    @module.setter
-    def module(self, module):
-        self._module = module
-
-    def setup(self, shape):
-        """
-        Should be over-ridden in sub-classes.
-        """
-        pass
-
-    def get_globale_shape(self, locale_shape):
-        """
-        Returns a *globale* array shape for the given shape of the *locale* array.
-
-        :type locale_shape: sequence of :samp:`int`
-        :param locale_shape: The shape of the array to be allocated on each *locale*.
-        """
-        if self.cart_comm_dims is None:
-            from ..comms import CartLocaleComms as _CartLocaleComms
-            import numpy as _np
-            import mpi4py.MPI as _mpi
-            comms = _CartLocaleComms(ndims=len(locale_shape), peer_comm=_mpi.COMM_WORLD)
-            self.cart_comm_dims = _np.asarray(comms.dims)
-        return tuple(self.cart_comm_dims * locale_shape)
-
-    def free_mpi_array_obj(self, a):
-        """
-        Free MPI communicators and MPI windows for the given object.
-
-        :type a: free-able
-        :param a: A :obj:`mpi_array.globale.gndarray` instance
-           or a :obj:`mpi_array.comms.LocaleComms` instance.
-        """
-        if hasattr(a, "locale_comms"):
-            a.locale_comms.free()
-        if hasattr(a, "free"):
-            a.free()
-
     def free(self, a):
         """
         Clean up array resources, over-ridden in sub-classes.
@@ -96,8 +46,8 @@ class NumpyCreateBench(CreateBench):
         Import :mod:`numpy` module and assign to :attr:`module`.
         """
         self.array = None
-        self.module = _try_import_for_setup("numpy")
-        mpi = _try_import_for_setup("mpi4py.MPI")
+        self.module = self.try_import_for_setup("numpy")
+        mpi = self.try_import_for_setup("mpi4py.MPI")
         if mpi.COMM_WORLD.size > 1:
             raise NotImplementedError("only runs for single process")
 
@@ -137,7 +87,7 @@ class MpiArrayCreateBench(NumpyCreateBench):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
-        self.module = _try_import_for_setup("mpi_array")
+        self.module = self.try_import_for_setup("mpi_array")
 
     def free(self, a):
         """
@@ -193,7 +143,7 @@ class MpiArrayCreateLikeBench(CreateBench):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
-        self.module = _try_import_for_setup("mpi_array")
+        self.module = self.try_import_for_setup("mpi_array")
         self._like_array = self.module.empty(self.get_globale_shape(shape), dtype="int32")
 
     def teardown(self, shape):
@@ -234,7 +184,7 @@ class CommsCreateBench(CreateBench):
         """
         Import :mod:`mpi_array` module and assign to :samp:`self.module`.
         """
-        self.module = _try_import_for_setup("mpi_array")
+        self.module = self.try_import_for_setup("mpi_array")
 
     def free(self, a):
         """
@@ -276,7 +226,7 @@ class CommsAllocBench(CreateBench):
         Also initialise :attr:`locale_comms` with a :obj:`mpi_array.comms.CartLocaleComms`
         instance.
         """
-        self.module = _try_import_for_setup("mpi_array.comms")
+        self.module = self.try_import_for_setup("mpi_array.comms")
         self._locale_comms = self.module.CartLocaleComms(ndims=3)
 
     def teardown(self, shape):
@@ -308,7 +258,7 @@ class MangoCreateBench(NumpyCreateBench):
         """
         Import :mod:`mango` module and assign to :samp:`self.module`.
         """
-        self.module = _try_import_for_setup("mango")
+        self.module = self.try_import_for_setup("mango")
 
     def time_full(self, shape):
         """
@@ -326,10 +276,10 @@ class MangoCreateBench(NumpyCreateBench):
 #        """
 #        Import :mod:`mango` module and assign to :samp:`self.module`.
 #        """
-#        self._ga = _try_import_for_setup("ga4py.ga")
-#        self.module = _try_import_for_setup("ga4py.gain")
+#        self._ga = self.try_import_for_setup("ga4py.ga")
+#        self.module = self.try_import_for_setup("ga4py.gain")
 #        # Turn off the global-arrays caching of arrays.
-#        _try_import_for_setup("ga4py.gain.core").ga_cache.level = 0
+#        self.try_import_for_setup("ga4py.gain.core").ga_cache.level = 0
 #
 #    def free(self, a):
 #        self._ga.sync()
