@@ -30,6 +30,7 @@ Functions
 
 from __future__ import absolute_import
 
+import sys as _sys
 import numpy as _np
 import mpi4py.MPI as _mpi
 
@@ -1043,5 +1044,25 @@ def gndarray_array_ufunc(array_like_obj, ufunc, method, *inputs, **kwargs):
 
     return ufunc_executor.execute()
 
+
+def set_numpy_ufuncs_as_module_attr(set_attr_module, search_module):
+    """
+    Finds all :obj:`numpy.ufunc` attributes in the :samp:`{search_module}` :obj:`module`
+    and sets corresponding attributes of :samp:`{set_attr_module}` :obj:`module`.
+
+    :type set_attr_module: :obj:`module`
+    :param set_attr_module: Set ufunc attributes of this module to those found
+       in the :samp:`{search_module}` module
+    :type search_module: :obj:`module`
+    :param search_module: Find :obj:`numpy.ufunc` attributes in this module.
+
+    """
+    for attr in dir(search_module):
+        numpy_attr_value = getattr(search_module, attr)
+        if isinstance(numpy_attr_value, _np.ufunc):
+            setattr(set_attr_module, attr, numpy_attr_value)
+
+
+set_numpy_ufuncs_as_module_attr(_sys.modules[__name__], _np)
 
 __all__ = [s for s in dir() if not s.startswith('_')]

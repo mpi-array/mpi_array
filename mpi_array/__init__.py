@@ -33,12 +33,15 @@ __license__ = _license()
 __copyright__ = _copyright()
 __version__ = _version()
 
-_thismodule = _sys.modules[__name__]
+_this_module = _sys.modules[__name__]
 from .globale import gndarray  # noqa: E402,F401
 from .globale import free_all  # noqa: E402,F401
+from . import globale_ufunc as _ufunc  # noqa: E402,F401
 
 from . import globale_creation as _creation  # noqa: E402,F401
 for s in _creation.__all__:
-    setattr(_thismodule, s, getattr(_creation, s))
+    setattr(_this_module, s, getattr(_creation, s))
+
+_ufunc.set_numpy_ufuncs_as_module_attr(_this_module, _ufunc)
 
 __all__ = [s for s in dir() if not s.startswith('_')]
