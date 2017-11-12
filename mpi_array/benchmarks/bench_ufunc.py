@@ -11,6 +11,15 @@ class UfuncBench(Bench):
     Base class for array ufunc benchmarks.
     """
 
+    def __init__(self):
+        """
+        Initialise.
+        """
+        self._a_ary = None
+        self._b_ary = None
+        self._c_ary = None
+        self._b_scalar = None
+
     #: Number of repetitions to run each benchmark
     repeat = 10
 
@@ -26,56 +35,76 @@ class UfuncBench(Bench):
     # Execute benchmark for this time (seconds) as a *warm-up* prior to real timing.
     warmup_time = 1.0
 
-    def __init__(self):
+    @property
+    def a_ary(self):
         """
-        Initialise, set :attr:`module` to :samp:`None`.
         """
-        self._module = None
+        return self._a_ary
+
+    @a_ary.setter
+    def a_ary(self, value):
+        """
+        """
+        self._a_ary = value
 
     @property
-    def module(self):
+    def b_ary(self):
         """
-        The :obj:`module` used to create array instances.
         """
-        return self._module
+        return self._b_ary
 
-    @module.setter
-    def module(self, module):
-        self._module = module
+    @b_ary.setter
+    def b_ary(self, value):
+        """
+        """
+        self._b_ary = value
+
+    @property
+    def c_ary(self):
+        """
+        """
+        return self._c_ary
+
+    @c_ary.setter
+    def c_ary(self, value):
+        """
+        """
+        self._c_ary = value
+
+    @property
+    def b_scalar(self):
+        """
+        """
+        return self._b_scalar
+
+    @b_scalar.setter
+    def b_scalar(self, value):
+        """
+        """
+        self._b_scalar = value
+
+    def initialise_arrays(self, shape):
+        """
+        Initialise arrays/scalars passed to ufunc instances.
+        """
+        self.a_ary = self.module.empty(self.get_globale_shape(shape), dtype=self.dtype)
+        self.b_ary = self.module.empty(self.get_globale_shape(shape), dtype=self.dtype)
+        self.c_ary = self.module.empty(self.get_globale_shape(shape), dtype=self.dtype)
+        self.b_scalar = self.dtype.type()
 
     def setup(self, shape):
         """
         Should be over-ridden in sub-classes.
         """
-        pass
+        self.module = None
 
-    def get_globale_shape(self, locale_shape):
+    def teardown(self, shape):
         """
-        Returns a *globale* array shape for the given shape of the *locale* array.
-
-        :type locale_shape: sequence of :samp:`int`
-        :param locale_shape: The shape of the array to be allocated on each *locale*.
+        Free arrays allocated during :meth:`setup`.
         """
-        if self.cart_comm_dims is None:
-            from ..comms import CartLocaleComms as _CartLocaleComms
-            import numpy as _np
-            import mpi4py.MPI as _mpi
-            comms = _CartLocaleComms(ndims=len(locale_shape), peer_comm=_mpi.COMM_WORLD)
-            self.cart_comm_dims = _np.asarray(comms.dims)
-        return tuple(self.cart_comm_dims * locale_shape)
-
-    def free_mpi_array_obj(self, a):
-        """
-        Free MPI communicators and MPI windows for the given object.
-
-        :type a: free-able
-        :param a: A :obj:`mpi_array.globale.gndarray` instance
-           or a :obj:`mpi_array.comms.LocaleComms` instance.
-        """
-        if hasattr(a, "locale_comms"):
-            a.locale_comms.free()
-        if hasattr(a, "free"):
-            a.free()
+        self.free(self.a_ary)
+        self.free(self.b_ary)
+        self.free(self.c_ary)
 
     def free(self, a):
         """
