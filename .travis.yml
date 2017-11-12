@@ -125,7 +125,7 @@ script:
   - cd docs
   - travis_wait 20 mpirun -n 8 python -m mpi_array.tests -f
   - cd ..
-  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; then travis-sphinx build; fi
+  - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; then travis-sphinx build -s docs/source; fi
 
 after_success:
   - if [[ $TRAVIS_PYTHON_VERSION == '3.6'* ]] && [[ $MPI == 'openmpi-2.1'* ]]; then travis-sphinx --branches=dev deploy; fi
