@@ -24,6 +24,7 @@ Attributes
 from __future__ import absolute_import  # noqa: E402,F401
 
 import sys as _sys
+import numpy as _np
 from . import init as _init  # noqa: E402,F401
 from . import rtd as _rtd  # noqa: E402,F401
 from .license import license as _license, copyright as _copyright, version as _version
@@ -43,5 +44,7 @@ for s in _creation.__all__:
     setattr(_this_module, s, getattr(_creation, s))
 
 _ufunc.set_numpy_ufuncs_as_module_attr(_this_module, _ufunc)
+
+dtype = _np.dtype
 
 __all__ = [s for s in dir() if not s.startswith('_')]
