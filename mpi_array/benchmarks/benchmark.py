@@ -557,11 +557,13 @@ def disc_files(root, package=''):
     """
     Iterate over all .py files in a given directory tree.
     """
+    print("root=%s, package=%s" % (root, package))
     if os.path.isdir(root):
         filename_list = os.listdir(root)
     elif os.path.isfile(root):
         root, filename = os.path.split(root)
         filename_list = [filename, ]
+        package = ".".join(package.strip().rstrip(".").split(".")[:-1]) + "."
     else:
         raise ValueError("root=%s not an existing file or directory." % root)
 
@@ -694,9 +696,9 @@ def create_runner_argument_parser():
     )
     ap.add_argument(
         "module_name",
-        action="append",
+        nargs="*",
         help="Name of modules to search for benchmarks.",
-        default=["mpi_array.benchmarks"]
+        default=[]
     )
 
     return ap
@@ -709,6 +711,7 @@ def root_and_package_from_name(module_name):
     module = import_module(module_name)
     root = module.__file__
     dir, filename = os.path.split(root)
+    print("root=%s, dir=%s, filename=%s" % (root, dir, filename))
     if filename.find("__init__.py") == 0:
         root = dir
     return root, module.__name__
@@ -925,7 +928,9 @@ class BenchmarkRunner(object):
         if self.is_root_rank:
             self._benchmarks = []
             for module_name in self.benchmark_module_names:
+                print("module_name=%s" % module_name)
                 root, package = root_and_package_from_name(module_name)
+                print("root=%s, package=%s" % (root, package))
                 self._benchmarks += [b for b in disc_benchmarks(root, package) if self.filter(b)]
         else:
             self._benchmarks = None
@@ -992,8 +997,7 @@ class BenchmarkRunner(object):
                     if param_idx is not None:
                         benchmark.set_param_idx(param_idx)
 
-                    skip = benchmark.do_setup()
-                    skip_reason = benchmark.setup_error
+                    skip = False
 
                     if (
                         (not skip)
@@ -1006,6 +1010,9 @@ class BenchmarkRunner(object):
                     ):
                         skip = True
                         skip_reason = "quick run, only first param run."
+                    else:
+                        skip = benchmark.do_setup()
+                        skip_reason = benchmark.setup_error
 
                     try:
                         if skip:
