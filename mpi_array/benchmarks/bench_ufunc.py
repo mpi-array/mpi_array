@@ -10,11 +10,21 @@ from .core import Bench
 class UfuncBench(Bench):
     """
     Base class for array ufunc benchmarks.
+    Run benchmarks for calls of the form::
+
+       numpy.exp(self.a_ary, out=self.c_ary)
+       numpy.add(self.a_ary, self.b_ary, out=self.c_ary)
+
+    where the :attr:`a_ary`, :attr:`b_ary` and :attr:`c_ary` arrays
+    are initialised (with uniform random scalars) during :meth:`setup`.
     """
 
     def __init__(self, ufunc_name=None):
         """
         Initialise.
+
+        :type ufunc_name: :obj:`str`
+        :param ufunc_name: Name of the ufunc, should be the name of an attribute of :attr:`module`.
         """
         Bench.__init__(self)
         self._ufunc_name = ufunc_name
@@ -42,61 +52,72 @@ class UfuncBench(Bench):
     @property
     def ufunc(self):
         """
+        The :samp:`numpy.ufunc` for this benchmark.
         """
         return self._ufunc
 
     @ufunc.setter
     def ufunc(self, value):
-        """
-        """
         self._ufunc = value
 
     @property
     def a_ary(self):
         """
+        First input array.
         """
         return self._a_ary
 
     @a_ary.setter
     def a_ary(self, value):
-        """
-        """
         self._a_ary = value
+
+    @property
+    def a_ary_range(self):
+        """
+        A :samp:`(low, high)` tuple indicating the uniform random range of scalars for
+        the :attr:`a_ary` array elements.
+        """
+        return (0.66, 1.66)
 
     @property
     def b_ary(self):
         """
+        Second input array.
         """
         return self._b_ary
 
     @b_ary.setter
     def b_ary(self, value):
-        """
-        """
         self._b_ary = value
+
+    @property
+    def b_ary_range(self):
+        """
+        A :samp:`(low, high)` tuple inficating the uniform random range of scalars for
+        the :attr:`b_ary` array elements.
+        """
+        return (0.7, 1.3)
 
     @property
     def c_ary(self):
         """
+        Output array.
         """
         return self._c_ary
 
     @c_ary.setter
     def c_ary(self, value):
-        """
-        """
         self._c_ary = value
 
     @property
     def b_scalar(self):
         """
+        Second scalar input.
         """
         return self._b_scalar
 
     @b_scalar.setter
     def b_scalar(self, value):
-        """
-        """
         self._b_scalar = value
 
     @property
@@ -124,10 +145,21 @@ class UfuncBench(Bench):
         """
         shape = self.get_globale_shape(shape)
         random_state = self.random_state
-        self.a_ary = random_state.uniform(low=0.66, high=1.66, size=shape).astype(self.dtype)
-        self.b_ary = random_state.uniform(low=0.70, high=1.30, size=shape).astype(self.dtype)
+        self.a_ary = \
+            random_state.uniform(
+                low=self.a_ary_range[0],
+                high=self.a_ary_range[1],
+                size=shape
+            ).astype(self.dtype)
+        self.b_ary = \
+            random_state.uniform(
+                low=self.b_ary_range[0],
+                high=self.b_ary_range[1],
+                size=shape
+            ).astype(self.dtype)
         self.c_ary = self.module.empty(shape, dtype=self.dtype)
-        self.b_scalar = self.dtype.type(random_state.uniform(low=0.70, high=1.30))
+        self.b_scalar = \
+            self.dtype.type(random_state.uniform(low=self.b_ary_range[0], high=self.b_ary_range[1]))
 
     def initialise(self, shape, dtype, module_name):
         """
@@ -179,10 +211,21 @@ class NumpyUfuncBench(UfuncBench):
         """
         shape = self.get_globale_shape(shape)
         random_state = self.random_state
-        self.a_ary = random_state.uniform(low=0.66, high=1.66, size=shape).astype(self.dtype)
-        self.b_ary = random_state.uniform(low=0.70, high=1.30, size=shape).astype(self.dtype)
+        self.a_ary = \
+            random_state.uniform(
+                low=self.a_ary_range[0],
+                high=self.a_ary_range[1],
+                size=shape
+            ).astype(self.dtype)
+        self.b_ary = \
+            random_state.uniform(
+                low=self.b_ary_range[0],
+                high=self.b_ary_range[1],
+                size=shape
+            ).astype(self.dtype)
         self.c_ary = self.module.empty(shape, dtype=self.dtype)
-        self.b_scalar = self.dtype.type(random_state.uniform(low=0.70, high=1.30))
+        self.b_scalar = \
+            self.dtype.type(random_state.uniform(low=self.b_ary_range[0], high=self.b_ary_range[1]))
 
     def setup(self, shape, dtype="float64"):
         """
@@ -216,14 +259,15 @@ class MpiArrayUfuncBench(UfuncBench):
 
         self.a_ary.rank_view_n[...] = \
             random_state.uniform(
-                low=0.66, high=1.66, size=self.a_ary.rank_view_n.shape
+                low=self.a_ary_range[0], high=self.a_ary_range[1], size=self.a_ary.rank_view_n.shape
         ).astype(self.dtype)
         self.b_ary.rank_view_n[...] = \
             random_state.uniform(
-                low=0.70, high=1.30, size=self.b_ary.rank_view_n.shape
+                low=self.b_ary_range[0], high=self.b_ary_range[1], size=self.b_ary.rank_view_n.shape
         ).astype(self.dtype)
 
-        self.b_scalar = self.dtype.type(random_state.uniform(low=0.70, high=1.30))
+        self.b_scalar = \
+            self.dtype.type(random_state.uniform(low=self.b_ary_range[0], high=self.b_ary_range[1]))
         self.a_ary.locale_comms.intra_locale_comm.barrier()
 
     def setup(self, shape, dtype="float64"):
