@@ -289,7 +289,7 @@ class NumpyUfuncBench_invsqrt(NumpyUfuncBench):
     """
 
     def __init__(self):
-        MpiArrayUfuncBench.__init__(self, ufunc_name="power")
+        NumpyUfuncBench.__init__(self, ufunc_name="power")
 
     def time_array_op(self, shape, dtype="float64"):
         """
