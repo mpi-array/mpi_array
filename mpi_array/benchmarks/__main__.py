@@ -25,5 +25,5 @@ if __name__ == '__main__':
     from .. import logging as _logging
 
     _sys.path.pop(0)
-    _logging.initialise_loggers(["mpi_array.benchmarks.benchmark"], log_level=_builtin_logging.INFO)
+    _logging.initialise_loggers(["mpi_array.benchmarks"], log_level=_builtin_logging.INFO)
     _benchmark.run_main(_sys.argv[1:])
