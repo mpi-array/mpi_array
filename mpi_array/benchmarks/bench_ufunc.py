@@ -268,11 +268,16 @@ class MpiArrayUfuncBench(UfuncBench):
 
         self.a_ary.rank_view_n[...] = \
             random_state.uniform(
-                low=self.a_ary_range[0], high=self.a_ary_range[1], size=self.a_ary.rank_view_n.shape
+                low=self.a_ary_range[0],
+                high=self.a_ary_range[1],
+                size=self.a_ary.rank_view_n.shape
         ).astype(self.dtype)
+
         self.b_ary.rank_view_n[...] = \
             random_state.uniform(
-                low=self.b_ary_range[0], high=self.b_ary_range[1], size=self.b_ary.rank_view_n.shape
+                low=self.b_ary_range[0],
+                high=self.b_ary_range[1],
+                size=self.b_ary.rank_view_n.shape
         ).astype(self.dtype)
 
         self.b_scalar = \
