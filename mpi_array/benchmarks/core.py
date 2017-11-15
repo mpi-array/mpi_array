@@ -5,6 +5,7 @@ from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version
 
 from .utils.misc import try_import_for_setup as _try_import_for_setup
+from .. import logging as _logging
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -18,13 +19,35 @@ class Bench(object):
     """
 
     #: Inter-locale cartesian communicator dims
-    cart_comm_dims = None
+    cart_comm_dims_dict = dict()
 
     def __init__(self):
         """
         Initialise, set :attr:`module` to :samp:`None`.
         """
         self._module = None
+        self._root_logger = None
+        self._rank_logger = None
+
+    @property
+    def root_logger(self):
+        """
+        A :obj:`logging.Logger` for root MPI process messages.
+        """
+        if self._root_logger is None:
+            self._root_logger = \
+                _logging.get_root_logger(str(__name__ + "." + self.__class__.__name__))
+        return self._root_logger
+
+    @property
+    def rank_logger(self):
+        """
+        A :obj:`logging.Logger` for all rank MPI process messages.
+        """
+        if self._rank_logger is None:
+            self._rank_logger = \
+                _logging.get_rank_logger(str(__name__ + "." + self.__class__.__name__))
+        return self._rank_logger
 
     @property
     def module(self):
@@ -65,13 +88,14 @@ class Bench(object):
         :type locale_shape: sequence of :samp:`int`
         :param locale_shape: The shape of the array to be allocated on each *locale*.
         """
-        if self.cart_comm_dims is None:
+        locale_shape = tuple(locale_shape)
+        if locale_shape not in self.cart_comm_dims_dict.keys():
             from ..comms import CartLocaleComms as _CartLocaleComms
             import numpy as _np
             import mpi4py.MPI as _mpi
             comms = _CartLocaleComms(ndims=len(locale_shape), peer_comm=_mpi.COMM_WORLD)
-            self.cart_comm_dims = _np.asarray(comms.dims)
-        return tuple(self.cart_comm_dims * locale_shape)
+            self.cart_comm_dims_dict[locale_shape] = _np.asarray(comms.dims)
+        return tuple(self.cart_comm_dims_dict[locale_shape] * locale_shape)
 
     def free_mpi_array_obj(self, a):
         """
