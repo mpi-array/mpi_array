@@ -14,6 +14,8 @@ Modules
    benchmark - Functions and classes for finding/recording benchmarks.
    bench_creation - Benchmark array creation.
    bench_ufunc - Benchmarks for ufuncs.
+   core - Core utilities for benchmark implementations.
+   utils - Miscellaneous helper utilities.
 """
 from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version

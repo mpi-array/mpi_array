@@ -1,13 +1,20 @@
 """
 Benchmarks for ufuncs.
 """
+from __future__ import absolute_import
+from ..license import license as _license, copyright as _copyright, version as _version
 
 import sys as _sys
-from .utils import try_import_for_setup as _try_import_for_setup
-from .core import Bench
+from .utils.misc import try_import_for_setup as _try_import_for_setup
+from .core import Bench as _Bench
+
+__author__ = "Shane J. Latham"
+__license__ = _license()
+__copyright__ = _copyright()
+__version__ = _version()
 
 
-class UfuncBench(Bench):
+class UfuncBench(_Bench):
     """
     Base class for array ufunc benchmarks.
     Run benchmarks for calls of the form::
@@ -26,7 +33,7 @@ class UfuncBench(Bench):
         :type ufunc_name: :obj:`str`
         :param ufunc_name: Name of the ufunc, should be the name of an attribute of :attr:`module`.
         """
-        Bench.__init__(self)
+        _Bench.__init__(self)
         self._ufunc_name = ufunc_name
         self._ufunc = None
         self._a_ary = None

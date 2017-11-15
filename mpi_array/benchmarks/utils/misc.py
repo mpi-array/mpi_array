@@ -8,10 +8,11 @@ file `benchmark.py <https://github.com/spacetelescope/asv/blob/master/asv/benchm
 See the `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
 
 """
+from __future__ import absolute_import
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import sys as _sys
-from ..init import get_process_time_timer  # noqa: F401
+from ...init import get_process_time_timer  # noqa: F401
 
 __license__ = "https://github.com/spacetelescope/asv/blob/master/LICENSE.rst"
 
@@ -48,12 +49,12 @@ def try_import_for_setup(module_name):
     Returns the imported module named :samp:`{module_name}`.
     Attempts to import the module named :samp:`{module_name}` and
     translates any raised :obj:`ImportError` into a :obj:`NotImplementedError`.
-    This is useful in :samp:`setup`, so that a failed import results in
+    This is useful in benchmark :samp:`setup`, so that a failed import results in
     the benchmark getting *skipped*.
 
     :type module_name: :obj:`str`
     :param module_name: Attempt to import this module.
-    :rtype:`module`
+    :rtype: :obj:`module`
     :returns: The imported module named :samp:`{module_name}`.
     :raises NotImplementedError: if there is an :obj:`ImportError`.
     """

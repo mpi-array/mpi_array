@@ -105,6 +105,7 @@ def load_tests(loader, tests, pattern):
                 "mpi_array.globale_test",
                 "mpi_array.globale_creation_test",
                 "mpi_array.globale_ufunc_test",
+                "mpi_array.benchmarks.utils.wlm_test",
             ]
         )
     suite.addTests(DocTestTestSuite())

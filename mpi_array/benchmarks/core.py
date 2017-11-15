@@ -1,8 +1,15 @@
 """
-Benchmarks for array creation.
+Core utilities for benchmark implementations.
 """
+from __future__ import absolute_import
+from ..license import license as _license, copyright as _copyright, version as _version
 
-from .utils import try_import_for_setup as _try_import_for_setup
+from .utils.misc import try_import_for_setup as _try_import_for_setup
+
+__author__ = "Shane J. Latham"
+__license__ = _license()
+__copyright__ = _copyright()
+__version__ = _version()
 
 
 class Bench(object):

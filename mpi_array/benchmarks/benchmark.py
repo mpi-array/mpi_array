@@ -8,6 +8,7 @@ See the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
 `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
 
 """
+from __future__ import absolute_import
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
 import mpi4py.MPI as mpi
@@ -30,7 +31,7 @@ import gc
 from importlib import import_module
 from .. import logging as _logging
 
-from .utils import get_process_time_timer
+from .utils.misc import get_process_time_timer
 
 __license__ = "https://github.com/spacetelescope/asv/blob/master/LICENSE.rst"
 

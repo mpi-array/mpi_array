@@ -1,12 +1,19 @@
 """
 Benchmarks for array creation.
 """
+from __future__ import absolute_import
+from ..license import license as _license, copyright as _copyright, version as _version
 
-from .utils import try_import_for_setup as _try_import_for_setup
-from .core import Bench
+from .utils.misc import try_import_for_setup as _try_import_for_setup
+from .core import Bench as _Bench
+
+__author__ = "Shane J. Latham"
+__license__ = _license()
+__copyright__ = _copyright()
+__version__ = _version()
 
 
-class CreateBench(Bench):
+class CreateBench(_Bench):
     """
     Base class for array creation benchmarks.
     """
