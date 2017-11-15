@@ -32,13 +32,13 @@ def adjust_list_to_length(obj, desired_length):
     """
     if isinstance(obj, str):
         obj = [obj, ]
-    l = list(obj)
-    if len(l) < desired_length:
-        l = l + [l[-1], ] * (desired_length - len(l))
-    elif len(l) > desired_length:
-        l = l[:desired_length]
+    ret_list = list(obj)
+    if len(ret_list) < desired_length:
+        ret_list = ret_list + [ret_list[-1], ] * (desired_length - len(ret_list))
+    elif len(ret_list) > desired_length:
+        ret_list = ret_list[:desired_length]
 
-    return l
+    return ret_list
 
 
 class WlmScriptGenerator(object):

@@ -558,7 +558,6 @@ def disc_files(root, package=''):
     """
     Iterate over all .py files in a given directory tree.
     """
-    print("root=%s, package=%s" % (root, package))
     if os.path.isdir(root):
         filename_list = os.listdir(root)
     elif os.path.isfile(root):
@@ -712,7 +711,6 @@ def root_and_package_from_name(module_name):
     module = import_module(module_name)
     root = module.__file__
     dir, filename = os.path.split(root)
-    print("root=%s, dir=%s, filename=%s" % (root, dir, filename))
     if filename.find("__init__.py") == 0:
         root = dir
     return root, module.__name__
@@ -929,9 +927,7 @@ class BenchmarkRunner(object):
         if self.is_root_rank:
             self._benchmarks = []
             for module_name in self.benchmark_module_names:
-                print("module_name=%s" % module_name)
                 root, package = root_and_package_from_name(module_name)
-                print("root=%s, package=%s" % (root, package))
                 self._benchmarks += [b for b in disc_benchmarks(root, package) if self.filter(b)]
         else:
             self._benchmarks = None
