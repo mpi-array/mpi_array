@@ -258,7 +258,9 @@ class MpiArrayUfuncBench(UfuncBench):
         :type shape: sequence of :obj:`int`
         :param shape: Shape of the arrays to be passed to ufuncs.
         """
+        self.root_logger.debug("%s.setup:  locale array shape=%s", self.__class__.__name__, shape)
         shape = self.get_globale_shape(shape)
+        self.root_logger.debug("%s.setup: globale array shape=%s", self.__class__.__name__, shape)
         random_state = self.random_state
         self.a_ary = self.module.empty(shape, dtype=self.dtype)
         self.b_ary = self.module.empty(shape, dtype=self.dtype)
@@ -275,6 +277,17 @@ class MpiArrayUfuncBench(UfuncBench):
 
         self.b_scalar = \
             self.dtype.type(random_state.uniform(low=self.b_ary_range[0], high=self.b_ary_range[1]))
+
+        self.root_logger.debug(
+            "%s.setup: a_ary.shape=%s, a_ary.view_n.shape=%s, a_ary.rank_view_n.shape=%s,"
+            +
+            " a_ary.view_n.dtype=%s",
+            self.__class__.__name__,
+            self.a_ary.shape,
+            self.a_ary.view_n.shape,
+            self.a_ary.rank_view_n.shape,
+            self.a_ary.view_n.dtype
+        )
         self.a_ary.locale_comms.intra_locale_comm.barrier()
 
     def setup(self, shape, dtype="float64"):
