@@ -20,6 +20,11 @@ Each run is launched as::
 * For Open MPI, :samp:`--oversubscribe` (allow more ranks than cores)
   and :samp:`--tag-output` (prefix every output line with the rank) are added.
   For MPICH-like launchers :samp:`-prepend-rank` is added.
+* After the test suite, each scenario of :mod:`mpi_array.exit_scenarios` (programs which
+  end, normally or with an unhandled exception, while arrays are allocated) runs as its own
+  job, with and without :samp:`python -m mpi4py`. The job must exit with the expected
+  status within :samp:`--exit-timeout` seconds. The scenarios are skipped
+  with :samp:`--no-exit-scenarios`, or when a test module or tests are given.
 
 Examples::
 
@@ -49,6 +54,17 @@ _RAN_RE = re.compile(r"Ran (\d+) tests? in ([0-9.]+)s")
 _FAILED_RE = re.compile(r"\|rank0\| \(((?:failures|errors)=\d+[^)]*)\)")
 _TEST_RE = re.compile(r"\|rank(\d+)\|(ERROR|FAIL): (.+?)\s*$", re.MULTILINE)
 _HANG_RE = re.compile(r"Timeout \((\d+:\d\d:\d\d(?:\.\d+)?)\)!")
+
+#: The :mod:`mpi_array.exit_scenarios` functions, with their launchers and
+#: whether the job must exit with status zero. When one process raises, the
+#: other processes wait forever unless :samp:`python -m mpi4py` aborts the job.
+_EXIT_SCENARIOS = \
+    (
+        ("normal_exit", ("mpi4py", "python"), True),
+        ("raise_on_all_ranks", ("mpi4py", "python"), False),
+        ("raise_on_one_rank", ("mpi4py",), False),
+        ("raise_on_one_rank_in_with", ("mpi4py",), False),
+    )
 
 
 def detect_launcher_args(mpirun):
@@ -177,6 +193,56 @@ def run_once(args, launcher_args, np, log_file_name):
     }
 
 
+def run_exit_scenarios(args, launcher_args, np, log_dir):
+    """
+    Runs each :mod:`mpi_array.exit_scenarios` scenario (see :attr:`_EXIT_SCENARIOS`)
+    as its own job with :samp:`{np}` processes.
+
+    :rtype: :obj:`tuple`
+    :return: Pair :samp:`(num_jobs, failures)`, :samp:`failures` describes each job
+       which didn't exit as expected.
+    """
+    num_jobs = 0
+    failures = []
+    for name, launchers, zero_exit_status in _EXIT_SCENARIOS:
+        for launcher in launchers:
+            python_args = ["-c", "import mpi_array.exit_scenarios as s; s.%s()" % name]
+            if launcher == "mpi4py":
+                python_args = ["-m", "mpi4py"] + python_args
+            cmd = \
+                [args.mpirun] + launcher_args + list(args.mpirun_arg) + ["-n", str(np)] \
+                + [args.python] + python_args
+            log_file_name = os.path.join(log_dir, "exit_np%d_%s_%s.log" % (np, name, launcher))
+            with open(log_file_name, "w") as log_file:
+                log_file.write("# %s\n" % " ".join(cmd))
+                log_file.flush()
+                proc = \
+                    subprocess.Popen(
+                        cmd,
+                        stdout=log_file,
+                        stderr=subprocess.STDOUT,
+                        start_new_session=True
+                    )
+                try:
+                    returncode = proc.wait(timeout=args.exit_timeout)
+                except subprocess.TimeoutExpired:
+                    kill_process_group(proc)
+                    returncode = None
+            num_jobs += 1
+            if returncode is None:
+                problem = "HANG (killed after %ss)" % args.exit_timeout
+            elif zero_exit_status and (returncode != 0):
+                problem = "exit status %s, expected 0" % returncode
+            elif (not zero_exit_status) and (returncode == 0):
+                problem = "exit status 0, expected non-zero"
+            else:
+                continue
+            launched_as = "python -m mpi4py" if launcher == "mpi4py" else "python"
+            failures.append("%s (%s): %s, log %s" % (name, launched_as, problem, log_file_name))
+
+    return num_jobs, failures
+
+
 def main(argv=None):
     parser = \
         argparse.ArgumentParser(
@@ -213,8 +279,22 @@ def main(argv=None):
         "--log-dir", default=None,
         help="Directory for the per-run log files (default: a new temporary directory)."
     )
+    parser.add_argument(
+        "--no-exit-scenarios", action="store_true",
+        help="Don't run the mpi_array.exit_scenarios jobs after the test suite."
+    )
+    parser.add_argument(
+        "--exit-timeout", type=float, default=60.0,
+        help="Wall-clock limit in seconds for each exit scenario job (default: 60)."
+    )
     parser.add_argument("test_args", nargs="*", help=argparse.SUPPRESS)
     args = parser.parse_args(argv)
+    run_exit = \
+        (not args.no_exit_scenarios) \
+        and \
+        (args.module == "mpi_array.tests") \
+        and \
+        (len(args.test_args) == 0)
 
     launcher_args = [] if args.no_launcher_defaults else detect_launcher_args(args.mpirun)
     log_dir = args.log_dir
@@ -230,15 +310,33 @@ def main(argv=None):
         sys.stdout.flush()
         result = run_once(args, launcher_args, np, log_file_name)
         print("    %s" % result["status"])
+        result["exit_status"] = "-"
+        result["exit_failures"] = []
+        if run_exit:
+            print("Running exit scenarios with %d process(es)..." % np)
+            sys.stdout.flush()
+            num_jobs, result["exit_failures"] = run_exit_scenarios(args, launcher_args, np, log_dir)
+            num_failed = len(result["exit_failures"])
+            if num_failed == 0:
+                result["exit_status"] = "PASS (%d jobs)" % num_jobs
+            else:
+                result["exit_status"] = "FAIL (%d of %d jobs)" % (num_failed, num_jobs)
+                result["passed"] = False
+            print("    %s" % result["exit_status"])
         sys.stdout.flush()
         results.append(result)
 
     print("")
     width = max([len("result")] + [len(r["status"]) for r in results])
-    print("%5s  %-*s %6s %9s  %s" % ("ranks", width, "result", "tests", "time (s)", "log"))
+    exit_width = max([len("exit scenarios")] + [len(r["exit_status"]) for r in results])
+    print(
+        "%5s  %-*s %6s %9s  %-*s  %s"
+        %
+        ("ranks", width, "result", "tests", "time (s)", exit_width, "exit scenarios", "log")
+    )
     for r in results:
         print(
-            "%5d  %-*s %6s %9.1f  %s"
+            "%5d  %-*s %6s %9.1f  %-*s  %s"
             %
             (
                 r["np"],
@@ -246,6 +344,8 @@ def main(argv=None):
                 r["status"],
                 r["tests_run"] if r["tests_run"] is not None else "-",
                 r["elapsed"],
+                exit_width,
+                r["exit_status"],
                 r["log"]
             )
         )
@@ -255,6 +355,11 @@ def main(argv=None):
             print("Failing tests with %d process(es):" % r["np"])
             for name in r["failed_tests"]:
                 print("    %s" % name)
+        if len(r["exit_failures"]) > 0:
+            print("")
+            print("Failing exit scenarios with %d process(es):" % r["np"])
+            for failure in r["exit_failures"]:
+                print("    %s" % failure)
 
     return 0 if all(r["passed"] for r in results) else 1
 

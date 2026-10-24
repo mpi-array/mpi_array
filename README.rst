@@ -142,6 +142,9 @@ From the source tree, run the tests for 1, 2, 4 and 8 processes and print a summ
 
    python utils/run_mpi_tests.py
 
+This also checks that programs which end while arrays are allocated (normally, or with an
+unhandled exception) exit without hanging, see ``mpi_array/exit_scenarios.py``.
+
 Travis CI at:
 
     https://travis-ci.org/mpi-array/mpi_array/
