@@ -1049,16 +1049,44 @@ def create_cart_locale_comms_info(
         comms_info.rank_logger.debug("END: inter_locale_comm.Create_cart to create cart_comm.")
     elif (inter_locale_comm == _mpi.COMM_NULL) and (cart_comm is None):
         cart_comm = _mpi.COMM_NULL
-    if (
-        (cart_comm != _mpi.COMM_NULL)
-        and
-        (cart_comm.group.size != comms_info.num_locales)
-    ):
-        raise ValueError(
-            "Got cart_comm.group.size (=%s) != self._num_locales (=%s)."
-            %
-            (cart_comm.group.size, comms_info.num_locales)
-        )
+
+    # The comms_info.peer_ranks_per_locale rows are in inter_locale_comm rank order,
+    # but the cart_comm ranks can be ordered differently (Create_cart(reorder=True)
+    # is allowed to permute ranks, and cart_comm can be passed in). Permute the rows
+    # into cart_comm rank order, the order of the block distribution locale extents.
+    error = None
+    peer_ranks_per_locale = comms_info.peer_ranks_per_locale
+    if cart_comm != _mpi.COMM_NULL:
+        if cart_comm.group.size != comms_info.num_locales:
+            error = \
+                (
+                    "Got cart_comm.group.size (=%s) != self._num_locales (=%s)."
+                    %
+                    (cart_comm.group.size, comms_info.num_locales)
+                )
+        elif inter_locale_comm == _mpi.COMM_NULL:
+            error = "Got cart_comm on a process which is not in the inter_locale_comm group."
+        else:
+            inter_locale_ranks = \
+                _np.array(
+                    _mpi.Group.Translate_ranks(
+                        cart_comm.group,
+                        range(cart_comm.group.size),
+                        inter_locale_comm.group
+                    ),
+                    dtype="int64"
+                )
+            if _np.any(inter_locale_ranks == _mpi.UNDEFINED):
+                error = "Got cart_comm with a group which differs from the inter_locale_comm group."
+            else:
+                peer_ranks_per_locale = peer_ranks_per_locale[inter_locale_ranks]
+    # All locale processes get the cart_comm ordered table (intra_locale_comm rank 0
+    # is the inter_locale_comm process), all processes raise if any process has an error.
+    gathered = comms_info.intra_locale_comm.allgather((error, peer_ranks_per_locale))
+    errors = tuple(g[0] for g in gathered if g[0] is not None)
+    if len(errors) > 0:
+        raise ValueError(errors[0])
+    peer_ranks_per_locale = gathered[0][1]
 
     return \
         CartLocaleCommsInfo(
@@ -1066,7 +1094,7 @@ def create_cart_locale_comms_info(
             intra_locale_comm=comms_info.intra_locale_comm,
             inter_locale_comm=comms_info.inter_locale_comm,
             num_locales=comms_info.num_locales,
-            peer_ranks_per_locale=comms_info.peer_ranks_per_locale,
+            peer_ranks_per_locale=peer_ranks_per_locale,
             rank_logger=comms_info.rank_logger,
             root_logger=comms_info.root_logger,
             dims=dims,
@@ -1242,6 +1270,7 @@ class CartLocaleComms(LocaleComms):
     def inter_locale_comm(self):
         """
         Overrides :attr:`LocaleComms.inter_locale_comm` to return :attr:`cart_comm`.
+        Note that :attr:`peer_ranks_per_locale` is indexed by :attr:`cart_comm` rank.
         """
         return self.cart_comm
 

@@ -38,7 +38,8 @@ from . import locale as _locale
 from .indexing import IndexingExtent as _IndexingExtent
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
-from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK
+from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK, DT_CLONED
+from . import comms as _comms
 from . import globale_creation as _globale_creation
 
 __author__ = "Shane J. Latham"
@@ -285,6 +286,52 @@ class GndarrayTest(_unittest.TestCase):
         code = "\n".join(code_lines)
         self.assertTrue("mpia.zeros" in code)
         exec(compile(code, readme_file_name + ":quickstart.py", "exec"), dict())
+
+    def test_copyto_permuted_cart_comm(self):
+        """
+        Block distribution with a :samp:`cart_comm` whose ranks are ordered differently
+        from the :samp:`inter_locale_comm` ranks (as :samp:`Create_cart(reorder=True)`
+        is allowed to do). The :samp:`peer_ranks_per_locale` table was in
+        inter-locale rank order while the locale extents are in cart rank order,
+        so :func:`mpi_array.globale.copyto` copied the wrong blocks.
+        Tests single process locales and (if possible) two process locales.
+        """
+        world = _mpi.COMM_WORLD
+        npy_ary = _np.arange(8 * world.size * 3, dtype="float64").reshape(8 * world.size, 3)
+        intra_locale_comms = [_mpi.COMM_SELF, ]
+        if (world.size % 2) == 0:
+            intra_locale_comms.append(world.Split(world.rank // 2, world.rank))
+        for intra_locale_comm in intra_locale_comms:
+            locale_comms = \
+                _comms.LocaleComms(peer_comm=world, intra_locale_comm=intra_locale_comm)
+            inter_locale_comm = locale_comms.inter_locale_comm
+            cart_comm = _mpi.COMM_NULL
+            if inter_locale_comm != _mpi.COMM_NULL:
+                # Reverse the rank order.
+                reversed_comm = \
+                    inter_locale_comm.Split(0, inter_locale_comm.size - 1 - inter_locale_comm.rank)
+                cart_comm = \
+                    reversed_comm.Create_cart(
+                        [reversed_comm.size, 1], [False, False], reorder=False
+                    )
+                reversed_comm.Free()
+            kwargs = dict(peer_comm=world, intra_locale_comm=intra_locale_comm)
+            with \
+                    _globale_creation.asarray(
+                        npy_ary, distrib_type=DT_BLOCK, dims=(0, 1), cart_comm=cart_comm, **kwargs
+                    ) as src, \
+                    _globale_creation.zeros(npy_ary.shape, distrib_type=DT_CLONED, **kwargs) as dst:
+
+                # This process belongs to the locale of its own locale extent.
+                self.assertTrue(
+                    world.rank in src.distribution.peer_ranks_per_locale[src.this_locale[0]]
+                )
+                _globale.copyto(dst, src)
+                self.assertTrue(_np.all(dst.view_n == npy_ary))
+
+                with _globale_creation.zeros_like(src) as src_copy:
+                    _globale.copyto(src_copy, dst)
+                    self.assertTrue((src_copy == src).all())
 
     def test_update(self):
         """
