@@ -43,6 +43,7 @@ from . import update as _update
 from .globale_ufunc import broadcast_shape, ufunc_result_type, get_extents
 from .globale_ufunc import check_equivalent_inter_locale_comms
 from .globale import gndarray as _gndarray
+from .locale import win_lndarray as _win_lndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
 from .globale_creation import empty as _empty
 from .globale import copyto as _copyto
@@ -963,6 +964,49 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     self.assertTrue((a == 2.0).all())
             finally:
                 _update.RmaUpdateExecutor.do_locale_rma_update = orig_do_locale_rma_update
+
+    def test_ufunc_frees_fetched_inputs(self):
+        """
+        The memory which a ufunc allocates for the input elements it fetches from
+        remote locales (:meth:`mpi_array.globale.gndarray.locale_get`) is freed before
+        the ufunc returns, it used to be leaked on every call. Tests single process
+        locales and locales of (up to) two processes, which allocate shared memory.
+        """
+        world = _mpi.COMM_WORLD
+        shape = (100 * world.size,)
+        orig_locale_get = _gndarray.locale_get
+        fetched_arys = []
+
+        def recording_locale_get(gary, *args, **kwargs):
+            locale_ary = orig_locale_get(gary, *args, **kwargs)
+            if isinstance(locale_ary, _win_lndarray):
+                fetched_arys.append(locale_ary)
+            return locale_ary
+
+        node_comm = world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)
+        intra_locale_comms = \
+            (_mpi.COMM_SELF, node_comm.Split(node_comm.rank // 2, node_comm.rank))
+        node_comm.Free()
+        for intra_locale_comm in intra_locale_comms:
+            kwargs = dict(peer_comm=world, intra_locale_comm=intra_locale_comm)
+            with \
+                    _ones(shape, distrib_type=DT_SINGLE_LOCALE, **kwargs) as a, \
+                    _ones(shape, distrib_type=DT_BLOCK, **kwargs) as b:
+                _gndarray.locale_get = recording_locale_get
+                try:
+                    # c has the block distribution of b, all locales except
+                    # locale 0 fetch their part of a from locale 0.
+                    for i in range(3):
+                        with (b + a) as c:
+                            self.assertTrue((c == 2).all())
+                finally:
+                    _gndarray.locale_get = orig_locale_get
+
+                if a.num_locales > 1:
+                    self.assertGreater(world.allreduce(len(fetched_arys), op=_mpi.SUM), 0)
+                all_freed = all(locale_ary.win == _mpi.WIN_NULL for locale_ary in fetched_arys)
+                self.assertTrue(world.allreduce(all_freed, op=_mpi.LAND))
+                del fetched_arys[:]
 
     def test_ufunc_casting_arg(self):
         """

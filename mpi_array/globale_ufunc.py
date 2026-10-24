@@ -38,6 +38,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import logging as _logging  # noqa: E402,F401
 from . import globale_creation as _globale_creation
 from . import comms as _comms
+from .locale import win_lndarray as _win_lndarray
 from .distribution import ScalarLocaleExtent, ScalarGlobaleExtent, LocaleExtent, GlobaleExtent
 
 __author__ = "Shane J. Latham"
@@ -658,6 +659,7 @@ class GndarrayArrayUfuncExecutor(object):
             self._casting = self._kwargs["casting"]
         else:
             self._casting = "same_kind"
+        self._fetched_locale_arys = []
 
     @property
     def array_like_obj(self):
@@ -909,6 +911,10 @@ class GndarrayArrayUfuncExecutor(object):
                     if hasattr(input, "locale_get"):
                         # is a gndarray
                         inp_locale_arys[i] = input.locale_get(slice_tuple)
+                        if isinstance(inp_locale_arys[i], _win_lndarray):
+                            # Not a view, newly allocated memory holding elements
+                            # fetched from remote locales, freed in execute___call__.
+                            self._fetched_locale_arys.append(inp_locale_arys[i])
                     else:
                         # is a numpy array (or similar)
                         inp_locale_arys[i] = input[slice_tuple]
@@ -1096,6 +1102,12 @@ class GndarrayArrayUfuncExecutor(object):
             )
 
         gndarray_outputs[0].intra_locale_barrier()
+
+        # All processes of this locale have finished reading the fetched input
+        # elements, free their memory (collective over the intra-locale communicator).
+        for ary in self._fetched_locale_arys:
+            ary.free()
+        self._fetched_locale_arys = []
 
         if need_remote_data:
             # Other locales may still be fetching (RMA) input elements from this locale.

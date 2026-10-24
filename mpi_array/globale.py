@@ -934,8 +934,10 @@ class gndarray(_NDArrayOperatorsMixin):
         Collective over :samp:`{self}.comms.intra_locale_comm` to
         get a portion of the globale array. Returns a view from the
         locale extent of the array if possible, otherwise allocates
-        shared memory and performs one-sided RMA to fetch data from
-        remote locales.
+        shared memory (a :obj:`mpi_array.locale.win_lndarray`) and performs
+        one-sided RMA to fetch data from remote locales. Free the allocated
+        array with its :samp:`free` method (collective over the intra-locale
+        communicator) when it is no longer needed.
 
         Synchronisation is the caller's responsibility (the :obj:`numpy.ufunc`
         implementation in :mod:`mpi_array.globale_ufunc` does this):
@@ -1004,8 +1006,9 @@ class gndarray(_NDArrayOperatorsMixin):
         """
         Non-collective, one-sided fetch of data to this peer rank process.
         Returns a view from the locale extent of the array if possible,
-        otherwise allocates non-shared memory and performs one-sided RMA
-        to fetch data from remote locales.
+        otherwise allocates non-shared memory (a :obj:`mpi_array.locale.win_lndarray`)
+        and performs one-sided RMA to fetch data from remote locales. Free the
+        allocated array with its :samp:`free` method when it is no longer needed.
 
         Synchronisation is the caller's responsibility: the processes which write
         the requested elements must have finished before the fetch, and must not
