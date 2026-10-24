@@ -22,7 +22,8 @@ Examples::
 
    python utils/run_mpi_tests.py                      # 1, 2, 4 and 8 processes
    python utils/run_mpi_tests.py -n 2 4 --timeout 60
-   python utils/run_mpi_tests.py -n 4 -- mpi_array.globale_ufunc_test
+   python utils/run_mpi_tests.py -n 4 --module mpi_array.globale_ufunc_test
+   python utils/run_mpi_tests.py -n 2 --module mpi_array.globale_test -- GndarrayTest.test_update
    OMPI_MCA_osc='^ucx' python utils/run_mpi_tests.py  # silence Open MPI UCX OSC warnings
 
 Use :samp:`--python` to choose the interpreter (e.g. a virtual environment
