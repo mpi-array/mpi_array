@@ -295,6 +295,10 @@ class GndarrayTest(_unittest.TestCase):
         inter-locale rank order while the locale extents are in cart rank order,
         so :func:`mpi_array.globale.copyto` copied the wrong blocks.
         Tests single process locales and (if possible) two process locales.
+        A default block array is created first, then arrays with new :samp:`cart_comm`
+        objects which are only passed on the inter-locale processes, so the processes
+        of a locale get different communicator cache hit/miss results (which must not
+        deadlock).
         """
         world = _mpi.COMM_WORLD
         npy_ary = _np.arange(8 * world.size * 3, dtype="float64").reshape(8 * world.size, 3)
@@ -302,36 +306,51 @@ class GndarrayTest(_unittest.TestCase):
         if (world.size % 2) == 0:
             intra_locale_comms.append(world.Split(world.rank // 2, world.rank))
         for intra_locale_comm in intra_locale_comms:
-            locale_comms = \
-                _comms.LocaleComms(peer_comm=world, intra_locale_comm=intra_locale_comm)
-            inter_locale_comm = locale_comms.inter_locale_comm
-            cart_comm = _mpi.COMM_NULL
-            if inter_locale_comm != _mpi.COMM_NULL:
-                # Reverse the rank order.
-                reversed_comm = \
-                    inter_locale_comm.Split(0, inter_locale_comm.size - 1 - inter_locale_comm.rank)
-                cart_comm = \
-                    reversed_comm.Create_cart(
-                        [reversed_comm.size, 1], [False, False], reorder=False
-                    )
-                reversed_comm.Free()
             kwargs = dict(peer_comm=world, intra_locale_comm=intra_locale_comm)
+            inter_locale_comm = _comms.LocaleComms(**kwargs).inter_locale_comm
             with \
-                    _globale_creation.asarray(
-                        npy_ary, distrib_type=DT_BLOCK, dims=(0, 1), cart_comm=cart_comm, **kwargs
-                    ) as src, \
-                    _globale_creation.zeros(npy_ary.shape, distrib_type=DT_CLONED, **kwargs) as dst:
+                    _globale_creation.zeros(
+                        npy_ary.shape, distrib_type=DT_BLOCK, dims=(0, 1), **kwargs
+                    ) as default_ary:
+                for not_inter_locale_cart_comm in (_mpi.COMM_NULL, None):
+                    cart_comm = not_inter_locale_cart_comm
+                    if inter_locale_comm != _mpi.COMM_NULL:
+                        # Reverse the rank order.
+                        reversed_comm = \
+                            inter_locale_comm.Split(
+                                0,
+                                inter_locale_comm.size - 1 - inter_locale_comm.rank
+                            )
+                        cart_comm = \
+                            reversed_comm.Create_cart(
+                                [reversed_comm.size, 1], [False, False], reorder=False
+                            )
+                        reversed_comm.Free()
+                    with \
+                            _globale_creation.asarray(
+                                npy_ary, distrib_type=DT_BLOCK, dims=(0, 1), cart_comm=cart_comm,
+                                **kwargs
+                            ) as src, \
+                            _globale_creation.zeros(
+                                npy_ary.shape, distrib_type=DT_CLONED, **kwargs
+                            ) as dst:
 
-                # This process belongs to the locale of its own locale extent.
-                self.assertTrue(
-                    world.rank in src.distribution.peer_ranks_per_locale[src.this_locale[0]]
-                )
-                _globale.copyto(dst, src)
-                self.assertTrue(_np.all(dst.view_n == npy_ary))
+                        # This process belongs to the locale of its own locale extent.
+                        self.assertTrue(
+                            world.rank
+                            in
+                            src.distribution.peer_ranks_per_locale[src.this_locale[0]]
+                        )
+                        _globale.copyto(dst, src)
+                        self.assertTrue(_np.all(dst.view_n == npy_ary))
 
-                with _globale_creation.zeros_like(src) as src_copy:
-                    _globale.copyto(src_copy, dst)
-                    self.assertTrue((src_copy == src).all())
+                        _globale.copyto(default_ary, src)
+                        _globale.copyto(dst, default_ary)
+                        self.assertTrue(_np.all(dst.view_n == npy_ary))
+
+                        with _globale_creation.zeros_like(src) as src_copy:
+                            _globale.copyto(src_copy, dst)
+                            self.assertTrue((src_copy == src).all())
 
     def test_copyto_padded_struct_dtype(self):
         """
