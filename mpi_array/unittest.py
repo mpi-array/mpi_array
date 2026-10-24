@@ -32,7 +32,10 @@ test takes longer than the timeout, every rank dumps the stacks of all its threa
 to :obj:`sys.stderr` and exits with a non-zero status (which makes :samp:`mpirun`
 abort the job). The per-test timeout (in seconds) is read from
 the :samp:`MPI_ARRAY_TEST_TIMEOUT` environment variable, a value of :samp:`0`
-disables the timer.
+disables the timer. If the :samp:`MPI_ARRAY_TEST_HANG_DIR` environment variable
+names a directory, each rank writes its stacks to the
+file :samp:`hang_stacks_rank{NNNN}.txt` in that directory instead of :obj:`sys.stderr`
+(:samp:`mpirun` may stop forwarding the other ranks' output once the first rank exits).
 
 .. autosummary::
    :toctree: generated/
@@ -40,6 +43,8 @@ disables the timer.
    get_test_timeout - Returns the per-test hang-detection timeout.
    arm_hang_detection - (Re)starts the hang-detection timer.
    cancel_hang_detection - Stops the hang-detection timer.
+   open_hang_dump_file - Opens the per-rank file for hang-detection stacks.
+   close_hang_dump_file - Closes the per-rank file for hang-detection stacks.
 
 """
 from __future__ import absolute_import
@@ -61,8 +66,14 @@ TEST_TIMEOUT_ENV_VAR = "MPI_ARRAY_TEST_TIMEOUT"
 #: Per-test hang-detection timeout (seconds) used when :samp:`MPI_ARRAY_TEST_TIMEOUT` is not set.
 DEFAULT_TEST_TIMEOUT = 300.0
 
+#: Name of the environment variable naming a directory for per-rank hang-detection stack files.
+TEST_HANG_DIR_ENV_VAR = "MPI_ARRAY_TEST_HANG_DIR"
+
 #: Exit status when no tests were run (same as :func:`unittest.main` in Python 3.12+).
 NO_TESTS_EXIT_STATUS = 5
+
+#: File object to which hang-detection stacks are written (:samp:`None` means :obj:`sys.stderr`).
+_hang_dump_file = None
 
 
 def get_test_timeout():
@@ -87,11 +98,53 @@ def get_test_timeout():
         )
 
 
+def _hang_dump_target():
+    """
+    Returns the file object to which hang-detection stacks are written.
+    """
+    return _hang_dump_file if _hang_dump_file is not None else _sys.stderr
+
+
+def open_hang_dump_file():
+    """
+    If the :samp:`MPI_ARRAY_TEST_HANG_DIR` environment variable names a directory,
+    opens the file :samp:`hang_stacks_rank{NNNN}.txt` (:samp:`{NNNN}` is
+    the :attr:`mpi4py.MPI.COMM_WORLD` rank) in that directory, and the hang detection
+    writes stacks to this file instead of :obj:`sys.stderr`.
+
+    :rtype: :samp:`None` or :obj:`str`
+    :return: The file name, :samp:`None` if the environment variable is not set.
+    """
+    global _hang_dump_file
+    close_hang_dump_file()
+    hang_dir = _os.environ.get(TEST_HANG_DIR_ENV_VAR, "").strip()
+    if len(hang_dir) == 0:
+        return None
+    _os.makedirs(hang_dir, exist_ok=True)
+    file_name = _os.path.join(hang_dir, "hang_stacks_rank%04d.txt" % _mpi.COMM_WORLD.rank)
+    _hang_dump_file = open(file_name, "w")
+    return file_name
+
+
+def close_hang_dump_file():
+    """
+    Closes the file opened by :func:`open_hang_dump_file` (removing it if it is empty).
+    """
+    global _hang_dump_file
+    if _hang_dump_file is not None:
+        file_name = _hang_dump_file.name
+        _hang_dump_file.close()
+        _hang_dump_file = None
+        if _os.path.exists(file_name) and (_os.path.getsize(file_name) == 0):
+            _os.remove(file_name)
+
+
 def arm_hang_detection(timeout=None):
     """
     (Re)starts the hang-detection timer. If the timer is not re-armed (or cancelled)
     within :samp:`{timeout}` seconds, the stacks of all threads are written
-    to :obj:`sys.stderr` and the process exits with status 1.
+    to :obj:`sys.stderr` (or the file opened by :func:`open_hang_dump_file`)
+    and the process exits with status 1.
 
     :type timeout: :obj:`float`
     :param timeout: Timeout in seconds, if :samp:`None` uses :func:`get_test_timeout`.
@@ -101,7 +154,7 @@ def arm_hang_detection(timeout=None):
         timeout = get_test_timeout()
     _faulthandler.cancel_dump_traceback_later()
     if timeout > 0:
-        _faulthandler.dump_traceback_later(timeout, exit=True)
+        _faulthandler.dump_traceback_later(timeout, exit=True, file=_hang_dump_target())
 
 
 def cancel_hang_detection():
@@ -520,11 +573,18 @@ def main(
             kwargs["verbosity"] = verbosity
 
         timeout = get_test_timeout()
+        if timeout > 0:
+            open_hang_dump_file()
         dump_on_sigterm = (timeout > 0) and hasattr(_faulthandler, "register")
         if dump_on_sigterm:
             # When mpirun kills the remaining ranks (because the timer fired on another
             # rank first) these ranks also dump their stacks.
-            _faulthandler.register(_signal.SIGTERM, all_threads=True, chain=True)
+            _faulthandler.register(
+                _signal.SIGTERM,
+                file=_hang_dump_target(),
+                all_threads=True,
+                chain=True
+            )
         arm_hang_detection(timeout)
         try:
             program = TestProgram(exit=False, **kwargs)
@@ -541,6 +601,7 @@ def main(
             cancel_hang_detection()
             if dump_on_sigterm:
                 _faulthandler.unregister(_signal.SIGTERM)
+            close_hang_dump_file()
 
         _sys.exit(exit_status)
 

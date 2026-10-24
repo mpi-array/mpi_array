@@ -13,6 +13,9 @@ Each run is launched as::
   a deadlocked test makes every rank dump its stacks and exit, so the run fails
   (reported as HANG) instead of blocking forever. The per-test timeout is
   set with :samp:`--timeout` (exported as :samp:`MPI_ARRAY_TEST_TIMEOUT`).
+  The ranks write their stacks to per-rank files (:samp:`MPI_ARRAY_TEST_HANG_DIR`),
+  which are appended to the run's log file (:samp:`mpirun` can stop forwarding
+  the output of the other ranks after the first rank exits).
 * :samp:`--job-timeout` is a backstop for hangs outside of a test (e.g. at exit).
 * For Open MPI, :samp:`--oversubscribe` (allow more ranks than cores)
   and :samp:`--tag-output` (prefix every output line with the rank) are added.
@@ -32,6 +35,7 @@ which has :mod:`array_split` installed). The exit status is zero only if every r
 from __future__ import print_function
 
 import argparse
+import glob
 import os
 import re
 import signal
@@ -96,6 +100,10 @@ def run_once(args, launcher_args, np, log_file_name):
         + [args.python, "-m", "mpi4py", "-m", args.module] + list(args.test_args)
     env = dict(os.environ)
     env["MPI_ARRAY_TEST_TIMEOUT"] = str(args.timeout)
+    hang_dir = os.path.splitext(log_file_name)[0] + "_hang_stacks"
+    for file_name in glob.glob(os.path.join(hang_dir, "hang_stacks_rank*.txt")):
+        os.remove(file_name)
+    env["MPI_ARRAY_TEST_HANG_DIR"] = hang_dir
     job_timed_out = False
     t0 = time.time()
     with open(log_file_name, "w") as log_file:
@@ -115,12 +123,26 @@ def run_once(args, launcher_args, np, log_file_name):
             kill_process_group(proc)
     elapsed = time.time() - t0
 
+    # Append the per-rank hang-detection stacks to the log.
+    stack_file_names = sorted(glob.glob(os.path.join(hang_dir, "hang_stacks_rank*.txt")))
+    if len(stack_file_names) > 0:
+        with open(log_file_name, "a") as log_file:
+            for file_name in stack_file_names:
+                with open(file_name, "r", errors="replace") as stack_file:
+                    log_file.write(
+                        "\n==== Stacks dumped by the hang detection, %s ====\n%s"
+                        %
+                        (os.path.basename(file_name), stack_file.read())
+                    )
+    if os.path.isdir(hang_dir) and (len(os.listdir(hang_dir)) == 0):
+        os.rmdir(hang_dir)
+
     with open(log_file_name, "r", errors="replace") as log_file:
         text = log_file.read()
 
     ran = _RAN_RE.search(text)
     failed = _FAILED_RE.search(text)
-    hang = _HANG_RE.search(text)
+    hang = (len(stack_file_names) > 0) or (_HANG_RE.search(text) is not None)
     tests = []
     for m in _TEST_RE.finditer(text):
         name = "%s: %s" % (m.group(2), m.group(3))
@@ -129,10 +151,14 @@ def run_once(args, launcher_args, np, log_file_name):
 
     if job_timed_out:
         status = "JOB TIMEOUT (>%ss)" % args.job_timeout
-    elif hang is not None:
+    elif hang:
         status = "HANG (a test exceeded %ss)" % args.timeout
+        if len(stack_file_names) > 0:
+            status += ", stacks of %d rank(s) in log" % len(stack_file_names)
     elif proc.returncode == 0:
         status = "PASS"
+    elif (proc.returncode == 5) and (ran is not None) and (int(ran.group(1)) == 0):
+        status = "NO TESTS RAN"
     elif failed is not None:
         status = "FAIL (%s)" % failed.group(1)
     elif ran is not None:
@@ -208,13 +234,15 @@ def main(argv=None):
         results.append(result)
 
     print("")
-    print("%5s  %-40s %6s %9s  %s" % ("ranks", "result", "tests", "time (s)", "log"))
+    width = max([len("result")] + [len(r["status"]) for r in results])
+    print("%5s  %-*s %6s %9s  %s" % ("ranks", width, "result", "tests", "time (s)", "log"))
     for r in results:
         print(
-            "%5d  %-40s %6s %9.1f  %s"
+            "%5d  %-*s %6s %9.1f  %s"
             %
             (
                 r["np"],
+                width,
                 r["status"],
                 r["tests_run"] if r["tests_run"] is not None else "-",
                 r["elapsed"],
