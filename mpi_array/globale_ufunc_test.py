@@ -910,6 +910,24 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     (gary0, gary1)
                 )
 
+    def test_gufunc_not_implemented(self):
+        """
+        Generalised ufuncs (e.g. :obj:`numpy.matmul`) used to be computed tile by tile,
+        giving wrong results with more than one locale. They must raise :obj:`TypeError`.
+        """
+        npy_a = _np.arange(16, dtype="float64").reshape(4, 4)
+        npy_b = npy_a.T + 1.0
+        for distrib_type in (DT_CLONED, DT_BLOCK):
+            with \
+                    _asarray(npy_a, locale_type=LT_PROCESS, distrib_type=distrib_type) as a, \
+                    _asarray(npy_b, locale_type=LT_PROCESS, distrib_type=distrib_type) as b:
+                self.assertRaises(TypeError, lambda: a @ b)
+                self.assertRaises(TypeError, lambda: npy_a @ b)
+                self.assertRaises(TypeError, _np.matmul, a, b)
+                self.assertRaises(TypeError, _np.matmul, a, npy_b)
+                if hasattr(_np, "vecdot"):
+                    self.assertRaises(TypeError, _np.vecdot, a, b)
+
     def test_not_implemented(self):
         uf = _np.add
         with _empty((50, 50, 50), locale_type=LT_NODE) as gary0:

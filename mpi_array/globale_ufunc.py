@@ -1139,7 +1139,14 @@ class GndarrayArrayUfuncExecutor(object):
         Perform the ufunc operation. Call is forwarded to one
         of: :meth:`execute___call__`, :meth:`execute_accumulate`, :meth:`execute_at`
         , :meth:`execute_outer`, :meth:`execute_reduce` or :meth:`execute_reduceat`.
+
+        Returns :obj:`NotImplemented` (so that NumPy raises :obj:`TypeError`)
+        for generalised ufuncs (:samp:`ufunc.signature is not None`,
+        e.g. :obj:`numpy.matmul`), their core dimensions span the locale tiles
+        and so they can't be computed tile by tile.
         """
+        if self.ufunc.signature is not None:
+            return NotImplemented
         return getattr(self, "execute_" + self.method)()
 
 
