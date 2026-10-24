@@ -80,6 +80,52 @@ class WinLndarrayTest(_unittest.TestCase):
                 for r in range(0, comm.size):
                     self.assertTrue(_np.all(ary[r] == (r + 1)))
 
+    def test_construct_with_buffer(self):
+        """
+        Tests :obj:`mpi_array.locale.win_lndarray` construction with a :samp:`buffer`
+        argument (used to raise :obj:`UnboundLocalError`), no window is allocated.
+        """
+        buffer = bytearray(10 * 4)
+        ary = _locale.win_lndarray(shape=(10,), dtype="int32", buffer=buffer, comm=_mpi.COMM_SELF)
+        self.assertTrue(ary.win is None)
+        ary[...] = _np.arange(10)
+        self.assertSequenceEqual(list(range(10)), _np.frombuffer(buffer, dtype="int32").tolist())
+        ary.free()
+        self.assertSequenceEqual(list(range(10)), ary.tolist())
+
+    def test_free(self):
+        """
+        Tests :meth:`mpi_array.locale.win_lndarray.free` (used to raise :obj:`ValueError`
+        for any non-empty array) and the :samp:`with` statement. Freeing twice is allowed,
+        and leaving a :samp:`with` block because of an exception skips the (collective) free.
+        """
+        world = _mpi.COMM_WORLD
+        comms = [_mpi.COMM_SELF, world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)]
+        for comm in comms:
+            ary = _locale.win_lndarray(shape=(comm.size, 10), dtype="int32", comm=comm)
+            win = ary.win
+            self.assertNotEqual(_mpi.WIN_NULL, win)
+            ary.free()
+            self.assertEqual(_mpi.WIN_NULL, win)
+            ary.free()
+
+            with _locale.win_lndarray(shape=(comm.size, 10), dtype="int32", comm=comm) as ary:
+                win = ary.win
+                ary[comm.rank] = comm.rank
+                comm.barrier()
+                self.assertSequenceEqual(list(range(comm.size)), ary[:, 0].tolist())
+                comm.barrier()
+            self.assertEqual(_mpi.WIN_NULL, win)
+
+            with self.assertRaises(RuntimeError):
+                with _locale.win_lndarray(shape=(comm.size, 10), dtype="int32", comm=comm) as ary:
+                    win = ary.win
+                    raise RuntimeError("Raised on all processes.")
+            self.assertNotEqual(_mpi.WIN_NULL, win)
+            ary.free()
+            self.assertEqual(_mpi.WIN_NULL, win)
+        comms[1].Free()
+
 
 class LndarrayTest(_unittest.TestCase):
 

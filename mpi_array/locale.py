@@ -133,7 +133,8 @@ class win_lndarray(_np.ndarray):
         :param dtype: Data type for elements of the array.
         :type buffer: :obj:`buffer`
         :param buffer: The sequence of bytes providing array element storage.
-           Raises :obj:`ValueError` if :samp:`{buffer} is None`.
+           If :samp:`None`, the memory is allocated in an MPI window (collective
+           over :samp:`{comm}`), otherwise no window is created.
         :type offset: :samp:`None` or :obj:`int`
         :param offset: Offset of array data in buffer, i.e where array begins in buffer
            (in buffer bytes).
@@ -153,6 +154,7 @@ class win_lndarray(_np.ndarray):
             raise ValueError(
                 "Got comm is COMM_NULL, require comm to be a valid mpi4py.MPI.Comm object"
             )
+        win = None
         if buffer is None:
             num_rank_bytes = 0
             rank_shape = shape
@@ -236,10 +238,11 @@ class win_lndarray(_np.ndarray):
     def free(self):
         """
         Collective (over all processes in :attr:`comm`) free the MPI window
-        and associated memory buffer.
+        and associated memory buffer. Does nothing if the window has already
+        been freed, or if the array was created from a :samp:`buffer`.
+        The array, and any views of it, must not be accessed after the window is freed.
         """
-        self.shape = tuple(_np.zeros_like(self.shape))
-        if self._win is not None:
+        if (self._win is not None) and (self._win != _mpi.WIN_NULL):
             self._win.Free()
 
     def __enter__(self):
