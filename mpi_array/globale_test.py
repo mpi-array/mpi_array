@@ -39,6 +39,7 @@ from .indexing import IndexingExtent as _IndexingExtent
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import create_distribution, LT_PROCESS, LT_NODE, DT_SLAB, DT_BLOCK, DT_CLONED
+from .comms import DT_SINGLE_LOCALE
 from . import comms as _comms
 from . import globale_creation as _globale_creation
 
@@ -381,6 +382,55 @@ class GndarrayTest(_unittest.TestCase):
                     ) as dst:
                 _globale.copyto(dst, src)
                 self.assertSequenceEqual(npy_ary.tolist(), dst.view_n.tolist())
+
+    def test_locales_of_different_sizes(self):
+        """
+        Locales with different numbers of processes (e.g. locales of 1 and 2 processes
+        at 3 processes). Array creation used to deadlock: a single process locale
+        allocated its memory with a collective over all processes, while the processes
+        of the other locales allocated shared memory over their own locale.
+        Tests creation, halo update, :func:`mpi_array.globale.copyto` and a ufunc
+        which fetches remote input elements.
+        """
+        world = _mpi.COMM_WORLD
+        node_comm = world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)
+        # Locale i of a node has (up to) i + 1 processes.
+        locale_index = 0
+        while ((locale_index + 1) * (locale_index + 2)) // 2 <= node_comm.rank:
+            locale_index += 1
+        intra_locale_comm = node_comm.Split(locale_index, node_comm.rank)
+        node_comm.Free()
+        kwargs = dict(peer_comm=world, intra_locale_comm=intra_locale_comm)
+
+        npy_ary = _np.arange(10 * world.size + 3, dtype="float64")
+        with \
+                _globale_creation.zeros(
+                    npy_ary.shape, distrib_type=DT_BLOCK, halo=1, **kwargs
+                ) as blk, \
+                _globale_creation.zeros(npy_ary.shape, distrib_type=DT_CLONED, **kwargs) as cln, \
+                _globale_creation.asarray(
+                    npy_ary, distrib_type=DT_SINGLE_LOCALE, **kwargs
+                ) as sgl:
+
+            lndarray_proxy = blk.lndarray_proxy
+            locale_extent = lndarray_proxy.locale_extent
+            if lndarray_proxy.rank_view_n.size > 0:
+                rank_slice = \
+                    locale_extent.locale_to_globale_slice_h(lndarray_proxy.rank_view_slice_n)
+                blk.rank_view_n[...] = npy_ary[rank_slice]
+            blk.update()
+            ok = _np.all(lndarray_proxy.lndarray == npy_ary[locale_extent.to_slice_h()])
+
+            _globale.copyto(cln, blk)
+            ok = ok and _np.all(cln.view_n == npy_ary)
+
+            # The result has the block distribution, the locales (except locale 0)
+            # fetch their elements of sgl from locale 0.
+            with (blk + sgl) as result:
+                _globale.copyto(cln, result)
+                ok = ok and _np.all(cln.view_n == 2 * npy_ary)
+
+            self.assertTrue(world.allreduce(bool(ok), op=_mpi.LAND))
 
     def test_update(self):
         """

@@ -783,8 +783,11 @@ class LocaleComms(object):
 
     def alloc_locale_buffer(self, shape, dtype):
         """
-        Allocates a buffer using :meth:`mpi4py.MPI.Win.Allocate_shared` which
-        provides storage for the elements of the locale multi-dimensional array.
+        Collective over :attr:`intra_locale_comm`. Allocates a buffer which
+        provides storage for the elements of the locale multi-dimensional array,
+        using :meth:`mpi4py.MPI.Win.Allocate_shared` (or :meth:`mpi4py.MPI.Win.Allocate`
+        when :samp:`{self}.intra_locale_comm.size == 1`). Locales can have different
+        numbers of processes.
 
         :type shape: sequence of :obj:`int`
         :param shape: The shape of the locale array for which a buffer is allocated.
@@ -824,7 +827,7 @@ class LocaleComms(object):
                 self.rank_logger.debug, "BEG: ", num_rank_bytes, rank_shape, dtype
             )
             intra_locale_win = \
-                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.peer_comm)
+                _mpi.Win.Allocate(num_rank_bytes, dtype.itemsize, comm=self.intra_locale_comm)
             buffer = get_win_memory(intra_locale_win)
 
             itemsize = dtype.itemsize
