@@ -145,6 +145,87 @@ class TypesTest(_unittest.TestCase):
         self.assertEqual(0, mpi_dt_from_np_dt.Get_extent()[0])
         self.assertEqual(16, mpi_dt_from_np_dt.Get_extent()[1])
 
+    #: Structured dtypes whose fields do not span the whole :samp:`itemsize`,
+    #: or whose first field does not start at byte 0.
+    padded_dtypes = \
+        (
+            _np.dtype([("m0", "int8"), ("m1", "float64")], align=True),
+            _np.dtype([("m0", "float64"), ("m1", "int8")], align=True),
+            _np.dtype(
+                {
+                    "names": ["m0", "m1"],
+                    "formats": ["int8", "float64"],
+                    "offsets": [0, 1],
+                    "itemsize": 16
+                }
+            ),
+            _np.dtype(
+                {
+                    "names": ["m0", "m1"],
+                    "formats": ["int32", "int16"],
+                    "offsets": [4, 8],
+                    "itemsize": 12
+                }
+            ),
+            _np.dtype([("m0", "int8"), ("m1", [("n0", "int16"), ("n1", "int8")])], align=True),
+            _np.dtype(
+                [
+                    ("m0", "int8"),
+                    (
+                        "m1",
+                        {"names": ["n0"], "formats": ["int16"], "offsets": [2], "itemsize": 6}
+                    )
+                ]
+            ),
+        )
+
+    def test_struct_extent(self):
+        """
+        The MPI datatype extent must equal :attr:`numpy.dtype.itemsize` (with lower bound 0)
+        for structured dtypes, otherwise multi-element transfers use the wrong stride.
+        Padded structs used to get extent 9 for itemsize 16.
+        """
+        dtypes = \
+            (
+                _np.dtype([("m0", "int8"), ("m1", "float64")]),
+                _np.dtype([("m0", "float64"), ("m1", "int16"), ("m2", "float16"), ("m3", "int32")]),
+            ) + self.padded_dtypes
+        for dtyp in dtypes:
+            mpi_dt = _types.to_datatype(dtyp)
+            self.assertSequenceEqual((0, dtyp.itemsize), tuple(mpi_dt.Get_extent()), repr(dtyp))
+
+    def test_struct_get(self):
+        """
+        One-sided :meth:`mpi4py.MPI.Win.Get` of multiple structured elements with padding
+        (the last element(s) used to be lost or misplaced).
+        """
+        comm = _mpi.COMM_WORLD
+        num_elems = 7
+        for dtyp in self.padded_dtypes:
+            mpi_dt = _types.to_datatype(dtyp)
+
+            def fill(ary, rank):
+                for name in ary.dtype.names:
+                    if ary.dtype[name].names is None:
+                        ary[name] = 10 * rank + _np.arange(1, ary.shape[0] + 1)
+                    else:
+                        fill(ary[name], rank + 1)
+
+            src = _np.zeros((num_elems,), dtype=dtyp)
+            fill(src, comm.rank)
+            dst = _np.zeros_like(src)
+            target_rank = (comm.rank + 1) % comm.size
+            win = _mpi.Win.Create(src, dtyp.itemsize, comm=comm)
+            try:
+                win.Fence()
+                win.Get([dst, num_elems, mpi_dt], target_rank, [0, num_elems, mpi_dt])
+                win.Fence()
+            finally:
+                win.Free()
+            expected = _np.zeros_like(src)
+            fill(expected, target_rank)
+            self.assertSequenceEqual(expected.tolist(), dst.tolist(), repr(dtyp))
+
     def test_struct_bcast(self):
         """
         Tests MPI communications with

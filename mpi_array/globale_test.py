@@ -333,6 +333,36 @@ class GndarrayTest(_unittest.TestCase):
                     _globale.copyto(src_copy, dst)
                     self.assertTrue((src_copy == src).all())
 
+    def test_copyto_padded_struct_dtype(self):
+        """
+        Redistribution (:func:`mpi_array.globale.copyto`) of an array with a structured
+        dtype which has padding (MPI datatype extent used to be smaller than the itemsize).
+        """
+        # Packed fields (11 bytes) padded to an itemsize of 16 bytes.
+        dtyp = \
+            _np.dtype(
+                {
+                    "names": ["m0", "m1", "m2"],
+                    "formats": ["int8", "float64", "int16"],
+                    "offsets": [0, 1, 9],
+                    "itemsize": 16
+                }
+            )
+        npy_ary = _np.zeros((4 * _mpi.COMM_WORLD.size + 3, 5), dtype=dtyp)
+        npy_ary["m0"] = (_np.arange(npy_ary.size) % 100).reshape(npy_ary.shape)
+        npy_ary["m1"] = _np.arange(npy_ary.size).reshape(npy_ary.shape) + 0.5
+        npy_ary["m2"] = -_np.arange(npy_ary.size).reshape(npy_ary.shape)
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.asarray(
+                        npy_ary, locale_type=locale_type, distrib_type=DT_BLOCK
+                    ) as src, \
+                    _globale_creation.empty(
+                        npy_ary.shape, dtype=dtyp, locale_type=locale_type, distrib_type=DT_CLONED
+                    ) as dst:
+                _globale.copyto(dst, src)
+                self.assertSequenceEqual(npy_ary.tolist(), dst.view_n.tolist())
+
     def test_update(self):
         """
         Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D shaped data

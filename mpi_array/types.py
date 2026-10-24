@@ -83,10 +83,15 @@ def create_datatype(dtyp):
         displacements = _np.array(tuple(dtyp.fields[name][1] for name in dtyp.names))
 
         if dtyp.isalignedstruct:
-            datatype = _mpi.Datatype.Create_struct(blocklengths, displacements, datatypes)
+            struct_datatype = _mpi.Datatype.Create_struct(blocklengths, displacements, datatypes)
         else:
             blocklengths[...] = tuple(dt.extent for dt in datatypes)
-            datatype = _mpi.BYTE.Create_hindexed(blocklengths, displacements)
+            struct_datatype = _mpi.BYTE.Create_hindexed(blocklengths, displacements)
+        # The MPI extent (and lower bound) of the struct depends on the field offsets
+        # and sizes, but consecutive array elements are dtyp.itemsize bytes apart
+        # (e.g. padding after the last field, or an offset first field).
+        datatype = struct_datatype.Create_resized(0, dtyp.itemsize)
+        struct_datatype.Free()
     elif dtyp.subdtype is not None:
         datatype = \
             find_or_create_datatype(dtyp.subdtype[0]).Create_contiguous(
