@@ -62,6 +62,7 @@ import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
 from .comms import create_distribution, get_win_memory
+from .comms import is_finalizing as _is_finalizing
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
@@ -249,9 +250,12 @@ class win_lndarray(_np.ndarray):
 
     def __exit__(self, type, value, traceback):
         """
-        For use with :samp:`with` contexts.
+        For use with :samp:`with` contexts. Calls :meth:`free` (collective), except
+        when an exception is propagating: the other processes may never reach the
+        collective free, so it is skipped and the exception propagates without waiting.
         """
-        self.free()
+        if type is None:
+            self.free()
         return False
 
 
@@ -500,9 +504,13 @@ class LndarrayProxy(object):
 
     def __del__(self):
         """
-        Calls :meth:`free`.
+        Best-effort :meth:`free`: skipped when the process is exiting
+        (see :func:`mpi_array.comms.is_finalizing`). Freeing can be collective, so it
+        is safer to free explicitly (:meth:`free` or a :samp:`with` statement) than to
+        rely on garbage collection happening at the same point on all processes.
         """
-        self.free()
+        if not _is_finalizing():
+            self.free()
 
     def __enter__(self):
         """
@@ -512,9 +520,12 @@ class LndarrayProxy(object):
 
     def __exit__(self, type, value, traceback):
         """
-        For use with :samp:`with` contexts.
+        For use with :samp:`with` contexts. Calls :meth:`free` (can be collective),
+        except when an exception is propagating: the other processes may never reach
+        the collective free, so it is skipped and the exception propagates without waiting.
         """
-        self.free()
+        if type is None:
+            self.free()
         return False
 
     def calculate_intra_partition(

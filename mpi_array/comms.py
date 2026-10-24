@@ -57,6 +57,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
 import copy as _copy
+import sys as _sys
 import mpi4py.MPI as _mpi
 import numpy as _np
 import collections as _collections
@@ -703,6 +704,23 @@ def get_win_memory(win):
         buffer = win.tomemory()
 
     return buffer
+
+
+def is_finalizing():
+    """
+    Returns :samp:`True` if the Python interpreter is shutting down or MPI is finalized.
+
+    The :samp:`__del__` methods use this to skip collective frees
+    (e.g. :meth:`mpi4py.MPI.Win.Free`) when the process is exiting. Windows which
+    are still allocated are released when MPI is finalized, and a process which is
+    exiting because of an unhandled exception must not wait in a collective call
+    which the other processes may never make (when launched with
+    :samp:`python -m mpi4py`, the process goes on to abort the MPI job).
+
+    :rtype: :obj:`bool`
+    :return: :samp:`True` if :func:`sys.is_finalizing` or :func:`mpi4py.MPI.Is_finalized`.
+    """
+    return _sys.is_finalizing() or _mpi.Is_finalized()
 
 
 class LocaleComms(object):

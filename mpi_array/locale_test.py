@@ -475,6 +475,45 @@ class LndarrayProxyTest(_unittest.TestCase):
         """
         self.do_test_views_2d(halo=[[1, 2], [3, 4]])
 
+    def test_exit_with_exception_skips_free(self):
+        """
+        Leaving a :samp:`with` block because of an exception skips the (collective)
+        free of the window memory, see :meth:`mpi_array.locale.LndarrayProxy.__exit__`.
+        """
+        cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
+        with _locale.zeros(comms_and_distrib=cand, dtype="int64") as lary:
+            rma_window_buffer = lary.rma_window_buffer
+            with self.assertRaises(RuntimeError):
+                with lary:
+                    raise RuntimeError("Raised on all processes.")
+            self.assertTrue(lary.rma_window_buffer is rma_window_buffer)
+            self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
+        self.assertTrue(lary.rma_window_buffer is None)
+        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
+    def test_del_skips_free_when_finalizing(self):
+        """
+        Garbage collection (:meth:`mpi_array.locale.LndarrayProxy.__del__`) frees the
+        window memory, except when the process is exiting
+        (:func:`mpi_array.comms.is_finalizing`).
+        """
+        cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
+        lary = _locale.zeros(comms_and_distrib=cand, dtype="int64")
+        rma_window_buffer = lary.rma_window_buffer
+        orig_is_finalizing = _locale._is_finalizing
+        _locale._is_finalizing = lambda: True
+        try:
+            lary.__del__()
+        finally:
+            _locale._is_finalizing = orig_is_finalizing
+        self.assertTrue(lary.rma_window_buffer is rma_window_buffer)
+        self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
+        lary.__del__()
+        self.assertTrue(lary.rma_window_buffer is None)
+        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
 
 _unittest.main(__name__)
 

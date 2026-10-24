@@ -41,6 +41,7 @@ from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
 from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .update import RmaUpdateExecutor as _RmaUpdateExecutor
 from .locale import win_lndarray as _win_lndarray
+from .comms import is_finalizing as _is_finalizing
 from .distribution import LocaleExtent as _LocaleExtent
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
 
@@ -616,9 +617,13 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def __del__(self):
         """
-        Calls :meth:`free`.
+        Best-effort :meth:`free`: skipped when the process is exiting
+        (see :func:`mpi_array.comms.is_finalizing`). Freeing is collective, so it
+        is safer to free explicitly (:meth:`free` or a :samp:`with` statement) than to
+        rely on garbage collection happening at the same point on all processes.
         """
-        self.free()
+        if not _is_finalizing():
+            self.free()
 
     def __enter__(self):
         """
@@ -628,9 +633,13 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def __exit__(self, type, value, traceback):
         """
-        For use with :samp:`with` contexts.
+        For use with :samp:`with` contexts. Calls :meth:`free` (collective), except
+        when an exception is propagating: the other processes may never reach the
+        collective free, so it is skipped and the exception propagates without waiting.
+        The array is then freed by an explicit :meth:`free`, or by :meth:`__del__`.
         """
-        self.free()
+        if type is None:
+            self.free()
         return False
 
     def __getitem__(self, i):

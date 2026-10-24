@@ -432,6 +432,61 @@ class GndarrayTest(_unittest.TestCase):
 
             self.assertTrue(world.allreduce(bool(ok), op=_mpi.LAND))
 
+    def test_exit_with_exception_skips_free(self):
+        """
+        Leaving a :samp:`with` block because of an exception skips the (collective) free.
+        When only some processes raised, these processes used to wait in the collective
+        free for processes which never reached it, so the job hung instead of the
+        exception propagating.
+        """
+        world = _mpi.COMM_WORLD
+        with _globale_creation.zeros((10 * world.size,), dtype="int32") as gary:
+            gary.initialise_windows()
+            rma_window_buffer = gary.rma_window_buffer
+
+            with self.assertRaises(RuntimeError):
+                with gary:
+                    raise RuntimeError("Raised on all processes.")
+            not_freed = \
+                (gary.rma_window_buffer is rma_window_buffer) \
+                and \
+                (rma_window_buffer.peer_win != _mpi.WIN_NULL)
+            self.assertTrue(world.allreduce(not_freed, op=_mpi.LAND))
+
+            if world.rank == 0:
+                with self.assertRaises(RuntimeError):
+                    with gary:
+                        raise RuntimeError("Raised on rank 0 only.")
+            world.barrier()
+            gary.fill(1)
+            self.assertTrue((gary == 1).all())
+
+        self.assertTrue(gary.rma_window_buffer is None)
+        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.peer_win)
+
+    def test_del_skips_free_when_finalizing(self):
+        """
+        Garbage collection (:meth:`mpi_array.globale.gndarray.__del__`) frees the array,
+        except when the process is exiting (:func:`mpi_array.comms.is_finalizing`).
+        At exit, a process with an unhandled exception used to wait in the collective
+        free for the other processes, so :samp:`python -m mpi4py` couldn't abort the job.
+        """
+        self.assertFalse(_comms.is_finalizing())
+        gary = _globale_creation.zeros((10 * _mpi.COMM_WORLD.size,), dtype="int32")
+        rma_window_buffer = gary.rma_window_buffer
+        orig_is_finalizing = _globale._is_finalizing
+        _globale._is_finalizing = lambda: True
+        try:
+            gary.__del__()
+        finally:
+            _globale._is_finalizing = orig_is_finalizing
+        self.assertTrue(gary.rma_window_buffer is rma_window_buffer)
+        self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
+        gary.__del__()
+        self.assertTrue(gary.rma_window_buffer is None)
+        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
     def test_update(self):
         """
         Test for :meth:`mpi_array.globale.gndarray.update`, 1D and 2D shaped data
