@@ -635,14 +635,28 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def __getitem__(self, i):
         """
+        Not implemented yet, raises :obj:`NotImplementedError`.
+        Use :meth:`locale_get` or :meth:`peer_rank_get` to fetch a region of the array.
         """
-        self.rank_logger.debug("__getitem__: i=%s", i)
-        return None
+        raise NotImplementedError(
+            "Indexing a gndarray (index=%r) is not implemented, "
+            "use gndarray.locale_get or gndarray.peer_rank_get to fetch a region."
+            %
+            (i,)
+        )
 
     def __setitem__(self, i, v):
         """
+        Not implemented yet, raises :obj:`NotImplementedError`.
+        Use :meth:`fill`, :func:`copyto` or a ufunc with the :samp:`out` argument
+        to assign elements.
         """
-        self.rank_logger.debug("__setitem__: i=%s, v=%s", i, v)
+        raise NotImplementedError(
+            "Assigning to a gndarray index/slice (index=%r) is not implemented, "
+            "use gndarray.fill, mpi_array.globale.copyto or a ufunc with out=."
+            %
+            (i,)
+        )
 
     def __array_ufunc__(self, *args, **kwargs):
         """

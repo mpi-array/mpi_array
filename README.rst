@@ -37,22 +37,30 @@ Quick Start Example
 ===================
 
 The following ``quickstart.py`` script creates a zero-initialised array and
-performs some element assignments::
+performs some element-wise operations::
 
    import mpi_array as mpia
-   
-   # creates zero-initialized PGAS (distributed) array
-   dary = mpia.zeros((1000, 1000, 1000), dtype="uint16") 
-   
-   # Add one to all elements of array
+
+   # Creates a zero-initialised PGAS (distributed) array,
+   # the elements are apportioned to the MPI processes.
+   dary = mpia.zeros((100, 100, 100), dtype="uint16")
+
+   # Add one to all elements of the array (in-place ufunc).
    dary += 1
-   
-   # Assign to slice
-   dary[250:750, :, 250:750] = 8
 
-   # ufuncs
-   dary[...] = mpia.power(dary, 1.0/3.0)
+   # Ufuncs create new distributed arrays.
+   roots = mpia.sqrt(dary + 3)
 
+   # Collective check (all processes) that all elements equal 2.
+   assert (roots == 2).all()
+
+   # Arrays hold MPI windows, free them (collectively) when done,
+   # or create them in a "with" statement.
+   roots.free()
+   dary.free()
+
+Indexing and slice assignment (e.g. ``dary[10:20] = 8``) are not implemented yet
+and raise ``NotImplementedError``.
 
 The ``quickstart.py`` script can be executed serially
 (single process) as::
@@ -61,7 +69,9 @@ The ``quickstart.py`` script can be executed serially
 
 or in parallel (using 8 processes) as::
 
-   mpirun -n 8 python quickstart.py
+   mpirun -n 8 python -m mpi4py quickstart.py
+
+(``python -m mpi4py`` makes an unhandled exception on one process abort all processes.)
 
 
 Related Work

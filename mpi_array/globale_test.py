@@ -28,6 +28,7 @@ Classes
 """
 from __future__ import absolute_import
 
+import os.path as _os_path
 import mpi4py.MPI as _mpi
 import numpy as _np
 
@@ -243,13 +244,47 @@ class GndarrayTest(_unittest.TestCase):
     def test_get_item_and_set_item(self):
         """
         Test the :meth:`mpi_array.globale.gndarray.__getitem__`
-        and :meth:`mpi_array.globale.gndarray.__setitem__` methods.
+        and :meth:`mpi_array.globale.gndarray.__setitem__` methods
+        raise :obj:`NotImplementedError` (they used to silently do nothing
+        and return :samp:`None`), and the array is unchanged.
         """
         with _globale_creation.zeros((20, 20, 20), dtype="int8") as gary:
-            gary[1, 2, 8] = 22
-            gary[1:10, 2:4, 4:8]
-            gary[...] = 19
-            gary[:] = 101
+            def setitem(index, value):
+                gary[index] = value
+
+            self.assertRaises(NotImplementedError, setitem, (1, 2, 8), 22)
+            self.assertRaises(NotImplementedError, setitem, Ellipsis, 19)
+            self.assertRaises(NotImplementedError, setitem, slice(None), 101)
+            self.assertRaises(NotImplementedError, gary.__getitem__, (slice(1, 10), 2, 4))
+            self.assertRaises(NotImplementedError, gary.__getitem__, Ellipsis)
+            self.assertTrue((gary == 0).all())
+
+    def test_readme_quick_start(self):
+        """
+        Runs the ``quickstart.py`` code block from :samp:`README.rst`
+        (the code asserts the resulting element values).
+        """
+        readme_file_name = \
+            _os_path.realpath(_os_path.join(_os_path.dirname(__file__), "..", "README.rst"))
+        if not _os_path.exists(readme_file_name):
+            self.skipTest("No README.rst at %s." % readme_file_name)
+        with open(readme_file_name, "rt") as readme_file:
+            lines = readme_file.read().split("\n")
+        # The code block follows the first "::" line from the
+        # paragraph which introduces the ``quickstart.py`` script.
+        intro = [i for i in range(len(lines)) if "``quickstart.py`` script" in lines[i]]
+        self.assertTrue(len(intro) > 0)
+        start = intro[0]
+        while not lines[start].rstrip().endswith("::"):
+            start += 1
+        code_lines = []
+        for line in lines[start + 1:]:
+            if (len(line.strip()) > 0) and (not line.startswith("   ")):
+                break
+            code_lines.append(line[3:])
+        code = "\n".join(code_lines)
+        self.assertTrue("mpia.zeros" in code)
+        exec(compile(code, readme_file_name + ":quickstart.py", "exec"), dict())
 
     def test_update(self):
         """
