@@ -464,22 +464,23 @@ class GndarrayTest(_unittest.TestCase):
         self.assertTrue(gary.rma_window_buffer is None)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.peer_win)
 
-    def test_del_skips_free_when_finalizing(self):
+    def test_del_skips_free_when_aborting(self):
         """
         Garbage collection (:meth:`mpi_array.globale.gndarray.__del__`) frees the array,
-        except when the process is exiting (:func:`mpi_array.comms.is_finalizing`).
+        except when mpi4py is going to abort the job (:func:`mpi_array.comms.can_free_in_del`).
         At exit, a process with an unhandled exception used to wait in the collective
         free for the other processes, so :samp:`python -m mpi4py` couldn't abort the job.
+        The end of a program is tested by :mod:`mpi_array.exit_scenarios`.
         """
-        self.assertFalse(_comms.is_finalizing())
+        self.assertTrue(_comms.can_free_in_del())
         gary = _globale_creation.zeros((10 * _mpi.COMM_WORLD.size,), dtype="int32")
         rma_window_buffer = gary.rma_window_buffer
-        orig_is_finalizing = _globale._is_finalizing
-        _globale._is_finalizing = lambda: True
+        orig_can_free_in_del = _globale._can_free_in_del
+        _globale._can_free_in_del = lambda: False
         try:
             gary.__del__()
         finally:
-            _globale._is_finalizing = orig_is_finalizing
+            _globale._can_free_in_del = orig_can_free_in_del
         self.assertTrue(gary.rma_window_buffer is rma_window_buffer)
         self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 

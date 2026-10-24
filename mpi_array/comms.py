@@ -56,6 +56,7 @@ Attributes
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
+import atexit as _atexit
 import copy as _copy
 import sys as _sys
 import mpi4py.MPI as _mpi
@@ -706,21 +707,48 @@ def get_win_memory(win):
     return buffer
 
 
-def is_finalizing():
-    """
-    Returns :samp:`True` if the Python interpreter is shutting down or MPI is finalized.
+#: Set at exit by :func:`_check_mpi4py_abort`, see :func:`can_free_in_del`.
+_mpi4py_aborts = False
 
-    The :samp:`__del__` methods use this to skip collective frees
-    (e.g. :meth:`mpi4py.MPI.Win.Free`) when the process is exiting. Windows which
-    are still allocated are released when MPI is finalized, and a process which is
-    exiting because of an unhandled exception must not wait in a collective call
-    which the other processes may never make (when launched with
-    :samp:`python -m mpi4py`, the process goes on to abort the MPI job).
+
+def _check_mpi4py_abort():
+    """
+    An :mod:`atexit` function, it runs before the interpreter shuts down and before
+    mpi4py finalizes (or aborts) MPI. Records whether mpi4py is going to abort the
+    MPI job: the program was launched with :samp:`python -m mpi4py` and it is exiting
+    because of an unhandled exception.
+    """
+    global _mpi4py_aborts
+    unhandled_exception = \
+        (getattr(_sys, "last_exc", None) is not None) \
+        or \
+        (getattr(_sys, "last_value", None) is not None)
+    main_spec = getattr(_sys.modules.get("__main__"), "__spec__", None)
+    launched_with_mpi4py = \
+        (main_spec is not None) and (main_spec.name in ("mpi4py.__main__", "mpi4py.run"))
+    _mpi4py_aborts = unhandled_exception and launched_with_mpi4py
+
+
+_atexit.register(_check_mpi4py_abort)
+
+
+def can_free_in_del():
+    """
+    Returns :samp:`False` if a :samp:`__del__` method must not start a collective
+    free (e.g. :meth:`mpi4py.MPI.Win.Free`): MPI is finalized, or mpi4py is going to
+    abort the MPI job (launched with :samp:`python -m mpi4py`, and exiting because of
+    an unhandled exception). The other processes may never make the collective call,
+    and waiting for them would stop the abort.
+
+    In other cases the arrays which are still allocated are freed (by :samp:`__del__`)
+    while the interpreter shuts down. They must not be left to :func:`mpi4py.MPI.Finalize`:
+    MPI implementations (e.g. Open MPI 5) can free the windows in a different order on
+    different processes, which deadlocks.
 
     :rtype: :obj:`bool`
-    :return: :samp:`True` if :func:`sys.is_finalizing` or :func:`mpi4py.MPI.Is_finalized`.
+    :return: :samp:`True` if a :samp:`__del__` method can free collectively.
     """
-    return _sys.is_finalizing() or _mpi.Is_finalized()
+    return (not _mpi4py_aborts) and (not _mpi.Is_finalized())
 
 
 class LocaleComms(object):

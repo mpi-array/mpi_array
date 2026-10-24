@@ -62,7 +62,7 @@ import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
 from .comms import create_distribution, get_win_memory
-from .comms import is_finalizing as _is_finalizing
+from .comms import can_free_in_del as _can_free_in_del
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
@@ -517,12 +517,12 @@ class LndarrayProxy(object):
 
     def __del__(self):
         """
-        Best-effort :meth:`free`: skipped when the process is exiting
-        (see :func:`mpi_array.comms.is_finalizing`). Freeing can be collective, so it
+        Best-effort :meth:`free`: skipped when mpi4py is going to abort the MPI job
+        (see :func:`mpi_array.comms.can_free_in_del`). Freeing can be collective, so it
         is safer to free explicitly (:meth:`free` or a :samp:`with` statement) than to
         rely on garbage collection happening at the same point on all processes.
         """
-        if not _is_finalizing():
+        if _can_free_in_del():
             self.free()
 
     def __enter__(self):

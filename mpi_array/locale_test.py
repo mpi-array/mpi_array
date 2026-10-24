@@ -561,21 +561,21 @@ class LndarrayProxyTest(_unittest.TestCase):
         self.assertTrue(lary.rma_window_buffer is None)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
-    def test_del_skips_free_when_finalizing(self):
+    def test_del_skips_free_when_aborting(self):
         """
         Garbage collection (:meth:`mpi_array.locale.LndarrayProxy.__del__`) frees the
-        window memory, except when the process is exiting
-        (:func:`mpi_array.comms.is_finalizing`).
+        window memory, except when mpi4py is going to abort the job
+        (:func:`mpi_array.comms.can_free_in_del`).
         """
         cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
         lary = _locale.zeros(comms_and_distrib=cand, dtype="int64")
         rma_window_buffer = lary.rma_window_buffer
-        orig_is_finalizing = _locale._is_finalizing
-        _locale._is_finalizing = lambda: True
+        orig_can_free_in_del = _locale._can_free_in_del
+        _locale._can_free_in_del = lambda: False
         try:
             lary.__del__()
         finally:
-            _locale._is_finalizing = orig_is_finalizing
+            _locale._can_free_in_del = orig_can_free_in_del
         self.assertTrue(lary.rma_window_buffer is rma_window_buffer)
         self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
