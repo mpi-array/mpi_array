@@ -37,9 +37,11 @@ from .globale import gndarray as _gndarray
 from .globale_creation import asarray as _asarray, asanyarray as _asanyarray
 from .globale_creation import empty as _empty, zeros as _zeros, ones as _ones, copy as _copy
 from .globale_creation import empty_like as _empty_like, zeros_like as _zeros_like
-from .globale_creation import ones_like as _ones_like
+from .globale_creation import ones_like as _ones_like, full as _full, array as _array
+from .globale import copyto as _copyto
 from . import locale as _locale
 from .comms import create_distribution as _create_distribution, LT_PROCESS, LT_NODE, DT_CLONED
+from .comms import DT_BLOCK
 from .indexing import IndexingExtent as _IndexingExtent
 
 __author__ = "Shane J. Latham"
@@ -68,6 +70,45 @@ class GndarrayCreationTest(_unittest.TestCase):
 
         sary1 = _asarray(sary0)
         self.assertTrue(sary1 is sary0)
+
+    def test_order(self):
+        """
+        Only C order arrays are implemented. Fortran order arrays used to be
+        created, but their elements were scrambled by redistribution (copyto),
+        so :samp:`order='F'` raises :obj:`NotImplementedError`.
+        """
+        npy_ary = _np.arange(24, dtype="float64").reshape(4, 6)
+        for order in ("F", "f"):
+            self.assertRaises(NotImplementedError, _empty, (4, 6), order=order)
+            self.assertRaises(NotImplementedError, _zeros, (4, 6), order=order)
+            self.assertRaises(NotImplementedError, _ones, (4, 6), order=order)
+            self.assertRaises(NotImplementedError, _full, (4, 6), 3, order=order)
+            self.assertRaises(NotImplementedError, _array, npy_ary, order=order)
+            self.assertRaises(NotImplementedError, _asarray, npy_ary, order=order)
+            self.assertRaises(NotImplementedError, _locale.empty, (4, 6), order=order)
+            with _zeros((4, 6)) as gary:
+                self.assertRaises(NotImplementedError, _empty_like, gary, order=order)
+                self.assertRaises(NotImplementedError, _zeros_like, gary, order=order)
+                self.assertRaises(NotImplementedError, gary.copy, order=order)
+        self.assertRaises(ValueError, _empty, (4, 6), order="X")
+
+        # Redistribution of C order arrays, with same and different dtypes.
+        for order in ("C", "c", "K", "A", None):
+            with \
+                    _asarray(
+                        npy_ary, order=order, locale_type=LT_PROCESS, distrib_type=DT_BLOCK
+                    ) as src:
+                self.assertEqual("C", src.order)
+                for dtype in ("float64", "float32"):
+                    with \
+                            _zeros(
+                                npy_ary.shape,
+                                dtype=dtype,
+                                locale_type=LT_PROCESS,
+                                distrib_type=DT_CLONED
+                            ) as dst:
+                        _copyto(dst, src)
+                        self.assertTrue(_np.all(dst.view_n == npy_ary.astype(dtype)))
 
     def test_asarray_with_tuple(self):
         """

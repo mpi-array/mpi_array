@@ -48,6 +48,7 @@ Utilities
    :toctree: generated/
 
    NdarrayMetaData - Strides, offset and order info.
+   check_order - Checks the memory layout (order) argument, only C order is implemented.
 
 """
 
@@ -758,6 +759,36 @@ class LndarrayProxy(object):
         self._lndarray[self._intra_partition.rank_view_partition_slice_h].fill(value)
 
 
+def check_order(order):
+    """
+    Checks the memory layout argument of the array creation functions.
+    Only C (row-major) order is implemented: the locale arrays are always C-contiguous.
+
+    :type order: :samp:`None` or :obj:`str`
+    :param order: Memory layout, :samp:`'C'`, :samp:`'K'`, :samp:`'A'` and :samp:`None`
+       all mean C order (case-insensitive).
+    :rtype: :obj:`str`
+    :return: :samp:`'C'`.
+    :raises NotImplementedError: If :samp:`{order}` is :samp:`'F'` (Fortran order).
+    :raises ValueError: If :samp:`{order}` is not a valid order.
+
+    Example::
+
+       >>> check_order('K')
+       'C'
+    """
+    if order is None:
+        return 'C'
+    if isinstance(order, str):
+        if order.upper() in ('C', 'K', 'A'):
+            return 'C'
+        if order.upper() == 'F':
+            raise NotImplementedError(
+                "Got order=%r, only C (row-major) order arrays are implemented." % (order,)
+            )
+    raise ValueError("Got order=%r, expected one of 'C', 'F', 'A', 'K' or None." % (order,))
+
+
 def empty(
     shape=None,
     dtype="float64",
@@ -777,9 +808,13 @@ def empty(
     :param dtype: Data type of array elements.
     :type comms_and_distrib: :obj:`numpy.dtype`
     :param comms_and_distrib: Data type of array elements.
+    :type order: :samp:`{'C', 'K', 'A'}` or :samp:`None`
+    :param order: Only C order is implemented, see :func:`check_order`.
     :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with uninitialised elements.
+    :raises NotImplementedError: If :samp:`{order}` is :samp:`'F'`.
     """
+    order = check_order(order)
     if comms_and_distrib is None:
         comms_and_distrib = create_distribution(shape=shape, **kwargs)
 

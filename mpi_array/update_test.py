@@ -130,6 +130,11 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
         u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="F", src_order="F")
         self.assertTrue(u.dst_data_type is not ddt)
         self.assertTrue(u.src_data_type is not sdt)
+        self.assertEqual(_mpi.ORDER_FORTRAN, u._dst._mpi_order)
+        self.assertEqual(_mpi.ORDER_FORTRAN, u._src._mpi_order)
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="C", src_order="C")
+        self.assertEqual(_mpi.ORDER_C, u._dst._mpi_order)
+        self.assertEqual(_mpi.ORDER_C, u._src._mpi_order)
 
 
 class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
@@ -214,6 +219,8 @@ class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
         u.initialise_data_types(dtype="int32", order="F")
         self.assertTrue(u.dst_data_type is not ddt)
         self.assertTrue(u.src_data_type is not sdt)
+        self.assertEqual(_mpi.ORDER_FORTRAN, u._dst._mpi_order)
+        self.assertEqual(_mpi.ORDER_FORTRAN, u._src._mpi_order)
 
 
 class HalosUpdateTest(_unittest.TestCase):

@@ -69,7 +69,8 @@ def empty(
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
     :type order: :samp:`{'C', 'F'}`
-    :param order: Only :samp:`'C'` implemented.
+    :param order: Only :samp:`'C'` implemented, :samp:`'F'`
+       raises :obj:`NotImplementedError` (see :func:`mpi_array.locale.check_order`).
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory.
     :type comms_and_distrib: :obj:`numpy.dtype`
@@ -77,6 +78,7 @@ def empty(
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: Newly created array with uninitialised elements.
     """
+    order = _locale.check_order(order)
     if comms_and_distrib is None:
         comms_and_distrib = _comms.create_distribution(shape, **kwargs)
     lndarray_proxy, rma_window_buffer = \
@@ -106,7 +108,8 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :type order: :samp:`{'C', 'F', 'A', or 'K'}`
-    :param order: Only :samp:`'K'` implemented.
+    :param order: Only C order is implemented: :samp:`'C'`, :samp:`'A'` and :samp:`'K'` all give
+        a C order array, :samp:`'F'` raises :obj:`NotImplementedError`.
         Overrides the memory layout of the result. :samp:`'C'` means C-order, :samp:`'F'`
         means F-order, :samp:`'A'` means :samp:`'F'` if a is Fortran
         contiguous, :samp:`'C'` otherwise. :samp:`'K'` means match the layout
@@ -120,8 +123,7 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     """
     if dtype is None:
         dtype = ary.dtype
-    if order == 'K':
-        order = 'C'
+    order = _locale.check_order(order)
 
     if (isinstance(ary, _globale.gndarray)):
         ret_ary = \
@@ -354,8 +356,9 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
        if :samp:`a` is a nested sequence, or if a copy is needed to satisfy any of
        the other requirements (:samp:`dtype`, :samp:`order`, etc.).
     :type order: :samp:`{'K', 'A', 'C', 'F'}`
-    :param order: Only :samp:`C` implemented. Specify the memory layout of the array.
-        If object is not an array, the newly created array will be in C order (row major)
+    :param order: Only C order is implemented: :samp:`'C'`, :samp:`'A'` and :samp:`'K'` all give
+        a C order array, :samp:`'F'` raises :obj:`NotImplementedError`.
+        Specify the memory layout of the array.
     :type subok: :obj:`bool`
     :param subok: If :samp:`True`, then sub-classes will be passed-through, otherwise the
         returned array will be forced to be a base-class array.
@@ -367,8 +370,7 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
 
     .. seealso:: :func:`asarray`, :func:`asanyarray`
     """
-    if order == 'K':
-        order = 'C'
+    order = _locale.check_order(order)
 
     if hasattr(a, "__class__") and (a.__class__ is _globale.gndarray):
         if copy:

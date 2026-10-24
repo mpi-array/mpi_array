@@ -174,7 +174,7 @@ class MpiExtentAndRegion(ExtentAndRegion):
 
     def create_data_type(self, dtype, order="C"):
         mpi_order = _mpi.ORDER_C
-        if order == "F":
+        if order.upper() == "F":
             mpi_order = _mpi.ORDER_FORTRAN
 
         parent_mpi_data_type = _types.to_datatype(dtype)
