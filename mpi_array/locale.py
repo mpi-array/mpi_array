@@ -111,6 +111,11 @@ class win_lndarray(_np.ndarray):
     MPI window allocated memory.
     """
 
+    _comm = None
+    _win = None
+    #: Only the array which allocated the window frees it, not views or derived arrays.
+    _owns_win = False
+
     def __new__(
         cls,
         shape,
@@ -202,13 +207,15 @@ class win_lndarray(_np.ndarray):
             )
         self._comm = comm
         self._win = win
+        self._owns_win = win is not None
 
         return self
 
     def __array_finalize__(self, obj):
         """
-        Sets :attr:`md` attribute for :samp:`{self}`
-        from :samp:`{obj}` if required.
+        Sets the :attr:`comm` and :attr:`win` attributes of a view from :samp:`{obj}`.
+        An array with its own memory (e.g. a copy or a ufunc output) has no window.
+        Neither owns the window, so their :meth:`free` doesn't free it.
 
         :type obj: :obj:`object` or :samp:`None`
         :param obj: Object from which attributes are set.
@@ -216,8 +223,10 @@ class win_lndarray(_np.ndarray):
         if obj is None:
             return
 
-        self._comm = getattr(obj, '_comm', None)
-        self._win = getattr(obj, '_win', None)
+        is_view = _np.may_share_memory(self, obj)
+        self._comm = getattr(obj, '_comm', None) if is_view else None
+        self._win = getattr(obj, '_win', None) if is_view else None
+        self._owns_win = False
 
     @property
     def comm(self):
@@ -238,11 +247,12 @@ class win_lndarray(_np.ndarray):
     def free(self):
         """
         Collective (over all processes in :attr:`comm`) free the MPI window
-        and associated memory buffer. Does nothing if the window has already
-        been freed, or if the array was created from a :samp:`buffer`.
+        and associated memory buffer. Only the array which allocated the window
+        frees it: does nothing for views, copies and other derived arrays, if the
+        window has already been freed, or if the array was created from a :samp:`buffer`.
         The array, and any views of it, must not be accessed after the window is freed.
         """
-        if (self._win is not None) and (self._win != _mpi.WIN_NULL):
+        if self._owns_win and (self._win != _mpi.WIN_NULL):
             self._win.Free()
 
     def __enter__(self):

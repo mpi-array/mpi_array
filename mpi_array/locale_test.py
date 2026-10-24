@@ -126,6 +126,29 @@ class WinLndarrayTest(_unittest.TestCase):
             self.assertEqual(_mpi.WIN_NULL, win)
         comms[1].Free()
 
+    def test_derived_arrays_do_not_free_window(self):
+        """
+        Only the array which allocated the window frees it. A copy, an :samp:`astype`
+        result or a ufunc output has its own memory and no window, a view shares the
+        window. Their :meth:`mpi_array.locale.win_lndarray.free` used to free the window
+        of the original array.
+        """
+        with _locale.win_lndarray(shape=(4,), dtype="float64", comm=_mpi.COMM_SELF) as ary:
+            ary[...] = 1
+            view = ary[1:]
+            self.assertTrue(view.win is ary.win)
+            self.assertTrue(view.comm is ary.comm)
+            derived = (ary + 1, ary.copy(), ary.astype("float32"))
+            for derived_ary in derived:
+                self.assertTrue(derived_ary.win is None)
+            for derived_ary in (view,) + derived:
+                derived_ary.free()
+                with derived_ary:
+                    pass
+            self.assertNotEqual(_mpi.WIN_NULL, ary.win)
+            self.assertSequenceEqual([1.0, 1.0, 1.0, 1.0], ary.tolist())
+        self.assertEqual(_mpi.WIN_NULL, ary.win)
+
 
 class LndarrayTest(_unittest.TestCase):
 
