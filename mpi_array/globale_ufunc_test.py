@@ -109,19 +109,45 @@ class UfuncResultTypeTest(_unittest.TestCase):
         dtypes = ufunc_result_type(uft, inputs, outputs)
         self.assertSequenceEqual((_np.dtype('d'),), dtypes)
 
-        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, False))
-        self.assertSequenceEqual((_np.dtype('?'),), dtypes)
-        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, 1))
-        self.assertSequenceEqual((_np.dtype('b'),), dtypes)
-        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, 1.0))
-        self.assertSequenceEqual((_np.dtype('f'),), dtypes)
-
         inputs = (_np.array([1, 2], dtype='complex128'), 5.0e150)
         outputs = None
         self.assertRaises(
             ValueError,
             ufunc_result_type, uft, inputs, outputs
         )
+
+        bool_uft = ['??->?', 'bb->b', 'll->l', 'ff->f', 'dd->d']
+        dtypes = ufunc_result_type(bool_uft, (True, False))
+        self.assertSequenceEqual((_np.dtype('?'),), dtypes)
+        dtypes = ufunc_result_type(bool_uft, (True, 1))
+        self.assertSequenceEqual((_np.dtype('l'),), dtypes)
+        dtypes = ufunc_result_type(bool_uft, (True, 1.0))
+        self.assertSequenceEqual((_np.dtype('d'),), dtypes)
+
+    def test_type_strings_numpy_parity(self):
+        """
+        :func:`mpi_array.globale_ufunc.ufunc_result_type` with :attr:`numpy.ufunc.types`
+        gives the same result types as the :obj:`numpy.ufunc` call for array and
+        Python scalar inputs (for ufuncs without a ufunc specific type resolver).
+        """
+        cases = \
+            (
+                (_np.add, (_np.zeros((2,), dtype="uint16"), 1)),
+                (_np.add, (_np.zeros((2,), dtype="int8"), 2.5)),
+                (_np.add, (_np.zeros((2,), dtype="bool"), 1)),
+                (_np.add, (_np.zeros((2,), dtype="int16"), 2j)),
+                (_np.add, (_np.zeros((2,), dtype="float32"), 2j)),
+                (_np.add, (_np.zeros((2,), dtype="float32"), 2.0)),
+                (_np.add, (_np.zeros((2,), dtype="float16"), _np.zeros((2,), dtype="float32"))),
+                (_np.multiply, (3, _np.zeros((2,), dtype="int16"))),
+                (_np.power, (_np.zeros((2,), dtype="uint16"), 1.0 / 3.0)),
+            )
+        for ufunc, inputs in cases:
+            self.assertSequenceEqual(
+                (ufunc(*inputs).dtype,),
+                ufunc_result_type(ufunc.types, inputs),
+                "%s%s" % (ufunc.__name__, tuple(getattr(i, "dtype", i) for i in inputs))
+            )
 
     def test_tuple_input(self):
         """
@@ -189,8 +215,7 @@ class UfuncResultTypeTest(_unittest.TestCase):
     def test_numpy_ufunc(self):
         """
         :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
-        with a :obj:`numpy.ufunc` (types resolved with :meth:`numpy.ufunc.resolve_dtypes`).
-        Result types must match those of the :obj:`numpy.ufunc` call.
+        with a :obj:`numpy.ufunc`. Result types must match those of the :obj:`numpy.ufunc` call.
         """
         cases = \
             (
@@ -212,6 +237,16 @@ class UfuncResultTypeTest(_unittest.TestCase):
                 tuple(e.dtype for e in expected),
                 ufunc_result_type(ufunc, inputs, casting="same_kind")
             )
+
+        # Out of range Python int, as for the numpy.ufunc call.
+        self.assertRaises(
+            OverflowError,
+            ufunc_result_type,
+            _np.add,
+            (_np.zeros((2,), dtype="int16"), 70000),
+            None,
+            "same_kind"
+        )
 
         inputs = (_np.zeros((2,), dtype="float32"), _np.zeros((2,), dtype="float32"))
         self.assertSequenceEqual(
@@ -882,6 +917,21 @@ class GndarrayUfuncTest(_unittest.TestCase):
             gary += 1
             self.assertEqual(_np.dtype("uint16"), gary.dtype)
             self.assertTrue((gary == 2).all())
+
+    def test_python_scalar_out_of_range(self):
+        """
+        A Python :obj:`int` which is out of range for the array dtype raises :obj:`OverflowError`
+        (like numpy) on every process, including processes whose locale has no elements
+        (they skip the per-tile numpy call, so used to return normally while the other
+        processes raised, and the processes then deadlocked).
+        """
+        world = _mpi.COMM_WORLD
+        shape = (max((1, world.size - 1)),)
+        with _ones(shape, dtype="int16", locale_type=LT_PROCESS, distrib_type=DT_BLOCK) as gary:
+            self.assertRaises(OverflowError, lambda: gary + 70000)
+            with self.assertRaises(OverflowError):
+                gary += 70000
+            self.assertTrue((gary == 1).all())
 
     def test_ufunc_write_after_read(self):
         """

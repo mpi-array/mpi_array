@@ -99,35 +99,6 @@ def is_python_scalar(obj):
     return isinstance(obj, (int, float, complex)) and not isinstance(obj, _np.generic)
 
 
-def _weak_scalar_kinds(obj):
-    """
-    Returns the :attr:`numpy.dtype.kind` values to which the weakly typed
-    Python scalar :samp:`{obj}` can be cast (as for a NEP 50 promotion).
-    """
-    if isinstance(obj, bool):
-        return "biufc"
-    if isinstance(obj, int):
-        return "iufc"
-    if isinstance(obj, float):
-        return "fc"
-    return "c"
-
-
-def _resolve_dtypes_operand(obj):
-    """
-    Returns the :meth:`numpy.ufunc.resolve_dtypes` operand for :samp:`{obj}`,
-    i.e. the :obj:`int`, :obj:`float` or :obj:`complex` class for (weak) Python scalars,
-    otherwise a :obj:`numpy.dtype`.
-    """
-    if is_python_scalar(obj) and not isinstance(obj, bool):
-        if isinstance(obj, int):
-            return int
-        if isinstance(obj, float):
-            return float
-        return complex
-    return get_dtype_and_ndim(obj)[0]
-
-
 def _output_dtype(output):
     """
     Returns the :obj:`numpy.dtype` of a ufunc output (:samp:`None` if :samp:`{output}` is None).
@@ -154,14 +125,19 @@ def ufunc_result_type(
 
     Python scalars in :samp:`{inputs}` are treated as weakly typed
     (`NEP 50 <https://numpy.org/neps/nep-0050-scalar-promotion.html>`_),
-    the result never depends on scalar values.
+    the result types never depend on scalar values.
 
     :type ufunc_types: :obj:`numpy.ufunc` or sequence of `str`
     :param ufunc_types: Either the :obj:`numpy.ufunc` itself, in which case the
-       types are resolved exactly as NumPy does (using :meth:`numpy.ufunc.resolve_dtypes`),
-       or the :attr:`numpy.ufunc.types` attribute,
-       e.g. :samp:`['??->?', 'bb->b', 'BB->B', 'hh->h', 'HH->H', ..., 'mm->m', 'mM->M', 'OO->O']`,
-       in which case the first matching loop is chosen.
+       types are those of a :samp:`{ufunc_types}` call on zero-size arrays with the
+       dtypes of the inputs and outputs (and the Python scalars), so exactly as NumPy computes
+       them, and the call raises the same exceptions (e.g. :obj:`OverflowError` for a
+       Python :obj:`int` outside the range of the loop type). Or the :attr:`numpy.ufunc.types`
+       attribute, e.g. :samp:`['??->?', 'bb->b', 'BB->B', 'hh->h', ..., 'mm->m', 'mM->M', 'OO->O']`,
+       in which case the first loop matching the input types is chosen, a Python scalar
+       input is matched as type :samp:`numpy.result_type(*other_input_dtypes, *python_scalars)`.
+       This does not model ufunc specific type resolution (e.g. :obj:`numpy.true_divide`
+       gives :samp:`float64` for integer inputs), pass the :obj:`numpy.ufunc` for that.
     :type inputs: sequence of :obj:`object`
     :param inputs: The inputs (e.g. :obj:`numpy.ndarray`, scalars
        or :obj:`mpi_array.globale.gndarray`) to a :obj:`numpy.ufunc` call.
@@ -176,14 +152,16 @@ def ufunc_result_type(
        when :samp:`{ufunc_types}` is a :obj:`numpy.ufunc`.
     :type signature: :samp:`None` or sequence
     :param signature: Only used when :samp:`{ufunc_types}` is a :obj:`numpy.ufunc`,
-       the :samp:`signature` argument of :meth:`numpy.ufunc.resolve_dtypes`.
+       the :samp:`signature` argument for the :obj:`numpy.ufunc` call.
     :rtype: :obj:`tuple` of :obj:`numpy.dtype`
     :return: A tuple of :obj:`numpy.dtype` indicating the output types produced for
        the given inputs. For specified outputs, the type is that of the output.
     :raises ValueError: If the the inputs (and outputs) cannot be cast to an
        appropriate element of :samp:`{ufunc_types}` (sequence of :obj:`str`).
-    :raises TypeError: As raised by :meth:`numpy.ufunc.resolve_dtypes`
-       if no loop matches or an output cannot be cast (:obj:`numpy.ufunc`).
+    :raises TypeError: (:obj:`numpy.ufunc`) As raised by the :obj:`numpy.ufunc` call,
+       e.g. if no loop matches or an output cannot be cast.
+    :raises OverflowError: (:obj:`numpy.ufunc`) As raised by the :obj:`numpy.ufunc` call,
+       for a Python :obj:`int` input which is out of range for the loop type.
 
     Example::
 
@@ -228,8 +206,21 @@ def ufunc_result_type(
             for in2out_str in ufunc_types
         )
 
+    # A (weakly typed) Python scalar is matched as the NEP 50 promotion
+    # of the other input types and the Python scalars.
     is_weak = tuple(is_python_scalar(input) for input in inputs)
-    in_dtypes = tuple(get_dtype_and_ndim(input)[0] for input in inputs)
+    strong_dtypes = \
+        tuple(get_dtype_and_ndim(inputs[j])[0] for j in range(len(inputs)) if not is_weak[j])
+    if any(is_weak):
+        weak_dtype = \
+            _np.result_type(
+                *(strong_dtypes + tuple(inputs[j] for j in range(len(inputs)) if is_weak[j]))
+            )
+    in_dtypes = \
+        tuple(
+            weak_dtype if is_weak[j] else get_dtype_and_ndim(inputs[j])[0]
+            for j in range(len(inputs))
+        )
 
     logger.debug("inputs=%s", inputs)
     logger.debug("in_dtypes=%s", in_dtypes)
@@ -245,14 +236,12 @@ def ufunc_result_type(
                 (len(loop_in_dtypes) == len(inputs))
                 and
                 all(
-                    (loop_in_dtypes[j].kind in _weak_scalar_kinds(inputs[j]))
-                    if is_weak[j] else
                     dtype_matches(in_dtypes[j], loop_in_dtypes[j])
                     for j in range(len(inputs))
                 )
             )
 
-    # Prefer a loop which exactly matches the (non Python scalar) input types,
+    # Prefer a loop which exactly matches the input types,
     # otherwise take the first loop to which the inputs can be cast.
     idx = None
     for dtype_matches in (
@@ -310,9 +299,14 @@ def ufunc_result_type(
 
 def _resolve_ufunc_result_types(ufunc, inputs, outputs=None, casting="same_kind", signature=None):
     """
-    Returns the output :obj:`numpy.dtype` elements for a :samp:`{ufunc}` call,
-    resolved by :meth:`numpy.ufunc.resolve_dtypes` (so NumPy promotion rules apply,
-    Python scalars are weakly typed). For specified outputs, the type is that of the output.
+    Returns the output :obj:`numpy.dtype` elements for a :samp:`{ufunc}` call.
+    The types come from a :samp:`{ufunc}` call on zero-size arrays with the dtypes of
+    the :samp:`{inputs}` and :samp:`{outputs}`, with Python scalars passed unchanged.
+    So NumPy promotion (Python scalars are weakly typed), casting checks and range
+    checks of Python :obj:`int` inputs (:obj:`OverflowError`) all apply. The trial does not
+    depend on array elements, so (unlike the per-tile calls, which processes with empty
+    tiles skip) it raises the same exception on every process.
+    For specified outputs, the type is that of the output.
     """
     if len(inputs) != ufunc.nin:
         raise TypeError(
@@ -327,20 +321,23 @@ def _resolve_ufunc_result_types(ufunc, inputs, outputs=None, casting="same_kind"
         for i in range(len(outputs)):
             out_dtypes[i] = _output_dtype(outputs[i])
 
+    trial_inputs = \
+        tuple(
+            input if is_python_scalar(input) else
+            _np.empty((0,), dtype=get_dtype_and_ndim(input)[0])
+            for input in inputs
+        )
+    trial_outputs = \
+        tuple(None if dtype is None else _np.empty((0,), dtype=dtype) for dtype in out_dtypes)
     kwargs = dict(casting=casting)
     if signature is not None:
         kwargs["signature"] = signature
-    resolved = \
-        ufunc.resolve_dtypes(
-            tuple(_resolve_dtypes_operand(input) for input in inputs) + tuple(out_dtypes),
-            **kwargs
-        )
+    with _np.errstate(all="ignore"):
+        results = ufunc(*trial_inputs, out=trial_outputs, **kwargs)
+    if ufunc.nout == 1:
+        results = (results,)
 
-    return \
-        tuple(
-            out_dtypes[i] if out_dtypes[i] is not None else resolved[ufunc.nin + i]
-            for i in range(ufunc.nout)
-        )
+    return tuple(result.dtype for result in results)
 
 
 def broadcast_shape(*shape_args):
@@ -728,7 +725,7 @@ class GndarrayArrayUfuncExecutor(object):
 
     def get_signature(self):
         """
-        Returns the :samp:`signature` (for :meth:`numpy.ufunc.resolve_dtypes`) given
+        Returns the :samp:`signature` (for the :obj:`numpy.ufunc` call) given
         by the :samp:`signature` or :samp:`dtype` ufunc keyword argument.
 
         :rtype: :samp:`None` or :obj:`tuple`
