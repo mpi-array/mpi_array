@@ -116,7 +116,7 @@ Requires:
    - python version `>= 3.10`,
    - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.4.0`,
    - `psutil <https://pypi.python.org/pypi/psutil>`_ `>= 4.3.0`
-   - `numpy <https://numpy.org/doc/stable/>`_ version `>= 1.24`,
+   - `numpy <https://numpy.org/doc/stable/>`_ version `>= 2.0`,
    - an MPI implementation which supports at least MPI-3 (such as 
      `OpenMPI <http://openmpi.org/>`_, `MPICH <http://mpich.org/>`_ or `Intel MPI <https://software.intel.com/en-us/intel-mpi-library>`_)
    - `mpi4py <https://mpi4py.readthedocs.io/>`_ version `>= 3.1`.

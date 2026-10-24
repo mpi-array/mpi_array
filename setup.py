@@ -117,7 +117,7 @@ setup(
     python_requires=">=3.10",
     install_requires= \
         [
-            "numpy>=1.24",
+            "numpy>=2.0",
             "array_split>=0.4.0",
             "psutil>=4.3.0",
         ]
