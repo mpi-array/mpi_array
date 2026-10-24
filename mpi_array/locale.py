@@ -53,7 +53,6 @@ Utilities
 
 from __future__ import absolute_import
 
-import sys as _sys
 import numpy as _np
 import mpi4py.MPI as _mpi
 import array_split as _array_split
@@ -156,7 +155,7 @@ class win_lndarray(_np.ndarray):
             num_rank_bytes = 0
             rank_shape = shape
             if comm.rank == root_rank:
-                num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+                num_rank_bytes = int(_np.prod(rank_shape) * dtype.itemsize)
             else:
                 rank_shape = tuple(_np.zeros_like(rank_shape))
 
@@ -186,7 +185,7 @@ class win_lndarray(_np.ndarray):
                     logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
                 )
                 buffer = get_win_memory(win)
-        buffer = _np.array(buffer, dtype='B', copy=False)
+        buffer = _np.frombuffer(buffer, dtype='B')
         self = \
             _np.ndarray.__new__(
                 cls,
@@ -346,35 +345,34 @@ PartitionViewSlices = \
             "lndarray_view_slice_n"
         ]
     )
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    PartitionViewSlices.__doc__ =\
-        """
-        Stores multiple :obj:`tuple`-of-:obj:`slice` objects indicating
-        the slice (tile) of the :obj:`lndarray` on which a :samp:`intra_locale_comm`
-        rank MPI process operates.
-        """
-    PartitionViewSlices.rank_view_slice_n.__doc__ =\
-        """
-        Slice indicating tile of the non-halo array.
-        """
-    PartitionViewSlices.rank_view_slice_h.__doc__ =\
-        """
-        The slice :attr:`rank_view_slice_n` with halo added.
-        """
-    PartitionViewSlices.rank_view_relative_slice_n.__doc__ =\
-        """
-        *Relative* slice which can be used to remove the
-        halo elements from a view generated using :attr:`rank_view_slice_h`.
-        """
-    PartitionViewSlices.rank_view_partition_slice_h.__doc__ =\
-        """
-        Slice indicating tile of the halo array.
-        """
-    PartitionViewSlices.lndarray_view_slice_n.__doc__ =\
-        """
-        Slice for generating a view of a :obj:`lndarray` with
-        the halo removed.
-        """
+PartitionViewSlices.__doc__ =\
+    """
+    Stores multiple :obj:`tuple`-of-:obj:`slice` objects indicating
+    the slice (tile) of the :obj:`lndarray` on which a :samp:`intra_locale_comm`
+    rank MPI process operates.
+    """
+PartitionViewSlices.rank_view_slice_n.__doc__ =\
+    """
+    Slice indicating tile of the non-halo array.
+    """
+PartitionViewSlices.rank_view_slice_h.__doc__ =\
+    """
+    The slice :attr:`rank_view_slice_n` with halo added.
+    """
+PartitionViewSlices.rank_view_relative_slice_n.__doc__ =\
+    """
+    *Relative* slice which can be used to remove the
+    halo elements from a view generated using :attr:`rank_view_slice_h`.
+    """
+PartitionViewSlices.rank_view_partition_slice_h.__doc__ =\
+    """
+    Slice indicating tile of the halo array.
+    """
+PartitionViewSlices.lndarray_view_slice_n.__doc__ =\
+    """
+    Slice for generating a view of a :obj:`lndarray` with
+    the halo removed.
+    """
 
 #: Cache for locale array partitioning
 _intra_partition_cache = _collections.defaultdict(lambda: None)
@@ -530,7 +528,6 @@ class LndarrayProxy(object):
         Splits :samp:`{extent}` into :samp:`self.intra_locale_size` number
         of tiles.
         """
-        global _intra_partition_cache
         key = \
             (
                 intra_locale_size,
@@ -593,7 +590,7 @@ class LndarrayProxy(object):
                                 halo=0,
                             )
                         split = shape_splitter.calculate_split()
-                        rank_view_partition_h = split.flatten()[intra_locale_rank]
+                        rank_view_partition_h = tuple(split.flatten()[intra_locale_rank])
                     lndarray_view_slice_n = extent.globale_to_locale_extent_h(extent).to_slice_n()
 
             partition_pair = \

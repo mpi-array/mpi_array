@@ -463,7 +463,7 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         self._dst_buffer = origin_dst_buffer
 
         mpi_win.Get(
-            [self._buffer, _np.product(self._buffer.shape),
+            [self._buffer, _np.prod(self._buffer.shape),
              self._src._parent_mpi_data_type],
             target_src_rank,
             [0, 1, self.src_data_type]
@@ -476,7 +476,7 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         self._dst_buffer = origin_dst_buffer
 
         r = mpi_win.Rget(
-            [self._buffer, _np.product(self._buffer.shape),
+            [self._buffer, _np.prod(self._buffer.shape),
              self._src._parent_mpi_data_type],
             target_src_rank,
             [0, 1, self.src_data_type]
@@ -992,8 +992,8 @@ class UpdatesForRedistribute(object):
         total_src_update_elems = 0
         for i in range(len(all_updates)):
             u0 = all_updates[i]
-            total_dst_update_elems += _np.product(u0.dst_update_extent.shape)
-            total_src_update_elems += _np.product(u0.src_update_extent.shape)
+            total_dst_update_elems += _np.prod(u0.dst_update_extent.shape)
+            total_src_update_elems += _np.prod(u0.src_update_extent.shape)
             for j in range(0, i):
                 u1 = all_updates[j]
                 isect = u0.dst_update_extent.calc_intersection(u1.dst_update_extent)
@@ -1006,7 +1006,7 @@ class UpdatesForRedistribute(object):
 
         globale_intersect = \
             self._dst_distrib.globale_extent.calc_intersection(self._src_distrib.globale_extent)
-        total_intersect_elems = _np.product(globale_intersect.shape)
+        total_intersect_elems = _np.prod(globale_intersect.shape)
 
         if total_intersect_elems != total_dst_update_elems:
             msg += \

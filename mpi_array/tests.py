@@ -12,7 +12,6 @@ Execute as::
 """
 from __future__ import absolute_import
 
-import sys as _sys
 import re as _re
 import unittest as _unittest
 import doctest as _doctest  # noqa: E402,F401
@@ -34,20 +33,17 @@ class MultiPlatformAnd23Checker(_doctest_OuputChecker):
 
     """
     Overrides the :meth:`doctest.OutputChecker.check_output` method
-    to remove the :samp:`'L'` from integer literals
+    to remove the :samp:`", dtype=int64)"` from array representations
+    (the default integer type differs between platforms).
     """
 
     def check_output(self, want, got, optionflags):
         """
-        For python-2 replaces "124L" with "124". For python 2 and 3,
-        replaces :samp:`", dtype=int64)"` with :samp:`")"`.
+        Replaces :samp:`", dtype=int64)"` with :samp:`")"`.
 
         See :meth:`doctest.OutputChecker.check_output`.
 
         """
-        if _sys.version_info[0] <= 2:
-            got = _re.sub("([0-9]+)L", "\\1", got)
-
         got = _re.sub(", dtype=int64\\)", ")", got)
 
         return _doctest_OuputChecker.check_output(self, want, got, optionflags)

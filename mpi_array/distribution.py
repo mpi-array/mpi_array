@@ -344,8 +344,8 @@ class LocaleExtent(HaloSubExtent):
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
-                    repr(self.peer_rank),
-                    repr(self.inter_locale_rank),
+                    repr(int(self.peer_rank)),
+                    repr(int(self.inter_locale_rank)),
                 )
             )
 
@@ -562,10 +562,10 @@ class CartLocaleExtent(LocaleExtent):
                     repr(self.start_n.tolist()),
                     repr(self.stop_n.tolist()),
                     repr(self.halo.tolist()),
-                    repr(self.peer_rank),
-                    repr(self.inter_locale_rank),
-                    repr(tuple(self.cart_coord)),
-                    repr(tuple(self.cart_shape)),
+                    repr(int(self.peer_rank)),
+                    repr(int(self.inter_locale_rank)),
+                    repr(tuple(_np.asarray(self.cart_coord).tolist())),
+                    repr(tuple(_np.asarray(self.cart_shape).tolist())),
                 )
             )
 
@@ -1113,7 +1113,7 @@ class BlockPartition(Distribution):
         :type dims: sequence of :obj:`int`
         :param dims: The number of partitions along each
             dimension, :samp:`len({dims}) == len({globale_extent}.shape_n)`
-            and :samp:`num_locales = numpy.product({dims})`.
+            and :samp:`num_locales = numpy.prod({dims})`.
         :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(len({shape}), 2)` shaped array.
         :param halo: Number of *ghost* elements added per axis
            (low-index number of ghost elements may differ to the

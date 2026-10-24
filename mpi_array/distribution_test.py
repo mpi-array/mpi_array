@@ -379,7 +379,7 @@ class CartLocaleExtentTest(_unittest.TestCase):
                     slice=splt[tuple(_np.unravel_index(r, splt.shape))],
                     halo=halo
                 )
-                for r in range(0, _np.product(splt.shape))
+                for r in range(0, _np.prod(splt.shape))
             ]
 
         self.assertEqual(0, de[0].cart_rank)

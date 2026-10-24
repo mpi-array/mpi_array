@@ -93,11 +93,25 @@ class UfuncResultTypeTest(_unittest.TestCase):
         rank_logger.debug("dtypes=%s", dtypes)
         self.assertSequenceEqual((_np.dtype('f'),), dtypes)
 
+        # Python scalars are weakly typed (NEP 50), the result does
+        # not depend on the value (5.0e150 overflows float32).
         inputs = (_np.array([1, 2], dtype='f'), 5.0e150)
         outputs = None
         dtypes = ufunc_result_type(uft, inputs, outputs)
         rank_logger.debug("dtypes=%s", dtypes)
+        self.assertSequenceEqual((_np.dtype('f'),), dtypes)
+
+        inputs = (_np.array([1, 2], dtype='f'), _np.asarray(5.0))
+        outputs = None
+        dtypes = ufunc_result_type(uft, inputs, outputs)
         self.assertSequenceEqual((_np.dtype('d'),), dtypes)
+
+        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, False))
+        self.assertSequenceEqual((_np.dtype('?'),), dtypes)
+        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, 1))
+        self.assertSequenceEqual((_np.dtype('b'),), dtypes)
+        dtypes = ufunc_result_type(['??->?', 'bb->b', 'ff->f'], (True, 1.0))
+        self.assertSequenceEqual((_np.dtype('f'),), dtypes)
 
         inputs = (_np.array([1, 2], dtype='complex128'), 5.0e150)
         outputs = None
@@ -167,6 +181,56 @@ class UfuncResultTypeTest(_unittest.TestCase):
         self.assertRaises(
             ValueError,
             ufunc_result_type, uft, inputs, outputs
+        )
+
+    def test_numpy_ufunc(self):
+        """
+        :obj:`unittest.TestCase` for :func:`mpi_array.globale_ufunc.ufunc_result_type`,
+        with a :obj:`numpy.ufunc` (types resolved with :meth:`numpy.ufunc.resolve_dtypes`).
+        Result types must match those of the :obj:`numpy.ufunc` call.
+        """
+        cases = \
+            (
+                (_np.add, (_np.zeros((2,), dtype="uint16"), 1)),
+                (_np.add, (_np.zeros((2,), dtype="int8"), 2.5)),
+                (_np.add, (_np.zeros((2,), dtype="float32"), 2.0)),
+                (_np.add, (_np.zeros((2,), dtype="float32"), 2.0j)),
+                (_np.add, (_np.zeros((2,), dtype="int32"), _np.asarray(2))),
+                (_np.add, (_np.zeros((2,), dtype="bool"), 1)),
+                (_np.multiply, (3, _np.zeros((2,), dtype="int16"))),
+                (_np.frexp, (_np.zeros((2,), dtype="float32"),)),
+                (_np.divmod, (_np.zeros((2,), dtype="int16"), 3)),
+            )
+        for ufunc, inputs in cases:
+            expected = ufunc(*inputs)
+            if not isinstance(expected, tuple):
+                expected = (expected,)
+            self.assertSequenceEqual(
+                tuple(e.dtype for e in expected),
+                ufunc_result_type(ufunc, inputs, casting="same_kind")
+            )
+
+        inputs = (_np.zeros((2,), dtype="float32"), _np.zeros((2,), dtype="float32"))
+        self.assertSequenceEqual(
+            (_np.dtype("float64"),),
+            ufunc_result_type(_np.add, inputs, (_np.zeros((2,), dtype="float64"),))
+        )
+        self.assertRaises(
+            TypeError,
+            ufunc_result_type,
+            _np.add,
+            inputs,
+            (_np.zeros((2,), dtype="int8"),),
+            "same_kind"
+        )
+        self.assertSequenceEqual(
+            (_np.dtype("float32"), _np.dtype("int32")),
+            ufunc_result_type(
+                _np.frexp,
+                (_np.zeros((2,), dtype="float32"),),
+                (None, None),
+                "same_kind"
+            )
         )
 
     def test_example(self):
@@ -737,7 +801,9 @@ class GndarrayUfuncTest(_unittest.TestCase):
         which requires remote fetch of data when broadcasting to result shape.
         """
         with \
-                _ones((61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_a) as a,\
+                _ones(
+                    (61, 53, 5), dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_a
+                ) as a, \
                 _ones(a.shape, dtype="int32", locale_type=_comms.LT_PROCESS, halo=halo_b) as b:
             a_orig_halo = a.distribution.halo
             b_orig_halo = b.distribution.halo
@@ -784,6 +850,36 @@ class GndarrayUfuncTest(_unittest.TestCase):
             halo_b=[[1, 2], [3, 4], [2, 1]]
         )
 
+    def test_python_scalar_dtype_parity(self):
+        """
+        Result dtypes of :obj:`mpi_array.globale.gndarray` and Python scalar ufunc
+        operations match those of :obj:`numpy.ndarray` (Python scalars are weakly
+        typed, NEP 50), and in-place operations keep the array dtype.
+        """
+        gshape = (16, 9)
+        cases = \
+            (
+                ("uint16", 1),
+                ("int8", 2.5),
+                ("float32", 2.0),
+                ("float32", 2.0j),
+                ("int32", 2),
+                ("bool", 1),
+                ("int16", _np.int64(2)),
+                ("int16", _np.asarray(2)),
+            )
+        for dtype, scalar in cases:
+            npy_result = _np.ones(gshape, dtype=dtype) + scalar
+            with _ones(gshape, dtype=dtype, locale_type=LT_PROCESS) as gary:
+                with (gary + scalar) as gary_result:
+                    self.assertEqual(npy_result.dtype, gary_result.dtype)
+                    self.assertTrue((gary_result == npy_result.flat[0]).all())
+
+        with _ones(gshape, dtype="uint16", locale_type=LT_PROCESS) as gary:
+            gary += 1
+            self.assertEqual(_np.dtype("uint16"), gary.dtype)
+            self.assertTrue((gary == 2).all())
+
     def test_ufunc_casting_arg(self):
         """
         Test ufunc with casting argument.
@@ -804,7 +900,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
     def test_check_equivalent_inter_locale_comms(self):
 
         with \
-                _empty((50, 50, 50), locale_type=LT_NODE) as gary0,\
+                _empty((50, 50, 50), locale_type=LT_NODE) as gary0, \
                 _empty((50, 50, 50), locale_type=LT_PROCESS) as gary1:
 
             if gary1.distribution.num_locales > 1:
@@ -818,12 +914,19 @@ class GndarrayUfuncTest(_unittest.TestCase):
         uf = _np.add
         with _empty((50, 50, 50), locale_type=LT_NODE) as gary0:
 
-            for method in ["reduce", "accumulate", "reduceat", "at", "outer"]:
+            method_args = \
+                (
+                    ("reduce", (gary0,)),
+                    ("accumulate", (gary0,)),
+                    ("reduceat", (gary0, [0, 1])),
+                    ("at", (gary0, [0, 1], 5.0)),
+                    ("outer", (gary0, 5.0)),
+                )
+            for method, args in method_args:
                 self.assertRaises(
                     TypeError,
                     getattr(uf, method),
-                    gary0,
-                    5.0
+                    *args
                 )
 
 

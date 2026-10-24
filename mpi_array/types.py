@@ -90,7 +90,7 @@ def create_datatype(dtyp):
     elif dtyp.subdtype is not None:
         datatype = \
             find_or_create_datatype(dtyp.subdtype[0]).Create_contiguous(
-                _np.product(dtyp.subdtype[1]))
+                _np.prod(dtyp.subdtype[1]))
     else:
         datatype = _mpi.BYTE.Create_contiguous(dtyp.itemsize)
 

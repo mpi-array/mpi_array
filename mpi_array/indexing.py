@@ -293,7 +293,11 @@ class IndexingExtent(object):
             (
                 "%s(start=%s, stop=%s)"
                 %
-                (self.__class__.__name__, tuple(self.start), tuple(self.stop))
+                (
+                    self.__class__.__name__,
+                    tuple(_np.asarray(self.start).tolist()),
+                    tuple(_np.asarray(self.stop).tolist())
+                )
             )
 
     def __str__(self):
@@ -478,14 +482,14 @@ class HaloIndexingExtent(IndexingExtent):
         """
         Integer indicating the number of elements in this extent without halo ("no halo")
         """
-        return _np.product(self.shape_n)
+        return _np.prod(self.shape_n)
 
     @property
     def size_h(self):
         """
         Integer indicating the number of elements in this extent including halo.
         """
-        return _np.product(self.shape_h)
+        return _np.prod(self.shape_h)
 
     def __eq__(self, other):
         """

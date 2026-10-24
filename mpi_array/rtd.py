@@ -39,10 +39,7 @@ def initialise_mock_modules(module_name_list):
 
     """
     import sys as _sys
-    try:
-        from unittest.mock import MagicMock as _MagicMock
-    except (ImportError,):
-        from mock import Mock as _MagicMock
+    from unittest.mock import MagicMock as _MagicMock
 
     class Mock(_MagicMock):
 

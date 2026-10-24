@@ -1,16 +1,24 @@
 from __future__ import absolute_import
-import pkg_resources as _pkg_resources
+from importlib.resources import files as _files
 
-__copyright__ = _pkg_resources.resource_string("mpi_array", "copyright.txt").decode()
+
+def _read_package_text(file_name):
+    """
+    Returns the text of the :mod:`mpi_array` package data file :samp:`{file_name}`.
+    """
+    return _files("mpi_array").joinpath(file_name).read_text(encoding="utf-8")
+
+
+__copyright__ = _read_package_text("copyright.txt")
 __license__ = (
     __copyright__
     +
     "\n\n"
     +
-    _pkg_resources.resource_string("mpi_array", "license.txt").decode()
+    _read_package_text("license.txt")
 )
 __author__ = "Shane J. Latham"
-__version__ = _pkg_resources.resource_string("mpi_array", "version.txt").decode().strip()
+__version__ = _read_package_text("version.txt").strip()
 
 
 def version():

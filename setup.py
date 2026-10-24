@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 import os
-import sys
 import subprocess
 
 
@@ -25,29 +24,30 @@ def read_readme():
 
 
 def create_git_describe():
+    cmd = ["git", "describe"]
     try:
-        cmd = ["git", "describe"]
         p = \
             subprocess.Popen(
                 cmd,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
             )
-        p.wait()
+        stdout, stderr = p.communicate()
         if p.returncode != 0:
             e = \
                 subprocess.CalledProcessError(
                     returncode=p.returncode,
                     cmd=cmd
                 )
-            setattr(e, "output", " ".join([i.decode() for i in p.communicate()]))
+            setattr(e, "output", " ".join([stdout.decode(), stderr.decode()]))
 
             raise e
         # Write the git describe to text file
-        open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(p.communicate()[0].decode())
+        open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(stdout.decode())
     except (Exception,) as e:
-        # Try and make up a git-describe like string.
-        print("Problem with '%s': %s: %s" % (" ".join(cmd), e, e.output))
+        # Try and make up a git-describe like string
+        # (e.g. git is not installed, or not a git repository).
+        print("Problem with '%s': %s: %s" % (" ".join(cmd), e, getattr(e, "output", "")))
         version_str = open(os.path.join("mpi_array", "version.txt"), "rt").read().strip()
         if ("TRAVIS_TAG" in os.environ.keys()) and (len(os.environ["TRAVIS_TAG"]) > 0):
             version_str = os.environ["TRAVIS_TAG"]
@@ -63,40 +63,12 @@ create_git_describe()
 
 _long_description = read_readme()
 
-mpi4py_requires = ["mpi4py>=2.0", ]
-mock_requires = []
+mpi4py_requires = ["mpi4py>=3.1", ]
 
 if "READTHEDOCS" in os.environ.keys():
     # Skip mpi4py dependency, can't install an MPI implementation
     # in readthedocs.org virtual machine.
     mpi4py_requires = []
-    if sys.version_info < (3,3,0):
-        mock_requires = ["mock"]
-
-other_requires = mpi4py_requires + mock_requires
-
-sphinx_requires = []
-
-# Only require sphinx for CI and readthedocs.org. 
-if (
-    (os.environ.get('READTHEDOCS', None) is not None)
-    or
-    (os.environ.get('CI', None) is not None)
-    or
-    (os.environ.get('TRAVIS', None) is not None)
-    or
-    (os.environ.get('APPVEYOR', None) is not None)
-):
-    sphinx_requires = ["sphinx>=1.4,<1.6", "sphinx_rtd_theme", ]
-
-if (
-    (int(sys.version_info[0]) < 2)
-    or
-    ((int(sys.version_info[0]) == 2) and (int(sys.version_info[1]) <= 6))
-    or
-    ((int(sys.version_info[0]) == 3) and (int(sys.version_info[1]) <= 3))
-):
-    sphinx_requires = []
 
 setup(
     name="mpi_array",
@@ -132,25 +104,27 @@ setup(
         # Pick your license as you wish (should match "license" above)
         'License :: OSI Approved :: MIT License',
 
-        # Specify the Python versions you support here. In particular, ensure
-        # that you indicate whether you support Python 2, Python 3 or both.
-        'Programming Language :: Python :: 2',
-        'Programming Language :: Python :: 2.7',
+        # Specify the Python versions you support here.
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.3',
-        'Programming Language :: Python :: 3.4',
-        'Programming Language :: Python :: 3.5',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3 :: Only',
+        'Programming Language :: Python :: 3.10',
+        'Programming Language :: Python :: 3.11',
+        'Programming Language :: Python :: 3.12',
+        'Programming Language :: Python :: 3.13',
+        'Programming Language :: Python :: 3.14',
         'Natural Language :: English',
     ],
+    python_requires=">=3.10",
     install_requires= \
         [
-            "numpy>=1.13.0",
+            "numpy>=1.24",
             "array_split>=0.4.0",
             "psutil>=4.3.0",
         ]
-        + sphinx_requires
-        + other_requires,
+        + mpi4py_requires,
+    extras_require={
+        "docs": ["sphinx", "sphinx_rtd_theme", ],
+    },
     package_data={
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]
     },

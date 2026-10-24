@@ -77,12 +77,73 @@ def get_dtype_and_ndim(array_like):
     return dt, nd
 
 
+def is_python_scalar(obj):
+    """
+    Returns :samp:`True` if :samp:`{obj}` is a Python :obj:`bool`, :obj:`int`, :obj:`float`
+    or :obj:`complex` (but not a :obj:`numpy.generic` scalar).
+    Under `NEP 50 <https://numpy.org/neps/nep-0050-scalar-promotion.html>`_
+    these Python scalars are *weakly* typed in :obj:`numpy.ufunc` calls,
+    e.g. :samp:`uint16_array + 1` stays :samp:`uint16`.
+
+    :type obj: :obj:`object`
+    :param obj: Object to check.
+    :rtype: :obj:`bool`
+    :return: :samp:`True` if :samp:`{obj}` is a Python scalar.
+
+    Example::
+
+       >>> import numpy as np
+       >>> is_python_scalar(2), is_python_scalar(2.0), is_python_scalar(np.float64(2.0))
+       (True, True, False)
+    """
+    return isinstance(obj, (int, float, complex)) and not isinstance(obj, _np.generic)
+
+
+def _weak_scalar_kinds(obj):
+    """
+    Returns the :attr:`numpy.dtype.kind` values to which the weakly typed
+    Python scalar :samp:`{obj}` can be cast (as for a NEP 50 promotion).
+    """
+    if isinstance(obj, bool):
+        return "biufc"
+    if isinstance(obj, int):
+        return "iufc"
+    if isinstance(obj, float):
+        return "fc"
+    return "c"
+
+
+def _resolve_dtypes_operand(obj):
+    """
+    Returns the :meth:`numpy.ufunc.resolve_dtypes` operand for :samp:`{obj}`,
+    i.e. the :obj:`int`, :obj:`float` or :obj:`complex` class for (weak) Python scalars,
+    otherwise a :obj:`numpy.dtype`.
+    """
+    if is_python_scalar(obj) and not isinstance(obj, bool):
+        if isinstance(obj, int):
+            return int
+        if isinstance(obj, float):
+            return float
+        return complex
+    return get_dtype_and_ndim(obj)[0]
+
+
+def _output_dtype(output):
+    """
+    Returns the :obj:`numpy.dtype` of a ufunc output (:samp:`None` if :samp:`{output}` is None).
+    """
+    if output is None:
+        return None
+    return output.dtype if hasattr(output, "dtype") else _np.asarray(output).dtype
+
+
 def ufunc_result_type(
     ufunc_types,
     inputs,
     outputs=None,
     casting="safe",
-    input_match_casting="safe"
+    input_match_casting="safe",
+    signature=None
 ):
     """
     Attempts to calculate the result type from given ufunc :samp:`{inputs}`
@@ -91,24 +152,38 @@ def ufunc_result_type(
     handles :obj:`mpi_array.globale.gndarray` in the :samp:`{inputs}`
     and handles multiple :samp:`{outputs}` cases.
 
-    :type ufunc_types: sequence of `str`
-    :param ufunc_types: The :attr:`numpy.ufunc.types` attribute,
-       e.g. :samp:`['??->?', 'bb->b', 'BB->B', 'hh->h', 'HH->H', ..., 'mm->m', 'mM->M', 'OO->O']`.
+    Python scalars in :samp:`{inputs}` are treated as weakly typed
+    (`NEP 50 <https://numpy.org/neps/nep-0050-scalar-promotion.html>`_),
+    the result never depends on scalar values.
+
+    :type ufunc_types: :obj:`numpy.ufunc` or sequence of `str`
+    :param ufunc_types: Either the :obj:`numpy.ufunc` itself, in which case the
+       types are resolved exactly as NumPy does (using :meth:`numpy.ufunc.resolve_dtypes`),
+       or the :attr:`numpy.ufunc.types` attribute,
+       e.g. :samp:`['??->?', 'bb->b', 'BB->B', 'hh->h', 'HH->H', ..., 'mm->m', 'mM->M', 'OO->O']`,
+       in which case the first matching loop is chosen.
     :type inputs: sequence of :obj:`object`
     :param inputs: The inputs (e.g. :obj:`numpy.ndarray`, scalars
        or :obj:`mpi_array.globale.gndarray`) to a :obj:`numpy.ufunc` call.
     :type outputs: :samp:`None` or sequence of :obj:`object`
     :param outputs: The output arrays these are explicitly checked casting correctness.
+       :samp:`None` elements indicate outputs which are not specified.
     :type casting: :obj:`str` :samp:`{'no', 'equiv', 'safe', 'same_kind', 'unsafe'}`
     :param casting: Casting mode applied to outputs. See :func:`numpy.can_cast`.
     :type input_match_casting: :obj:`str` :samp:`{'no', 'equiv', 'safe', 'same_kind', 'unsafe'}`
     :param input_match_casting: Casting mode applied to match :samp:`{ufunc_types}` inputs
-       with the :samp:`{inputs}`. See :func:`numpy.can_cast`.
+       with the :samp:`{inputs}`. See :func:`numpy.can_cast`. Not used
+       when :samp:`{ufunc_types}` is a :obj:`numpy.ufunc`.
+    :type signature: :samp:`None` or sequence
+    :param signature: Only used when :samp:`{ufunc_types}` is a :obj:`numpy.ufunc`,
+       the :samp:`signature` argument of :meth:`numpy.ufunc.resolve_dtypes`.
     :rtype: :obj:`tuple` of :obj:`numpy.dtype`
     :return: A tuple of :obj:`numpy.dtype` indicating the output types produced for
-       the given inputs.
+       the given inputs. For specified outputs, the type is that of the output.
     :raises ValueError: If the the inputs (and outputs) cannot be cast to an
-       appropriate element of :samp:`{ufunc_types}`.
+       appropriate element of :samp:`{ufunc_types}` (sequence of :obj:`str`).
+    :raises TypeError: As raised by :meth:`numpy.ufunc.resolve_dtypes`
+       if no loop matches or an output cannot be cast (:obj:`numpy.ufunc`).
 
     Example::
 
@@ -127,133 +202,158 @@ def ufunc_result_type(
        >>> out += (mpia.zeros((10, 10, 10), dtype="uint16"),)
        >>> ufunc_result_type(['eee->e?', 'fff->f?', 'ddd->d?'], inputs=inp, outputs=out)
        (dtype('float64'), dtype('uint16'))
+       >>> ufunc_result_type(np.add, inputs=(np.zeros((4,), dtype='uint16'), 1))
+       (dtype('uint16'),)
        >>> mpia.free_all(inp + out)
     """
+    if isinstance(ufunc_types, _np.ufunc):
+        return \
+            _resolve_ufunc_result_types(
+                ufunc_types,
+                inputs,
+                outputs=outputs,
+                casting=casting,
+                signature=signature
+            )
+
     logger = _logging.get_rank_logger(__name__)
-    result_dtypes = None
-    ufunc_in_types = tuple(in2out_str.split("->")[0] for in2out_str in ufunc_types)
     ufunc_in_dtypes = \
-        _np.asarray(
-            tuple(
-                tuple(_np.dtype(c) for c in ufunc_in_types[i])
-                for i in range(len(ufunc_in_types))
-            )
+        tuple(
+            tuple(_np.dtype(c) for c in in2out_str.split("->")[0])
+            for in2out_str in ufunc_types
         )
-    ufunc_out_types = tuple(in2out_str.split("->")[1] for in2out_str in ufunc_types)
     ufunc_out_dtypes = \
-        _np.asarray(
-            tuple(
-                tuple(_np.dtype(c) for c in ufunc_out_types[i])
-                for i in range(len(ufunc_out_types))
-            )
+        tuple(
+            tuple(_np.dtype(c) for c in in2out_str.split("->")[1])
+            for in2out_str in ufunc_types
         )
 
-    in_dtypes_and_ndims = \
-        _np.asarray(tuple(get_dtype_and_ndim(input) for input in inputs))
-
-    in_dtypes = in_dtypes_and_ndims[:, 0]
-    in_ndims = in_dtypes_and_ndims[:, 1]
+    is_weak = tuple(is_python_scalar(input) for input in inputs)
+    in_dtypes = tuple(get_dtype_and_ndim(input)[0] for input in inputs)
 
     logger.debug("inputs=%s", inputs)
     logger.debug("in_dtypes=%s", in_dtypes)
-    logger.debug("in_ndims=%s", in_ndims)
     logger.debug("ufunc_in_dtypes=%s", ufunc_in_dtypes)
 
-    out_dtypes = None
-    if (outputs is not None) and (len(outputs) > 0):
-        out_dtypes = \
-            _np.asarray(
-                tuple(
-                    output.dtype
-                    if hasattr(output, "dtype") else _np.asarray(output).dtype
-                    for output in outputs
+    out_dtypes = ()
+    if outputs is not None:
+        out_dtypes = tuple(_output_dtype(output) for output in outputs)
+
+    def loop_matches(loop_in_dtypes, dtype_matches):
+        return \
+            (
+                (len(loop_in_dtypes) == len(inputs))
+                and
+                all(
+                    (loop_in_dtypes[j].kind in _weak_scalar_kinds(inputs[j]))
+                    if is_weak[j] else
+                    dtype_matches(in_dtypes[j], loop_in_dtypes[j])
+                    for j in range(len(inputs))
                 )
             )
 
+    # Prefer a loop which exactly matches the (non Python scalar) input types,
+    # otherwise take the first loop to which the inputs can be cast.
     idx = None
-    idxs = _np.where(_np.logical_and.reduce(ufunc_in_dtypes == in_dtypes, axis=1))
-    if len(idxs) > 0 and len(idxs[0]) > 0:
-        idx = idxs[0][0]
+    for dtype_matches in (
+        lambda dt, loop_dt: dt == loop_dt,
+        lambda dt, loop_dt: _np.can_cast(dt, loop_dt, casting=input_match_casting)
+    ):
+        idxs = \
+            tuple(
+                i for i in range(len(ufunc_in_dtypes))
+                if loop_matches(ufunc_in_dtypes[i], dtype_matches)
+            )
+        if len(idxs) > 0:
+            idx = idxs[0]
+            break
 
     if idx is None:
-        in_scalars_and_dtypes = \
-            tuple(
-                inputs[i]
-                if in_ndims[i] <= 0 else in_dtypes[i]
-                for i in range(len(inputs))
-            )
-        idxs = \
-            _np.where(
-                _np.asarray(
-                    tuple(
-                        _np.all(
-                            tuple(
-                                _np.can_cast(
-                                    in_scalars_and_dtypes[j],
-                                    ufunc_in_dtypes[i, j],
-                                    casting=input_match_casting
-                                )
-                                for j in range(ufunc_in_dtypes.shape[1])
-                            )
-                        )
-                        for i in range(ufunc_in_dtypes.shape[0])
-                    )
-                )
-            )
-        if len(idxs) > 0 and len(idxs[0]) > 0:
-            idx = idxs[0][0]
-
-    if idx is not None:
-        ufunc_out_dtypes_for_in = ufunc_out_dtypes[idx]
-        if (
-            (out_dtypes is not None)
-            and
-            _np.any(ufunc_out_dtypes_for_in[:len(out_dtypes)] != out_dtypes)
-        ):
-            if (
-                _np.any(
-                    tuple(
-                        not _np.can_cast(ufunc_out_dtypes_for_in[i], out_dtypes[i], casting=casting)
-                        for i in range(len(out_dtypes))
-                    )
-                )
-            ):
-                raise ValueError(
-                    "Could not cast ufunc-output-types %s to desired output-types = %s."
-                    %
-                    (
-                        tuple(ufunc_out_dtypes_for_in),
-                        tuple(out_dtypes)
-                    )
-                )
-        if out_dtypes is None:
-            out_dtypes = _np.array((), dtype='O')
-        result_dtypes = \
-            tuple(
-                out_dtypes.tolist()
-                +
-                ufunc_out_dtypes_for_in[len(out_dtypes):].tolist()
-            )
-    else:
         raise ValueError(
             "Could not cast (with input_match_casting='%s') inputs types = %s to ufunc types=\n%s"
             %
             (input_match_casting, in_dtypes, ufunc_in_dtypes, )
         )
 
-    return result_dtypes
+    ufunc_out_dtypes_for_in = ufunc_out_dtypes[idx]
+    if len(out_dtypes) > len(ufunc_out_dtypes_for_in):
+        raise ValueError(
+            "Got %s outputs, but ufunc loop %s only has %s outputs."
+            %
+            (len(out_dtypes), ufunc_types[idx], len(ufunc_out_dtypes_for_in))
+        )
+    for i in range(len(out_dtypes)):
+        if (
+            (out_dtypes[i] is not None)
+            and
+            (out_dtypes[i] != ufunc_out_dtypes_for_in[i])
+            and
+            (not _np.can_cast(ufunc_out_dtypes_for_in[i], out_dtypes[i], casting=casting))
+        ):
+            raise ValueError(
+                "Could not cast ufunc-output-types %s to desired output-types = %s."
+                %
+                (
+                    tuple(ufunc_out_dtypes_for_in),
+                    out_dtypes
+                )
+            )
+
+    return \
+        tuple(
+            out_dtypes[i]
+            if (i < len(out_dtypes)) and (out_dtypes[i] is not None) else
+            ufunc_out_dtypes_for_in[i]
+            for i in range(len(ufunc_out_dtypes_for_in))
+        )
+
+
+def _resolve_ufunc_result_types(ufunc, inputs, outputs=None, casting="same_kind", signature=None):
+    """
+    Returns the output :obj:`numpy.dtype` elements for a :samp:`{ufunc}` call,
+    resolved by :meth:`numpy.ufunc.resolve_dtypes` (so NumPy promotion rules apply,
+    Python scalars are weakly typed). For specified outputs, the type is that of the output.
+    """
+    if len(inputs) != ufunc.nin:
+        raise TypeError(
+            "%s takes %s inputs, got %s." % (ufunc.__name__, ufunc.nin, len(inputs))
+        )
+    out_dtypes = [None, ] * ufunc.nout
+    if outputs is not None:
+        if len(outputs) > ufunc.nout:
+            raise TypeError(
+                "%s has %s outputs, got %s." % (ufunc.__name__, ufunc.nout, len(outputs))
+            )
+        for i in range(len(outputs)):
+            out_dtypes[i] = _output_dtype(outputs[i])
+
+    kwargs = dict(casting=casting)
+    if signature is not None:
+        kwargs["signature"] = signature
+    resolved = \
+        ufunc.resolve_dtypes(
+            tuple(_resolve_dtypes_operand(input) for input in inputs) + tuple(out_dtypes),
+            **kwargs
+        )
+
+    return \
+        tuple(
+            out_dtypes[i] if out_dtypes[i] is not None else resolved[ufunc.nin + i]
+            for i in range(ufunc.nout)
+        )
 
 
 def broadcast_shape(*shape_args):
     """
     Returns
-    the :mod:`numpy` `broadcast <https://docs.scipy.org/doc/numpy/user/basics.broadcasting.html>`_
-    shape for the give shape arguments.
+    the :mod:`numpy` `broadcast <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_
+    shape for the give shape arguments (see :func:`numpy.broadcast_shapes`).
 
     :type shape1, shape2, ...: sequence of `int`
     :param shape1, shape2, ...: Array shapes to be broadcast.
-    :rtype: sequence of `int`
+    :rtype: :obj:`tuple` of :obj:`int`
     :return: The broadcast shape.
+    :raises ValueError: If the shapes cannot be broadcast together.
 
     Examples::
 
@@ -265,25 +365,10 @@ def broadcast_shape(*shape_args):
         (4, 8, 3, 7)
         >>> broadcast_shape((3, 7), ())
         (3, 7)
+        >>> broadcast_shape((0,), (1,))
+        (0,)
     """
-    ndim = _np.max(tuple(len(shape) for shape in shape_args))
-
-    bcast_shape = ()
-    if ndim > 0:
-        ndim_shapes = \
-            _np.asarray(tuple((1,) * (ndim - len(shape)) + tuple(shape) for shape in shape_args))
-        bcast_shape = _np.amax(ndim_shapes, axis=0)
-
-        if (_np.any(_np.logical_and(ndim_shapes != 1, ndim_shapes != bcast_shape))):
-            raise ValueError(
-                "shape mismatch - objects cannot be broadcast to a single shape:\n%s"
-                %
-                (shape_args,)
-            )
-
-        bcast_shape = tuple(bcast_shape)
-
-    return bcast_shape
+    return tuple(int(s) for s in _np.broadcast_shapes(*(tuple(shape) for shape in shape_args)))
 
 
 def shape_extend_dims(ndim, shape):
@@ -452,12 +537,16 @@ def calc_matching_peer_rank_slices(out_slice, inp_arys):
 def convert_to_array_like(inputs):
     """
     Uses :obj:`numpy.asanyarray` to convert input ufunc arguments
-    to array-like objects.
+    to array-like objects. Python scalars (see :func:`is_python_scalar`) are
+    not converted, because NumPy treats them as weakly typed
+    (`NEP 50 <https://numpy.org/neps/nep-0050-scalar-promotion.html>`_),
+    e.g. :samp:`uint16_array + 1` stays :samp:`uint16` but :samp:`uint16_array + numpy.asarray(1)`
+    becomes :samp:`int64`.
 
     :type inputs: sequence of :obj:`object`
-    :param inputs: Elements of this sequence which to not have both :samp:`"shape"`
-       and :samp:`"ndim"` attributes are converted to a new object
-       using :obj:`numpy.asanyarray`.
+    :param inputs: Elements of this sequence which are not Python scalars and which
+       do not have both :samp:`"shape"` and :samp:`"ndim"` attributes are converted to
+       a new object using :obj:`numpy.asanyarray`.
     :rtype: sequence of :obj:`object`
     :return: Sequence where elements of :samp:`{inputs}` have been converted to array-like objects.
 
@@ -465,21 +554,26 @@ def convert_to_array_like(inputs):
        >>> import numpy as np
        >>> inputs = (np.array([1, 2, 3, 4], dtype="uint8"), 32.0, [[1, 2], [3, 4], [5, 6]])
        >>> convert_to_array_like(inputs)
-       (array([1, 2, 3, 4], dtype=uint8), array(32.0), array([[1, 2],
+       (array([1, 2, 3, 4], dtype=uint8), 32.0, array([[1, 2],
               [3, 4],
               [5, 6]]))
        >>> converted = convert_to_array_like(inputs)
        >>> converted[0] is inputs[0]
        True
        >>> converted[1] is inputs[1]
-       False
+       True
        >>> converted[2] is inputs[2]
        False
     """
     return \
         tuple(
             input
-            if hasattr(input, "shape") and hasattr(input, "ndim") else _np.asanyarray(input)
+            if (
+                is_python_scalar(input)
+                or
+                (hasattr(input, "shape") and hasattr(input, "ndim"))
+            ) else
+            _np.asanyarray(input)
             for input in inputs
         )
 
@@ -632,6 +726,23 @@ class GndarrayArrayUfuncExecutor(object):
         """
         return self._method
 
+    def get_signature(self):
+        """
+        Returns the :samp:`signature` (for :meth:`numpy.ufunc.resolve_dtypes`) given
+        by the :samp:`signature` or :samp:`dtype` ufunc keyword argument.
+
+        :rtype: :samp:`None` or :obj:`tuple`
+        :return: The ufunc signature, :samp:`None` if neither keyword argument was given.
+        :raises TypeError: If both :samp:`signature` and :samp:`dtype` were given.
+        """
+        signature = self._kwargs.get("signature", None)
+        dtype = self._kwargs.get("dtype", None)
+        if dtype is not None:
+            if signature is not None:
+                raise TypeError("cannot specify both 'signature' and 'dtype'")
+            signature = (None,) * self.ufunc.nin + (_np.dtype(dtype),) * self.ufunc.nout
+        return signature
+
     def get_inputs_shapes(self):
         """
         Returns a *shape* :obj:`tuple` for each element of :attr:`inputs`.
@@ -783,7 +894,7 @@ class GndarrayArrayUfuncExecutor(object):
         out_globale_extent = out_gndarray.distribution.globale_extent
         out_locale_extent = out_gndarray.lndarray_proxy.locale_extent
         ret = None
-        if _np.product(out_locale_extent.shape_n) > 0:
+        if _np.prod(out_locale_extent.shape_n) > 0:
             inp_locale_extents = \
                 self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
             inp_locale_slices = \
@@ -889,7 +1000,7 @@ class GndarrayArrayUfuncExecutor(object):
                     # because of broadcasting rules.
                     need_remote = True
                     not_out_empty = \
-                        _np.product(out_s_ext[STOP_STR] - out_s_ext[START_STR], axis=1) > 0
+                        _np.prod(out_s_ext[STOP_STR] - out_s_ext[START_STR], axis=1) > 0
 
                     ndim = inp_gndary.ndim
 
@@ -929,7 +1040,14 @@ class GndarrayArrayUfuncExecutor(object):
         self.array_like_obj.rank_logger.debug("result_shape=%s", result_shape)
 
         # Calculate the result dtype for each output array
-        result_types = ufunc_result_type(self.ufunc.types, self.inputs, self.outputs, self.casting)
+        result_types = \
+            ufunc_result_type(
+                self.ufunc,
+                self.inputs,
+                self.outputs,
+                self.casting,
+                signature=self.get_signature()
+            )
         self.array_like_obj.rank_logger.debug("result_types=%s", result_types)
 
         # Create the output gndarray instances

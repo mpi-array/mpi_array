@@ -11,37 +11,9 @@ See the `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>
 from __future__ import absolute_import
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
 
-import sys as _sys
 from ...init import get_process_time_timer  # noqa: F401
 
 __license__ = "https://github.com/spacetelescope/asv/blob/master/LICENSE.rst"
-
-if _sys.version_info[0] <= 2:
-    # Work around lack of pickling of instance methods in python-2
-    from copy_reg import pickle as _pickle
-    from types import MethodType as _MethodType
-
-    def _pickle_method(method):
-        func_name = method.im_func.__name__
-        obj = method.im_self
-        cls = method.im_class
-        if func_name.startswith('__') and not func_name.endswith('__'):
-            cls_name = cls.__name__.lstrip('_')
-            if cls_name:
-                func_name = '_' + cls_name + func_name
-        return _unpickle_method, (func_name, obj, cls)
-
-    def _unpickle_method(func_name, obj, cls):
-        for cls in cls.mro():
-            try:
-                func = cls.__dict__[func_name]
-            except KeyError:
-                pass
-            else:
-                break
-        return func.__get__(obj, cls)
-
-    _pickle(_MethodType, _pickle_method, _unpickle_method)
 
 
 def try_import_for_setup(module_name):
@@ -83,15 +55,16 @@ class SpecificImporter(object):
         self._name = name
         self._root = root
 
-    def find_module(self, fullname, path=None):
+    def find_spec(self, fullname, path=None, target=None):
+        """
+        Returns the module spec for module :samp:`{fullname}` when it is the
+        module named in the constructor (searched for only in the :samp:`root` directory),
+        otherwise :samp:`None`.
+        """
         if fullname == self._name:
-            return self
+            from importlib.machinery import PathFinder
+            return PathFinder.find_spec(fullname, [self._root])
         return None
-
-    def load_module(self, fullname):
-        import imp
-        file, pathname, desc = imp.find_module(fullname, [self._root])
-        return imp.load_module(fullname, file, pathname, desc)
 
 
 def update_sys_path(root):

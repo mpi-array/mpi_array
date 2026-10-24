@@ -376,14 +376,13 @@ def create_ufunc_bench(module_name, ufunc_name, method_dict):
                 (bench_type,),
                 ufunc_bench_method_dict
             )
-        if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 4):
-            setattr(
-                ufunc_bench_type,
-                "__doc__",
-                ("Benchmark for :obj:`numpy." + ufunc_name + "` with :obj:`%s` array inputs.")
-                %
-                (_module_name_to_sphinx_doc_array_type[module_name],)
-            )
+        setattr(
+            ufunc_bench_type,
+            "__doc__",
+            ("Benchmark for :obj:`numpy." + ufunc_name + "` with :obj:`%s` array inputs.")
+            %
+            (_module_name_to_sphinx_doc_array_type[module_name],)
+        )
     except (AttributeError, ImportError, NotImplementedError):
         pass
     return ufunc_bench_type

@@ -304,7 +304,7 @@ def ones_like(ary, *args, **kwargs):
     return full_like(ary, 1, *args, **kwargs)
 
 
-def eye(N, M=None, k=0, dtype=_np.float):
+def eye(N, M=None, k=0, dtype=float):
     """
     Not implemented.
     Return a 2-D array with ones on the diagonal and zeros elsewhere.
@@ -390,7 +390,7 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     else:
         if "distrib_type" not in kwargs.keys() or kwargs["distrib_type"] is None:
             kwargs["distrib_type"] = _comms.DT_CLONED
-        np_ary = _np.array(a, dtype=dtype, order=order, copy=False, subok=True, ndmin=ndmin)
+        np_ary = _np.array(a, dtype=dtype, order=order, copy=None, subok=True, ndmin=ndmin)
         ret_ary = \
             empty(
                 shape=np_ary.shape,

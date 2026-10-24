@@ -103,13 +103,13 @@ Requirements
 
 Requires:
 
-   - python-2 version `>= 2.7` or python-3 version `>= 3.3`,
+   - python version `>= 3.10`,
    - `array_split <http://array-split.readthedocs.io/en/latest/>`_ version `>= 0.4.0`,
    - `psutil <https://pypi.python.org/pypi/psutil>`_ `>= 4.3.0`
-   - `numpy <http://docs.scipy.org/doc/numpy/>`_ version `>= 1.13` (require `__array_ufunc__ <https://docs.scipy.org/doc/numpy/user/basics.subclassing.html#array-ufunc-for-ufuncs>`_ API),
+   - `numpy <https://numpy.org/doc/stable/>`_ version `>= 1.24`,
    - an MPI implementation which supports at least MPI-3 (such as 
      `OpenMPI <http://openmpi.org/>`_, `MPICH <http://mpich.org/>`_ or `Intel MPI <https://software.intel.com/en-us/intel-mpi-library>`_)
-   - `mpi4py <http://pythonhosted.org/mpi4py/>`_ version `>= 2.0`.
+   - `mpi4py <https://mpi4py.readthedocs.io/>`_ version `>= 3.1`.
 
 
 Testing
@@ -121,13 +121,16 @@ docstring test-cases) using::
 
    python -m mpi_array.tests
 
-or, from the source tree, run::
-
-   python setup.py test
-
 Run tests with parallelism::
 
-   mpirun -n 8 python -m mpi_array.tests
+   mpirun -n 8 python -m mpi4py -m mpi_array.tests
+
+Launching with ``python -m mpi4py`` makes an unhandled exception on one rank abort all ranks.
+Each test runs with a hang-detection timeout (``MPI_ARRAY_TEST_TIMEOUT`` seconds, default 300):
+a deadlocked test makes every rank print its stack trace and exit.
+From the source tree, run the tests for 1, 2, 4 and 8 processes and print a summary::
+
+   python utils/run_mpi_tests.py
 
 Travis CI at:
 

@@ -56,7 +56,6 @@ Attributes
 from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
-import sys as _sys
 import copy as _copy
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -215,18 +214,17 @@ class CommsCache(object):
 
 
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    ThisLocaleInfo.__doc__ = \
-        """
-       Pair of communicator rank values :samp:`(inter_locale_rank, peer_rank)` which
-       indicates that the rank :samp:`inter_locale_rank` of the :samp:`inter_locale_comm`
-       communicator corresponds to the :samp:`peer_rank` rank of the :samp:`peer_comm`
-       communicator.
-       """
-    ThisLocaleInfo.inter_locale_rank.__doc__ = \
-        "A :obj:`int` indicating the rank of :samp:`inter_locale_comm` communicator."
-    ThisLocaleInfo.peer_rank.__doc__ = \
-        "A :obj:`int` indicating the rank of :samp:`peer_comm` communicator."
+ThisLocaleInfo.__doc__ = \
+    """
+   Pair of communicator rank values :samp:`(inter_locale_rank, peer_rank)` which
+   indicates that the rank :samp:`inter_locale_rank` of the :samp:`inter_locale_comm`
+   communicator corresponds to the :samp:`peer_rank` rank of the :samp:`peer_comm`
+   communicator.
+   """
+ThisLocaleInfo.inter_locale_rank.__doc__ = \
+    "A :obj:`int` indicating the rank of :samp:`inter_locale_comm` communicator."
+ThisLocaleInfo.peer_rank.__doc__ = \
+    "A :obj:`int` indicating the rank of :samp:`peer_comm` communicator."
 
 
 class RmaWindowBuffer(object):
@@ -388,7 +386,7 @@ class RmaWindowBuffer(object):
 
         .. seealso: :attr:`intra_locale_win_memory`
         """
-        return _np.array(self.intra_locale_win_memory, dtype='B', copy=False)
+        return _np.frombuffer(self.intra_locale_win_memory, dtype='B')
 
     def create_inter_locale_win(self):
         """
@@ -425,7 +423,9 @@ class RmaWindowBuffer(object):
             peer_buffer_nbytes = len(self.intra_locale_win_memory)
         else:
             peer_buffer_nbytes = 0
-            peer_buffer = None
+            # Zero-length buffer (Win.Create(None) fails with MPI_ERR_WIN
+            # on some MPI implementations, e.g. Open MPI 5 with mpi4py 4).
+            peer_buffer = bytearray(0)
 
         self.rank_logger.debug(
             "BEG: Win.Create for self.peer_comm, buffer.nbytes=%s...",
@@ -499,11 +499,10 @@ LocaleCommsInfo = \
             "root_logger"
         ]
     )
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    LocaleCommsInfo.__doc__ = \
-        """
-        Communicators associated with a locale.
-        """
+LocaleCommsInfo.__doc__ = \
+    """
+    Communicators associated with a locale.
+    """
 
 _comms_info_cache = CommsCache()
 
@@ -674,8 +673,6 @@ def get_locale_comms_info(
     Finds or creates a :obj:`LocaleCommsInfo` associated with
     the specified communicators. Collective over :samp:`{peer_comm}`.
     """
-    global _comms_info_cache
-
     key = (peer_comm, intra_locale_comm, inter_locale_comm)
     comms_info = _comms_info_cache.find(key)
     if comms_info is None:
@@ -804,7 +801,7 @@ class LocaleComms(object):
         locale_shape = shape
         rank_shape = locale_shape
         if self.intra_locale_comm.rank == 0:
-            num_rank_bytes = int(_np.product(rank_shape) * dtype.itemsize)
+            num_rank_bytes = int(_np.prod(rank_shape) * dtype.itemsize)
         else:
             rank_shape = tuple(_np.zeros_like(rank_shape))
         if self.intra_locale_comm.size > 1:
@@ -975,11 +972,10 @@ CartLocaleCommsInfo = \
             "cart_comm"
         )
     )
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    CartLocaleCommsInfo.__doc__ = \
-        """
-        Communicators associated with a cartesian topology locales.
-        """
+CartLocaleCommsInfo.__doc__ = \
+    """
+    Communicators associated with a cartesian topology locales.
+    """
 
 
 def get_cannonical_dims(num_locales, ndims=None, dims=None):
@@ -1040,7 +1036,7 @@ def create_cart_locale_comms_info(
             inter_locale_comm=inter_locale_comm
         )
     dims = get_cannonical_dims(num_locales=comms_info.num_locales, ndims=ndims, dims=dims)
-    periods = _np.zeros((len(dims),), dtype="bool")
+    periods = [False] * len(dims)
     inter_locale_comm = comms_info.inter_locale_comm
     if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
         comms_info.rank_logger.debug("BEG: inter_locale_comm.Create_cart to create cart_comm.")
@@ -1090,8 +1086,6 @@ def get_cart_locale_comms_info(
     Finds or creates a :obj:`CartLocaleCommsInfo` associated with
     the specified communicators. Collective over :samp:`{peer_comm}`.
     """
-    global _comms_info_cache
-
     key = (ndims, dims, peer_comm, intra_locale_comm, inter_locale_comm, cart_comm)
     comms_info = _comms_info_cache.find(key)
     if comms_info is None:
@@ -1159,7 +1153,7 @@ class CartLocaleComms(LocaleComms):
         :type dims: sequence of :obj:`int`
         :param dims: The number of partitions along each array axis, zero elements
            are replaced with positive integers such
-           that :samp:`numpy.product({dims}) == {peer_comm}.size`.
+           that :samp:`numpy.prod({dims}) == {peer_comm}.size`.
            If :samp:`None`, :samp:`{dims} = (0,)*{ndims}`.
         :type peer_comm: :obj:`mpi4py.MPI.Comm`
         :param peer_comm: The MPI processes which will have access
@@ -1342,26 +1336,25 @@ _valid_locale_types = [LT_NODE, LT_PROCESS]
 
 CommsAndDistribution = \
     _collections.namedtuple("CommsAndDistribution", ["locale_comms", "distribution", "this_locale"])
-if (_sys.version_info[0] >= 3) and (_sys.version_info[1] >= 5):
-    CommsAndDistribution.__doc__ = \
-        """
-       A 3 element tuple :samp:`(locale_comms, distribution, this_locale)`
-       describing the apportionment of array elements over MPI processes.
-       """
-    CommsAndDistribution.locale_comms.__doc__ = \
-        """
-       A :obj:`LocaleComms` object containing communicators for exchanging
-       data between locales.
-       """
-    CommsAndDistribution.distribution.__doc__ = \
-        """
-       A :obj:`mpi_array.distribution.Distribution` object describing the
-       apportionment of array elements over locales.
-       """
-    CommsAndDistribution.this_locale.__doc__ = \
-        """
-       A :obj:`ThisLocaleInfo` with rank pair pertinent for this locale.
-       """
+CommsAndDistribution.__doc__ = \
+    """
+   A 3 element tuple :samp:`(locale_comms, distribution, this_locale)`
+   describing the apportionment of array elements over MPI processes.
+   """
+CommsAndDistribution.locale_comms.__doc__ = \
+    """
+   A :obj:`LocaleComms` object containing communicators for exchanging
+   data between locales.
+   """
+CommsAndDistribution.distribution.__doc__ = \
+    """
+   A :obj:`mpi_array.distribution.Distribution` object describing the
+   apportionment of array elements over locales.
+   """
+CommsAndDistribution.this_locale.__doc__ = \
+    """
+   A :obj:`ThisLocaleInfo` with rank pair pertinent for this locale.
+   """
 
 
 def create_locale_comms(
@@ -1620,7 +1613,7 @@ def create_distribution(shape, distrib_type=None, locale_type=LT_NODE, **kwargs)
        or :attr:`mpi_array.comms.DT_CLONED` or :attr:`mpi_array.comms.DT_SINGLE_LOCALE`.
        Defines how the globale array is dstributed over locales.
        If :samp:`None` defaults to :attr:`mpi_array.comms.DT_BLOCK`
-       if :samp:`numpy.product(shape) > 0` otherwise :attr:`mpi_array.comms.DT_CLONED`.
+       if :samp:`numpy.prod(shape) > 0` otherwise :attr:`mpi_array.comms.DT_CLONED`.
     :type locale_type: :obj:`str`
     :param locale_type: One of :attr:`mpi_array.comms.DT_PROCESS`
        or :attr:`mpi_array.comms.DT_NODE`. Defines locales.
@@ -1649,7 +1642,7 @@ def create_distribution(shape, distrib_type=None, locale_type=LT_NODE, **kwargs)
        :func:`create_single_locale_distribution`
     """
     if distrib_type is None:
-        if _np.product(shape) > 0:
+        if _np.prod(shape) > 0:
             distrib_type = DT_BLOCK
         else:
             distrib_type = DT_CLONED

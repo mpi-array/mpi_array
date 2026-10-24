@@ -106,8 +106,7 @@ def get_source_code(items):
             src = "class {0}:\n    {1}".format(
                 class_name, src.replace("\n", "\n    "))
         elif class_name:
-            src = "    {1}".format(
-                class_name, src.replace("\n", "\n    "))
+            src = "    {0}".format(src.replace("\n", "\n    "))
 
         sources.append(src)
         prev_class_name = class_name
@@ -163,10 +162,7 @@ class Benchmark(object):
             self.setup_cache_timeout = _get_first_attr([self._setup_cache], "timeout", None)
             self.timeout = _get_first_attr(self._attr_sources, "timeout", 60.0)
             self.code = get_source_code([self.func] + self._setups + [self._setup_cache])
-            if sys.version_info[0] >= 3:
-                code_text = self.code.encode('utf-8')
-            else:
-                code_text = self.code
+            code_text = self.code.encode('utf-8')
             code_hash = sha256(code_text).hexdigest()
             self.version = str(_get_first_attr(self._attr_sources, "version", code_hash))
             self.type = "base"
@@ -833,10 +829,7 @@ class BenchmarkRunner(object):
         :rtype: :obj:`pstats.Stats`
         :return: Stats object initialised with data from :samp:`{profile_file_name}`.
         """
-        if sys.version_info[0] <= 2:
-            from StringIO import StringIO
-        else:
-            from io import StringIO
+        from io import StringIO
 
         profile_stats = pstats.Stats(profile_file_name, stream=StringIO())
 
@@ -990,7 +983,7 @@ class BenchmarkRunner(object):
                     param_iter = [(None, None)]
 
                 for param_idx, params in param_iter:
-                    started_at = datetime.datetime.utcnow()
+                    started_at = datetime.datetime.now(datetime.timezone.utc)
                     if param_idx is not None:
                         benchmark.set_param_idx(param_idx)
 
@@ -1054,7 +1047,8 @@ class BenchmarkRunner(object):
                     result["skip_reason"] = None
                     if skip:
                         result["skip_reason"] = str(skip_reason)
-                    result["walltime_finished_at"] = str(datetime.datetime.utcnow())
+                    result["walltime_finished_at"] = \
+                        str(datetime.datetime.now(datetime.timezone.utc))
                     result["walltime_started_at"] = str(started_at)
                     result["comm_name"] = self.comm.Get_name()
                     result["comm_size"] = self.comm.size

@@ -167,7 +167,7 @@ class LndarrayTest(_unittest.TestCase):
 
             g_sum = comms_and_distrib.locale_comms.peer_comm.allreduce(l_sum, op=_mpi.SUM)
 
-            self.assertEqual(_np.product(gshape), g_sum)
+            self.assertEqual(_np.prod(gshape), g_sum)
 
 
 class LndarrayProxyTest(_unittest.TestCase):

@@ -686,7 +686,10 @@ class gndarray(_NDArrayOperatorsMixin):
 
     @property
     def shape(self):
-        return self._comms_and_distrib.distribution.globale_extent.shape_n
+        """
+        The globale shape of the array, a :obj:`tuple` of :obj:`int`.
+        """
+        return tuple(int(s) for s in self._comms_and_distrib.distribution.globale_extent.shape_n)
 
     @property
     def dtype(self):

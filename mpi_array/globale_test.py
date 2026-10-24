@@ -90,7 +90,7 @@ class GndarrayTest(_unittest.TestCase):
                     gary.rank_view_n
                 )
                 self.assertEqual(
-                    _np.product(gary.rank_view_n.shape),
+                    _np.prod(gary.rank_view_n.shape),
                     _np.sum((gary.rank_view_n == rank_val).astype("uint32"), dtype="int64")
                 )
                 if _np.any(gary.rank_view_h.shape > gary.rank_view_n.shape):
@@ -133,7 +133,7 @@ class GndarrayTest(_unittest.TestCase):
                 ) as gary:
 
             self.assertSequenceEqual(gshp, tuple(gary.shape))
-            self.assertEqual(0, _np.product(gary.lndarray_proxy.locale_extent.shape_n))
+            self.assertEqual(0, _np.prod(gary.lndarray_proxy.locale_extent.shape_n))
             self.assertEqual(0, gary.lndarray_proxy.lndarray.size)
             self.assertEqual(0, gary.view_n.size)
 
@@ -148,7 +148,7 @@ class GndarrayTest(_unittest.TestCase):
                 as gary:
 
             self.assertSequenceEqual(gshp, tuple(gary.shape))
-            self.assertEqual(0, _np.product(gary.lndarray_proxy.locale_extent.shape_n))
+            self.assertEqual(0, _np.prod(gary.lndarray_proxy.locale_extent.shape_n))
             self.assertEqual(0, gary.lndarray_proxy.lndarray.size)
             self.assertEqual(0, gary.view_n.size)
 
@@ -172,13 +172,13 @@ class GndarrayTest(_unittest.TestCase):
                     _np.any(
                         _np.array(
                             tuple(
-                                _np.product(locale_extent.shape_n)
+                                _np.prod(locale_extent.shape_n)
                                 for locale_extent in gary.distribution.locale_extents
                             )
                         )
                     )
                 )
-                if _np.product(gary.lndarray_proxy.locale_extent.shape_n) == 0:
+                if _np.prod(gary.lndarray_proxy.locale_extent.shape_n) == 0:
                     gary.rank_logger.debug(
                         "gary.lndarray_proxy.locale_extent.shape_n=%s",
                         gary.lndarray_proxy.locale_extent.shape_n
@@ -388,7 +388,7 @@ class GndarrayTest(_unittest.TestCase):
             for axis in range(gary.ndim):
                 for dir in [LO, HI]:
                     halo_slab = gary.lndarray_proxy.locale_extent.halo_slab_extent(axis, dir)
-                    halo_slab_num_elems = _np.product(halo_slab.shape)
+                    halo_slab_num_elems = _np.prod(halo_slab.shape)
                     self.assertTrue((lhalo[axis, dir] == 0) or (halo_slab_num_elems > 0))
                     halo_slab = gary.lndarray_proxy.locale_extent.globale_to_locale_extent_h(
                         halo_slab)

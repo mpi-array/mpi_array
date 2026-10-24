@@ -172,8 +172,6 @@ def get_process_time_timer():
     :return: The :func:`time.process_time` function, if available, otherwise, if possible,
        an equivalent created using :mod:`ctypes`, otherwise :func:`timeit.default_timer`.
     """
-    global _process_time
-
     return _process_time
 
 
