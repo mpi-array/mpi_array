@@ -927,6 +927,16 @@ class gndarray(_NDArrayOperatorsMixin):
         locale extent of the array if possible, otherwise allocates
         shared memory and performs one-sided RMA to fetch data from
         remote locales.
+
+        Synchronisation is the caller's responsibility (the :obj:`numpy.ufunc`
+        implementation in :mod:`mpi_array.globale_ufunc` does this):
+
+        - before the fetch, the remote locales must have finished writing the requested
+          elements, e.g. call :meth:`inter_locale_barrier` (all locales) after writing;
+        - the remote locales must not overwrite the elements until every locale has
+          finished fetching, e.g. call :meth:`inter_locale_barrier` and
+          then :meth:`intra_locale_barrier` (all locales) after fetching,
+          so that the other processes of each locale wait as well.
         """
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:
@@ -987,6 +997,12 @@ class gndarray(_NDArrayOperatorsMixin):
         Returns a view from the locale extent of the array if possible,
         otherwise allocates non-shared memory and performs one-sided RMA
         to fetch data from remote locales.
+
+        Synchronisation is the caller's responsibility: the processes which write
+        the requested elements must have finished before the fetch, and must not
+        overwrite them until the fetch has finished, e.g. a :samp:`peer_comm`
+        barrier (:samp:`{self}.locale_comms.peer_comm.barrier()`) after writing and
+        after fetching.
         """
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:

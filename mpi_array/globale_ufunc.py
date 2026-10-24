@@ -1061,7 +1061,8 @@ class GndarrayArrayUfuncExecutor(object):
         # have local data then this barrier isn't be necessary.
         # Otherwise, we have to sync to make sure that remote ranks have
         # finished writing data before starting to fetch it.
-        if self.need_remote_data(gndarray_outputs):
+        need_remote_data = self.need_remote_data(gndarray_outputs)
+        if need_remote_data:
             for i in self.inputs:
                 if isinstance(i, _gndarray):
                     i.initialise_windows()
@@ -1098,6 +1099,16 @@ class GndarrayArrayUfuncExecutor(object):
             )
 
         gndarray_outputs[0].intra_locale_barrier()
+
+        if need_remote_data:
+            # Other locales may still be fetching (RMA) input elements from this locale.
+            # Wait for all locales to finish (inter-locale barrier, every locale has
+            # concluded its fetches before its intra-locale barrier above), and then
+            # make the other processes of this locale wait too, so that no process
+            # returns and overwrites an input which is still being read
+            # (write-after-read race, e.g. c = b + a; a += 1).
+            gndarray_outputs[0].inter_locale_barrier()
+            gndarray_outputs[0].intra_locale_barrier()
 
         # return the outputs
         if len(gndarray_outputs) == 1:

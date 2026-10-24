@@ -29,6 +29,8 @@ Classes
 """
 from __future__ import absolute_import
 
+import time as _time
+import mpi4py.MPI as _mpi
 import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
@@ -37,6 +39,7 @@ from . import logging as _logging  # noqa: E402,F401
 from .comms import LT_NODE, LT_PROCESS, DT_CLONED, DT_SINGLE_LOCALE, DT_BLOCK  # , DT_SLAB
 from . import comms as _comms
 from . import distribution as _distribution
+from . import update as _update
 from .globale_ufunc import broadcast_shape, ufunc_result_type, get_extents
 from .globale_ufunc import check_equivalent_inter_locale_comms
 from .globale import gndarray as _gndarray
@@ -879,6 +882,37 @@ class GndarrayUfuncTest(_unittest.TestCase):
             gary += 1
             self.assertEqual(_np.dtype("uint16"), gary.dtype)
             self.assertTrue((gary == 2).all())
+
+    def test_ufunc_write_after_read(self):
+        """
+        A ufunc which fetches remote input elements must not return on any locale
+        before all locales have finished fetching. Otherwise a locale can overwrite
+        an input while another locale is still reading it (:samp:`c = b + a; a += 1`).
+        A delay is injected into the remote fetch on all ranks except rank 0.
+        """
+        world = _mpi.COMM_WORLD
+        shape = (100 * world.size,)
+        orig_do_locale_rma_update = _update.RmaUpdateExecutor.do_locale_rma_update
+
+        def delayed_do_locale_rma_update(executor, updates):
+            if world.rank != 0:
+                _time.sleep(1.0)
+            return orig_do_locale_rma_update(executor, updates)
+
+        with \
+                _zeros(shape, locale_type=LT_PROCESS, distrib_type=DT_SINGLE_LOCALE) as a, \
+                _zeros(shape, locale_type=LT_PROCESS, distrib_type=DT_BLOCK) as b:
+            a.fill(1.0)
+            _update.RmaUpdateExecutor.do_locale_rma_update = delayed_do_locale_rma_update
+            try:
+                # c has the block distribution of b, all locales except
+                # locale 0 fetch their part of a from locale 0.
+                with (b + a) as c:
+                    a += 1.0
+                    self.assertTrue((c == 1.0).all())
+                    self.assertTrue((a == 2.0).all())
+            finally:
+                _update.RmaUpdateExecutor.do_locale_rma_update = orig_do_locale_rma_update
 
     def test_ufunc_casting_arg(self):
         """
