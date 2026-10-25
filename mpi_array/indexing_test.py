@@ -286,6 +286,24 @@ class IndexingExtentTest(_unittest.TestCase):
         self.assertEqual(IndexingExtent(start=(20, 50), stop=(40, 60)), leftovers[2])
         self.assertEqual(IndexingExtent(start=(20, 80), stop=(40, 100)), leftovers[3])
 
+    def test_calc_intersection_split_no_intersection(self):
+        """
+        Test for :meth:`mpi_array.indexing.IndexingExtent.calc_intersection_split`
+        with extents which do not intersect: all of :samp:`self` is left over,
+        it used to return :samp:`other` as the left over.
+        """
+        ie = IndexingExtent(start=(0, 50), stop=(50, 100))
+        for other in \
+                (
+                    IndexingExtent(start=(50, 50), stop=(60, 100)),
+                    IndexingExtent(start=(0, 0), stop=(50, 50)),
+                    IndexingExtent(start=(100, 200), stop=(110, 210)),
+                ):
+            leftovers, intersection = ie.calc_intersection_split(other)
+            self.assertTrue(intersection is None)
+            self.assertEqual(1, len(leftovers))
+            self.assertEqual(ie, leftovers[0])
+
 
 class HaloIndexingExtentTest(_unittest.TestCase):
 

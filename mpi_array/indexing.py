@@ -250,7 +250,7 @@ class IndexingExtent(object):
                     if hi is not None:
                         leftovers.append(hi)
         else:
-            leftovers.append(other)
+            leftovers.append(self)
 
         return leftovers, intersection
 
