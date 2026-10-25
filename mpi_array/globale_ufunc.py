@@ -759,38 +759,42 @@ class GndarrayArrayUfuncExecutor(object):
 
     def get_best_match_input(self, result_shape):
         """
-        Returns the element of :attr:`inputs` whose globale shape
-        best matches :samp:`{result_shape}`.
+        Returns the :obj:`mpi_array.globale.gndarray` element of :attr:`inputs`
+        whose globale shape best matches :samp:`{result_shape}`. Other inputs
+        (e.g. :obj:`numpy.ndarray` or scalars) have no distribution, they are not considered.
 
         :rtype: :samp:`None` or :obj:`mpi_array.globale.gndarray`.
         :return: The input array whose shape matches :samp:`{result_shape}`,
            or :samp:`None` if none of the inputs are a good match.
         """
         best_input = None
-        result_shape = _np.array(result_shape, dtype="int64")
-        input_shapes = self.get_inputs_shapes()
-        are_same_shape = \
-            _np.array(
-                tuple(
-                    (len(result_shape) == len(in_shape)) and _np.all(result_shape == in_shape)
-                    for in_shape in input_shapes
-                )
-            )
-        if _np.any(are_same_shape):
-            best_input = self._inputs[_np.where(are_same_shape)[0][0]]
-        else:
-            input_shapes = \
+        gndarray_inputs = \
+            tuple(input for input in self._inputs if hasattr(input, "comms_and_distrib"))
+        if len(gndarray_inputs) > 0:
+            result_shape = _np.array(result_shape, dtype="int64")
+            input_shapes = tuple(input.shape for input in gndarray_inputs)
+            are_same_shape = \
                 _np.array(
                     tuple(
-                        _np.array(shape_extend_dims(len(result_shape), in_shape))
+                        (len(result_shape) == len(in_shape)) and _np.all(result_shape == in_shape)
                         for in_shape in input_shapes
-                    ),
-                    dtype="int64"
+                    )
                 )
-            d = input_shapes - result_shape
-            d *= d
-            d = d.sum(axis=1)
-            best_input = self._inputs[_np.argmin(d)]
+            if _np.any(are_same_shape):
+                best_input = gndarray_inputs[_np.where(are_same_shape)[0][0]]
+            else:
+                input_shapes = \
+                    _np.array(
+                        tuple(
+                            _np.array(shape_extend_dims(len(result_shape), in_shape))
+                            for in_shape in input_shapes
+                        ),
+                        dtype="int64"
+                    )
+                d = input_shapes - result_shape
+                d *= d
+                d = d.sum(axis=1)
+                best_input = gndarray_inputs[_np.argmin(d)]
 
         return best_input
 

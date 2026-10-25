@@ -906,6 +906,44 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     self.assertSequenceEqual(_np.broadcast_shapes(shape_a, shape_b), c.shape)
                     self.assertTrue((c == 1).all())
 
+    def test_umath_numpy_array_inputs(self):
+        """
+        Ufuncs of :obj:`numpy.ndarray` and :obj:`mpi_array.globale.gndarray` inputs.
+        The output gets the distribution of a gndarray input. A :obj:`numpy.ndarray`
+        input used to be chosen when it came first (or was closest to the result shape),
+        and creating the output raised :obj:`AttributeError`.
+        """
+        gshape = (41, 43)
+        npy_ary0 = _np.random.uniform(low=0.5, high=1.75, size=gshape)
+        npy_ary1 = _np.random.uniform(low=0.5, high=1.75, size=gshape)
+        npy_col = _np.random.uniform(low=0.5, high=1.75, size=(gshape[0], 1))
+        npy_row = _np.random.uniform(low=0.5, high=1.75, size=(1, gshape[1]))
+
+        def add_numpy_array_first(ary):
+            return npy_ary1 + ary
+
+        def multiply_numpy_array_closest(ary):
+            # The (1, 43) numpy array is closer to the (41, 43) result shape
+            # than the (41, 1) gndarray.
+            return npy_row * ary
+
+        self.do_multi_distribution_tests(add_numpy_array_first, npy_ary0)
+        self.do_multi_distribution_tests(multiply_numpy_array_closest, npy_col)
+
+        with \
+                _asarray(
+                    npy_ary0, locale_type=LT_PROCESS, distrib_type=DT_BLOCK, halo=2
+                ) as gary:
+            with _np.add(npy_ary1, gary) as gary_sum:
+                self.assertSequenceEqual(
+                    gary.distribution.halo.tolist(),
+                    gary_sum.distribution.halo.tolist()
+                )
+                self.assertSequenceEqual(
+                    gary.lndarray_proxy.locale_extent.to_tuple(),
+                    gary_sum.lndarray_proxy.locale_extent.to_tuple()
+                )
+
     def test_python_scalar_dtype_parity(self):
         """
         Result dtypes of :obj:`mpi_array.globale.gndarray` and Python scalar ufunc
