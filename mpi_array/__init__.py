@@ -21,8 +21,6 @@ Attributes
 
 
 """
-from __future__ import absolute_import  # noqa: E402,F401
-
 import sys as _sys
 import numpy as _np
 from . import init as _init  # noqa: E402,F401
@@ -37,14 +35,23 @@ __version__ = _version()
 _this_module = _sys.modules[__name__]
 from .globale import gndarray  # noqa: E402,F401
 from .globale import free_all  # noqa: E402,F401
+from .globale import copyto  # noqa: E402,F401
 from . import globale_ufunc as _ufunc  # noqa: E402,F401
 
-from . import globale_creation as _creation  # noqa: E402,F401
-for s in _creation.__all__:
-    setattr(_this_module, s, getattr(_creation, s))
+from .globale_creation import empty, empty_like, eye, identity  # noqa: E402,F401
+from .globale_creation import ones, ones_like, zeros, zeros_like, full, full_like  # noqa: E402,F401
+from .globale_creation import array, asarray, asanyarray, copy  # noqa: E402,F401
 
 _ufunc.set_numpy_ufuncs_as_module_attr(_this_module, _ufunc)
 
 dtype = _np.dtype
 
-__all__ = [s for s in dir() if not s.startswith('_')]
+__all__ = \
+    [
+        "gndarray", "free_all", "copyto", "dtype",
+        "empty", "empty_like", "eye", "identity",
+        "ones", "ones_like", "zeros", "zeros_like", "full", "full_like",
+        "array", "asarray", "asanyarray", "copy",
+    ] \
+    + \
+    sorted(_name for _name in dir(_ufunc) if isinstance(getattr(_ufunc, _name), _np.ufunc))

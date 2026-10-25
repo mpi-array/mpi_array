@@ -23,6 +23,7 @@ Classes
    :template: autosummary/inherits_TestCase_class.rst
 
    GndarrayTest - Tests for :obj:`mpi_array.globale.gndarray`.
+   PackageTest - Tests for the names of the :mod:`mpi_array` package.
 
 
 """
@@ -1096,6 +1097,38 @@ class GndarrayTest(_unittest.TestCase):
             self.assertRaises(ValueError, _globale.copyto, gary, [1, ])
             self.assertRaises(ValueError, _globale.copyto, [1, ], gary)
             self.assertRaises(ValueError, _globale.copyto, [1, ], [1, ])
+
+
+class PackageTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for the names of the :mod:`mpi_array` package.
+    """
+
+    def test_names(self):
+        """
+        The :mod:`mpi_array` package has :func:`mpi_array.globale.copyto`, and its
+        :samp:`__all__` lists the public functions, classes and ufuncs. It used to
+        miss :samp:`copyto`, and to list the loop variable :samp:`s`, :samp:`absolute_import`
+        and the sub-modules.
+        """
+        import mpi_array
+        self.assertTrue(mpi_array.copyto is _globale.copyto)
+        self.assertTrue(mpi_array.add is _np.add)
+        for name in ("s", "absolute_import"):
+            self.assertFalse(hasattr(mpi_array, name))
+        for name in \
+                (
+                    "gndarray", "free_all", "copyto", "dtype", "empty", "empty_like", "zeros",
+                    "zeros_like", "ones", "ones_like", "full", "full_like", "eye", "identity",
+                    "array", "asarray", "asanyarray", "copy", "add", "multiply", "frexp"
+                ):
+            self.assertIn(name, mpi_array.__all__)
+        for name in ("globale", "comms", "locale", "logging"):
+            self.assertNotIn(name, mpi_array.__all__)
+        self.assertEqual(len(set(mpi_array.__all__)), len(mpi_array.__all__))
+        for name in mpi_array.__all__:
+            self.assertTrue(hasattr(mpi_array, name), name)
 
 
 _unittest.main(__name__)
