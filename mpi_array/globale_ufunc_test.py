@@ -889,6 +889,23 @@ class GndarrayUfuncTest(_unittest.TestCase):
             halo_b=[[1, 2], [3, 4], [2, 1]]
         )
 
+    def test_umath_broadcast_new_output_distribution(self):
+        """
+        Ufuncs whose output shape differs from the shape of every gndarray input
+        create a new distribution for the output. With locales of more than one
+        process this could fail with mismatched collectives (and hang): the inter-locale
+        processes passed their cartesian communicator to the (cached) communicators
+        creation, the other processes passed :attr:`mpi4py.MPI.COMM_NULL`, so the cache
+        could have an entry for some processes of a locale but not for the others.
+        """
+        for shape_a, shape_b in (((8, 1), (1, 8)), ((8, 1, 1), (1, 8, 1)), ((1, 8), (8, 1))):
+            with \
+                    _ones(shape_a, locale_type=LT_NODE, distrib_type=DT_BLOCK) as a, \
+                    _ones(shape_b, locale_type=LT_NODE, distrib_type=DT_BLOCK) as b:
+                with (a * b) as c:
+                    self.assertSequenceEqual(_np.broadcast_shapes(shape_a, shape_b), c.shape)
+                    self.assertTrue((c == 1).all())
+
     def test_python_scalar_dtype_parity(self):
         """
         Result dtypes of :obj:`mpi_array.globale.gndarray` and Python scalar ufunc

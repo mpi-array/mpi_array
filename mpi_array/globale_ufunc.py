@@ -834,13 +834,16 @@ class GndarrayArrayUfuncExecutor(object):
                         dtype=result_types[0]
                     )
             else:
+                # The inter-locale communicator is not passed: it is a cartesian
+                # communicator for block distributions, COMM_NULL on the processes which
+                # are not inter-locale processes, and the processes of a locale would then
+                # look up different keys in the (collective) communicators cache.
                 template_output_gary = \
                     _globale_creation.empty(
                         result_shape,
                         dtype=result_types[0],
                         peer_comm=self.peer_comm,
-                        intra_locale_comm=self.intra_locale_comm,
-                        inter_locale_comm=self.inter_locale_comm
+                        intra_locale_comm=self.intra_locale_comm
                     )
             outputs = (template_output_gary,)
         outputs = \
