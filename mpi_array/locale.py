@@ -273,6 +273,17 @@ class win_lndarray(_np.ndarray):
         return False
 
 
+def _memory_base(ary):
+    """
+    Returns the object which provides the memory of :samp:`{ary}`, the end of its
+    chain of :samp:`base` objects. An array and its views (including empty views) have
+    the same memory base, a copy (e.g. a ufunc output) doesn't.
+    """
+    while isinstance(ary, _np.ndarray) and (ary.base is not None):
+        ary = ary.base
+    return ary
+
+
 class lndarray(_np.ndarray):
 
     """
@@ -282,8 +293,9 @@ class lndarray(_np.ndarray):
 
     #: The object which frees the memory of the array (e.g. the
     #: :obj:`mpi_array.globale.gndarray`), for views returned
-    #: by :obj:`LndarrayProxy`, which keep it alive. Views of a view get it too.
-    #: It is not set for the locale array itself (it would be a reference cycle).
+    #: by :obj:`LndarrayProxy`, which keep it alive. Views of a view get it too,
+    #: copies don't. It is not set for the locale array itself (it would be a reference
+    #: cycle).
     _memory_owner = None
 
     def __new__(
@@ -345,7 +357,10 @@ class lndarray(_np.ndarray):
 
         self._md = getattr(obj, '_md', None)
         memory_owner = getattr(obj, '_memory_owner', None)
-        if (memory_owner is not None) and _np.may_share_memory(self, obj):
+        # Not np.may_share_memory, an empty view has no memory to share: whether
+        # an array is kept alive must not depend on the size of a view (which
+        # can differ between processes, and then so would the collective frees).
+        if (memory_owner is not None) and (_memory_base(self) is _memory_base(obj)):
             self._memory_owner = memory_owner
 
     @property
@@ -680,11 +695,11 @@ class LndarrayProxy(object):
 
         :type view: :obj:`lndarray`
         :param view: A view of :attr:`lndarray` (other objects, e.g. the scalars
-           returned by indexing, are returned unchanged).
+           and copies returned by indexing, are returned unchanged).
         :rtype: :samp:`type({view})`
         :return: The :samp:`{view}`.
         """
-        if isinstance(view, lndarray):
+        if isinstance(view, lndarray) and (_memory_base(view) is _memory_base(self._lndarray)):
             owner = self.memory_owner
             if owner is not None:
                 view._memory_owner = owner
