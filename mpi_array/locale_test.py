@@ -564,6 +564,26 @@ class LndarrayProxyTest(_unittest.TestCase):
         """
         self.do_test_views_2d(halo=[[1, 2], [3, 4]])
 
+    def test_intra_partition_dims(self):
+        """
+        The :samp:`intra_partition_dims` argument of :func:`mpi_array.locale.empty` gives
+        the partitioning of the locale array into the tiles of the processes of the
+        locale. It used to be replaced by zeros (any partitioning).
+        """
+        cand = create_distribution(shape=(16, 12), locale_type=LT_NODE)
+        intra_locale_size = cand.locale_comms.intra_locale_comm.size
+        for dims in ((intra_locale_size, 1), (1, intra_locale_size)):
+            with \
+                    _locale.empty(
+                        comms_and_distrib=cand,
+                        dtype="int32",
+                        intra_partition_dims=dims
+                    ) as lary:
+                self.assertSequenceEqual(dims, tuple(lary.intra_partition_dims))
+                for axis in range(2):
+                    if dims[axis] == 1:
+                        self.assertEqual(lary.view_n.shape[axis], lary.rank_view_n.shape[axis])
+
     def test_exit_with_exception_skips_free(self):
         """
         Leaving a :samp:`with` block because of an exception skips the (collective)

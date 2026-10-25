@@ -479,10 +479,11 @@ class LndarrayProxy(object):
             )
         self._intra_locale_rank = intra_locale_rank
         self._intra_locale_size = intra_locale_size
+        if intra_partition_dims is None:
+            intra_partition_dims = _np.zeros_like(locale_extent.shape_h)
         self._intra_partition_dims = intra_partition_dims
         self._locale_extent = locale_extent
         self._halo = _convert_halo_to_array_form(halo, self._locale_extent.ndim)
-        self._intra_partition_dims = _np.zeros_like(locale_extent.shape_h)
         self._intra_partition_dims, self._intra_partition = \
             self.calculate_intra_partition(
                 intra_locale_size=self._intra_locale_size,
