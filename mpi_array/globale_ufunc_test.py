@@ -1222,6 +1222,51 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     with _asarray(npy_ary + 1.0) as cln_sum:
                         self.compare_results(cln_sum, gary_sum)
 
+    def test_check_equivalent_inter_locale_comms_on_all_processes(self):
+        """
+        :func:`mpi_array.globale_ufunc.check_equivalent_inter_locale_comms` raises
+        :obj:`ValueError` on every process when the inter-locale communicators aren't
+        equivalent, also on the processes which aren't inter-locale processes
+        (:samp:`COMM_NULL` communicators). Those used to carry on (e.g. into the ufunc)
+        while the inter-locale processes raised. Here the communicators have the same
+        processes in a different order (:attr:`mpi4py.MPI.SIMILAR`), the locales have
+        up to two processes.
+        """
+        world = _mpi.COMM_WORLD
+        node_comm = world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)
+        intra_locale_comm = node_comm.Split(node_comm.rank // 2, node_comm.rank)
+        node_comm.Free()
+        color = 0 if intra_locale_comm.rank == 0 else _mpi.UNDEFINED
+        inter_locale_comm = world.Split(color, world.rank)
+        reversed_inter_locale_comm = world.Split(color, -world.rank)
+        kwargs = \
+            dict(
+                locale_type=LT_NODE,
+                distrib_type=DT_CLONED,
+                peer_comm=world,
+                intra_locale_comm=intra_locale_comm
+            )
+        npy_ary = _np.linspace(0.25, 100.0, 16)
+        with \
+                _asarray(npy_ary, inter_locale_comm=inter_locale_comm, **kwargs) as gary, \
+                _zeros((16,), inter_locale_comm=inter_locale_comm, **kwargs) as mantissa, \
+                _zeros(
+                    (16,), dtype="int32", inter_locale_comm=reversed_inter_locale_comm, **kwargs
+                ) as exponent:
+            # With a single locale the communicators are the same (CONGRUENT).
+            expect_raise = gary.num_locales > 1
+            for func in \
+                    (
+                        lambda: check_equivalent_inter_locale_comms((mantissa, exponent)),
+                        lambda: _np.frexp(gary, out=(mantissa, exponent)),
+                    ):
+                try:
+                    func()
+                    raised = False
+                except ValueError:
+                    raised = True
+                self.assertTrue(world.allreduce(raised == expect_raise, op=_mpi.LAND))
+
     def test_gufunc_not_implemented(self):
         """
         Generalised ufuncs (e.g. :obj:`numpy.matmul`) used to be computed tile by tile,

@@ -584,11 +584,14 @@ def check_equivalent_inter_locale_comms(
     Checks that all the :obj:`mpi_array.globale.gndarray` elements
     of :samp:`{gndarrays}` have equivalent inter-locale communicators.
     On processes which are not inter-locale processes the communicators
-    are all :attr:`mpi4py.MPI.COMM_NULL`, there is nothing to compare.
+    are all :attr:`mpi4py.MPI.COMM_NULL`, there is nothing to compare: for two or more
+    arrays this is collective over the intra-locale communicator
+    of :samp:`{gndarrays}[0]`, so that all processes of a locale raise if any does.
 
     :raises ValueError: if the arrays do not have equivalent inter-locale communicators.
     """
-    if (gndarrays is not None) and (len(gndarrays) > 0):
+    if (gndarrays is not None) and (len(gndarrays) > 1):
+        error = None
         inter_locale_comm0 = gndarrays[0].locale_comms.inter_locale_comm
         for c in (gndary.locale_comms.inter_locale_comm for gndary in gndarrays[1:]):
             if (c == _mpi.COMM_NULL) and (inter_locale_comm0 == _mpi.COMM_NULL):
@@ -608,20 +611,26 @@ def check_equivalent_inter_locale_comms(
                 or
                 _mpi.Comm.Compare(inter_locale_comm0, c) not in equivalent_compare
             ):
-                raise ValueError(
+                error = \
                     (
-                        "Got inter_locale_comm=%s (name=%s) non-congruent with "
-                        +
-                        " inter_locale_comm=%s (name=%s)."
+                        (
+                            "Got inter_locale_comm=%s (name=%s) non-congruent with"
+                            +
+                            " inter_locale_comm=%s (name=%s)."
+                        )
+                        %
+                        (
+                            inter_locale_comm0,
+                            inter_locale_comm0.name if inter_locale_comm0 != _mpi.COMM_NULL else "",
+                            c,
+                            c.name if c != _mpi.COMM_NULL else ""
+                        )
                     )
-                    %
-                    (
-                        inter_locale_comm0,
-                        inter_locale_comm0.name if inter_locale_comm0 != _mpi.COMM_NULL else "",
-                        c,
-                        c.name if c != _mpi.COMM_NULL else ""
-                    )
-                )
+                break
+        errors = gndarrays[0].locale_comms.intra_locale_comm.allgather(error)
+        errors = tuple(e for e in errors if e is not None)
+        if len(errors) > 0:
+            raise ValueError(errors[0])
 
 
 class GndarrayArrayUfuncExecutor(object):
