@@ -46,6 +46,7 @@ from .globale import gndarray as _gndarray
 from .locale import win_lndarray as _win_lndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
 from .globale_creation import empty as _empty, zeros_like as _zeros_like
+from .globale_creation import full as _full, array as _array
 from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
@@ -961,6 +962,49 @@ class GndarrayUfuncTest(_unittest.TestCase):
                                         _asarray(func(npy_value, npy_ary)) as cln_npy_result:
                                     self.assertEqual(cln_npy_result.dtype, result.dtype)
                                     self.compare_results(cln_npy_result, result)
+
+    def test_zero_dim_gndarrays(self):
+        """
+        Filling 0-d gndarrays and ufuncs with 0-d outputs, including in-place ones. Filling
+        indexed the locale array with :samp:`()`, which gives a NumPy scalar (a copy),
+        so e.g. :samp:`ones(())` was left uninitialised, and ufuncs with a 0-d output
+        raised :obj:`TypeError`.
+        """
+        world = _mpi.COMM_WORLD
+        size = world.size
+
+        def all_equal(gary, value):
+            gary.intra_locale_barrier()
+            is_equal = bool(gary.lndarray_proxy.lndarray == value)
+            return world.allreduce(is_equal, op=_mpi.LAND)
+
+        for locale_type in (LT_PROCESS, LT_NODE):
+            for distrib_type in (DT_CLONED, DT_SINGLE_LOCALE):
+                kwargs = dict(locale_type=locale_type, distrib_type=distrib_type)
+                with \
+                        _ones((), **kwargs) as one, \
+                        _full((), 5.0, **kwargs) as five, \
+                        _zeros((), **kwargs) as seven, \
+                        _asarray(_np.float64(2.5), **kwargs) as zero_dim, \
+                        _ones((4 * size,), locale_type=LT_PROCESS, distrib_type=DT_BLOCK) as gary:
+                    seven.fill(7.0)
+                    self.assertTrue(all_equal(one, 1.0))
+                    self.assertTrue(all_equal(five, 5.0))
+                    self.assertTrue(all_equal(seven, 7.0))
+                    with (zero_dim + 1) as result:
+                        self.assertSequenceEqual((), result.shape)
+                        self.assertTrue(all_equal(result, 3.5))
+                    with (zero_dim * five) as result:
+                        self.assertTrue(all_equal(result, 12.5))
+                    with (gary + five) as result:
+                        self.assertTrue((result == 6.0).all())
+                    for i in range(3):
+                        _np.add(zero_dim, 1.0, out=zero_dim)
+                    self.assertTrue(all_equal(zero_dim, 5.5))
+                    with zero_dim.copy() as copy:
+                        self.assertTrue(all_equal(copy, 5.5))
+                    with _array(zero_dim, dtype="int32") as int_zero_dim:
+                        self.assertTrue(all_equal(int_zero_dim, 5))
 
     def test_umath_numpy_array_inputs(self):
         """

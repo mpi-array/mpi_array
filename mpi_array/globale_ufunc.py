@@ -914,7 +914,11 @@ class GndarrayArrayUfuncExecutor(object):
         out_globale_extent = out_gndarray.distribution.globale_extent
         out_locale_extent = out_gndarray.lndarray_proxy.locale_extent
         ret = None
-        if _np.prod(out_locale_extent.shape_n) > 0:
+        # All processes of a locale share the element of a 0-d output, one of them
+        # computes it (several would race when the output is also an input).
+        is_computed_here = \
+            (out_gndarray.ndim > 0) or (out_gndarray.locale_comms.intra_locale_comm.rank == 0)
+        if (_np.prod(out_locale_extent.shape_n) > 0) and is_computed_here:
             inp_locale_extents = \
                 self.get_input_extents(out_gndarray.comms_and_distrib.this_locale)
             inp_locale_slices = \
@@ -965,11 +969,12 @@ class GndarrayArrayUfuncExecutor(object):
                     # is a scalar
                     inp_peer_rank_arys[i] = input
 
+            # The Ellipsis gives a 0-d view of a 0-d output (not a NumPy scalar).
             ret = \
                 (
                     tuple(inp_peer_rank_arys),
                     tuple(
-                        out_gndarray.view_n[out_peer_rank_slice]
+                        out_gndarray.view_n[tuple(out_peer_rank_slice) + (Ellipsis,)]
                         for out_gndarray in gndarray_outputs
                     )
                 )

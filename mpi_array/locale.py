@@ -717,6 +717,15 @@ class LndarrayProxy(object):
         """
         return self.keep_owner_alive(self._lndarray.__getitem__(*args, **kwargs))
 
+    def _view(self, slice_tuple):
+        """
+        Returns the view :samp:`{self}.lndarray[{slice_tuple}]`, which keeps
+        the :attr:`memory_owner` alive. Indexing with an :obj:`Ellipsis` appended gives
+        the same view, but for a 0-d array it gives a 0-d view instead of a NumPy scalar
+        (a copy).
+        """
+        return self.keep_owner_alive(self._lndarray[tuple(slice_tuple) + (Ellipsis,)])
+
     def __setitem__(self, *args, **kwargs):
         """
         Set slice/item in :attr:`lndarray` array.
@@ -797,14 +806,14 @@ class LndarrayProxy(object):
         """
         A tile view of the array for this rank of :samp:`peer_comm`.
         """
-        return self.keep_owner_alive(self._lndarray[self._intra_partition.rank_view_slice_n])
+        return self._view(self._intra_partition.rank_view_slice_n)
 
     @property
     def rank_view_h(self):
         """
         A tile view (including halo elements) of the array for this rank of :samp:`peer_comm`.
         """
-        return self.keep_owner_alive(self._lndarray[self._intra_partition.rank_view_slice_h])
+        return self._view(self._intra_partition.rank_view_slice_h)
 
     @property
     def rank_view_slice_n(self):
@@ -827,17 +836,14 @@ class LndarrayProxy(object):
         (i.e. partition of halo array). Same as :samp:`self.rank_view_n` when
         halo is zero.
         """
-        return \
-            self.keep_owner_alive(
-                self._lndarray[self._intra_partition.rank_view_partition_slice_h]
-            )
+        return self._view(self._intra_partition.rank_view_partition_slice_h)
 
     @property
     def view_n(self):
         """
         View of entire array without halo.
         """
-        return self.keep_owner_alive(self._lndarray[self._intra_partition.lndarray_view_slice_n])
+        return self._view(self._intra_partition.lndarray_view_slice_n)
 
     @property
     def view_h(self):
@@ -853,7 +859,7 @@ class LndarrayProxy(object):
         :type value: scalar
         :param value: All non-ghost elements are assigned this value.
         """
-        self._lndarray[self._intra_partition.rank_view_slice_n].fill(value)
+        self._view(self._intra_partition.rank_view_slice_n).fill(value)
 
     def fill_h(self, value):
         """
@@ -862,7 +868,7 @@ class LndarrayProxy(object):
         :type value: scalar
         :param value: All elements (including ghost elements) are assigned this value.
         """
-        self._lndarray[self._intra_partition.rank_view_partition_slice_h].fill(value)
+        self._view(self._intra_partition.rank_view_partition_slice_h).fill(value)
 
 
 def check_order(order):
