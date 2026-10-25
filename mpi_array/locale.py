@@ -511,6 +511,7 @@ class LndarrayProxy(object):
             )
         self._intra_locale_rank = intra_locale_rank
         self._intra_locale_size = intra_locale_size
+        self._requested_intra_partition_dims = intra_partition_dims
         if intra_partition_dims is None:
             intra_partition_dims = _np.zeros_like(locale_extent.shape_h)
         self._intra_partition_dims = intra_partition_dims
@@ -763,6 +764,17 @@ class LndarrayProxy(object):
         along each axis which determines the per-rank views of the locale extent array.
         """
         return self._intra_partition_dims
+
+    @property
+    def requested_intra_partition_dims(self):
+        """
+        The :samp:`intra_partition_dims` argument this array was created with (:samp:`None`
+        if not given), zero elements are calculated for each locale, see
+        :attr:`intra_partition_dims`. An array created like this one (e.g. a copy) gets the
+        same partitioning when created with these dims: the calculated dims can differ
+        between locales of different sizes.
+        """
+        return self._requested_intra_partition_dims
 
     @property
     def locale_extent(self):
@@ -1044,7 +1056,7 @@ def empty_like(ary, dtype=None):
                 dtype=dtype,
                 comms_and_distrib=ary.comms_and_distrib,
                 order=ary.md.order,
-                intra_partition_dims=ary.intra_partition_dims
+                intra_partition_dims=ary.requested_intra_partition_dims
             )
     else:
         ret_ary = _np.empty_like(ary, dtype=dtype)

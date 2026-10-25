@@ -392,8 +392,10 @@ class GndarrayTest(_unittest.TestCase):
         at 3 processes). Array creation used to deadlock: a single process locale
         allocated its memory with a collective over all processes, while the processes
         of the other locales allocated shared memory over their own locale.
-        Tests creation, halo update, :func:`mpi_array.globale.copyto` and a ufunc
-        which fetches remote input elements.
+        Tests creation, halo update, :func:`mpi_array.globale.copyto`, a ufunc
+        which fetches remote input elements, and the functions which create an array
+        like another one (they used to raise :obj:`ValueError`, the partitioning of each
+        locale array was checked against the sizes of all locales).
         """
         world = _mpi.COMM_WORLD
         node_comm = world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)
@@ -432,6 +434,16 @@ class GndarrayTest(_unittest.TestCase):
             with (blk + sgl) as result:
                 _globale.copyto(cln, result)
                 ok = ok and _np.all(cln.view_n == 2 * npy_ary)
+
+            with \
+                    _globale_creation.zeros_like(blk) as zeros, \
+                    blk.copy() as blk_copy, \
+                    _globale_creation.array(blk, dtype="int32") as int_blk:
+                ok = ok and (zeros == 0).all() and (blk_copy == blk).all()
+                ok = ok and (int_blk == blk).all()
+            mantissa, exponent = _np.frexp(blk)
+            with mantissa, exponent:
+                ok = ok and (_np.ldexp(mantissa, exponent) == blk).all()
 
             self.assertTrue(world.allreduce(bool(ok), op=_mpi.LAND))
 

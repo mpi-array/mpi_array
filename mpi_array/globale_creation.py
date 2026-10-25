@@ -133,7 +133,7 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
                 dtype=dtype,
                 comms_and_distrib=ary.comms_and_distrib,
                 order=order,
-                intra_partition_dims=ary.lndarray_proxy.intra_partition_dims
+                intra_partition_dims=ary.lndarray_proxy.requested_intra_partition_dims
             )
     else:
         ret_ary = empty(ary.shape, dtype=dtype, order=order, **kwargs)
