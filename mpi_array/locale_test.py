@@ -585,6 +585,28 @@ class LndarrayProxyTest(_unittest.TestCase):
                     if dims[axis] == 1:
                         self.assertEqual(lary.view_n.shape[axis], lary.rank_view_n.shape[axis])
 
+    def test_invalid_intra_partition_dims(self):
+        """
+        An :samp:`intra_partition_dims` argument which doesn't give one tile for each
+        process of a locale raises :obj:`ValueError` on every process, before memory is
+        allocated. It used to leave part of the locale array to no process, or to raise
+        :obj:`IndexError` on some processes only (and the others waited).
+        """
+        cand = create_distribution(shape=(16, 12), locale_type=LT_NODE)
+        intra_locale_size = cand.locale_comms.intra_locale_comm.size
+        invalid_dims = [(intra_locale_size + 1, 1), (1, 2 * intra_locale_size), (1, 1, 1)]
+        if intra_locale_size > 1:
+            invalid_dims.append((1, 1))
+        for dims in invalid_dims:
+            try:
+                lary = \
+                    _locale.empty(comms_and_distrib=cand, dtype="int32", intra_partition_dims=dims)
+                lary.free()
+                raised = False
+            except ValueError:
+                raised = True
+            self.assertTrue(cand.locale_comms.peer_comm.allreduce(raised, op=_mpi.LAND), dims)
+
     def test_view_keeps_array_alive(self):
         """
         A view of an :obj:`mpi_array.locale.LndarrayProxy` which has its own memory

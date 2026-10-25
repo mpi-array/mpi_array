@@ -49,6 +49,7 @@ Utilities
 
    NdarrayMetaData - Strides, offset and order info.
    check_order - Checks the memory layout (order) argument, only C order is implemented.
+   check_intra_partition_dims - Checks the partitioning of the locale arrays into tiles.
 
 """
 
@@ -894,6 +895,52 @@ def check_order(order):
     raise ValueError("Got order=%r, expected one of 'C', 'F', 'A', 'K' or None." % (order,))
 
 
+def check_intra_partition_dims(intra_partition_dims, ndim, locale_sizes):
+    """
+    Checks that :samp:`{intra_partition_dims}` partitions a locale array
+    of :samp:`{ndim}` dimensions into one tile for each process of a locale, for all the
+    locale sizes (numbers of processes) in :samp:`{locale_sizes}`. Zero elements are
+    calculated, see :func:`array_split.split.calculate_num_slices_per_axis`. All
+    processes have the sizes of all locales, so they all raise (or none does).
+
+    :type intra_partition_dims: sequence of :obj:`int`
+    :param intra_partition_dims: The number of tiles along each axis.
+    :type ndim: :obj:`int`
+    :param ndim: The number of dimensions of the array.
+    :type locale_sizes: sequence of :obj:`int`
+    :param locale_sizes: The number of processes of each locale.
+    :raises ValueError: If a locale doesn't get one tile for each of its processes.
+
+    Example::
+
+       >>> check_intra_partition_dims((0, 1), 2, (4, 3))
+       >>> check_intra_partition_dims((2, 1), 2, (4,))
+       Traceback (most recent call last):
+       ...
+       ValueError: Got intra_partition_dims=(2, 1) ...
+    """
+    for locale_size in sorted(set(int(size) for size in locale_sizes)):
+        try:
+            dims = \
+                _array_split.split.calculate_num_slices_per_axis(
+                    intra_partition_dims,
+                    locale_size
+                )
+            is_valid = (len(dims) == ndim) and (_np.prod(dims) == locale_size)
+        except ValueError:
+            is_valid = False
+        if not is_valid:
+            raise ValueError(
+                (
+                    "Got intra_partition_dims=%s which doesn't partition a %s dimensional"
+                    +
+                    " locale array into one tile for each of the %s processes of a locale."
+                )
+                %
+                (tuple(int(d) for d in intra_partition_dims), ndim, locale_size)
+            )
+
+
 def empty(
     shape=None,
     dtype="float64",
@@ -915,6 +962,10 @@ def empty(
     :param comms_and_distrib: Data type of array elements.
     :type order: :samp:`{'C', 'K', 'A'}` or :samp:`None`
     :param order: Only C order is implemented, see :func:`check_order`.
+    :type intra_partition_dims: :samp:`None` or sequence of :obj:`int`
+    :param intra_partition_dims: The number of tiles (one for each process of the locale)
+       along each axis of the locale array, zero elements are calculated.
+       See :func:`check_intra_partition_dims`.
     :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with uninitialised elements.
     :raises NotImplementedError: If :samp:`{order}` is :samp:`'F'`.
@@ -928,6 +979,13 @@ def empty(
     locale_extent = \
         comms_and_distrib.distribution.get_extent_for_rank(
             inter_locale_rank=comms_and_distrib.this_locale.inter_locale_rank
+        )
+    if (intra_partition_dims is not None) and (locale_extent.ndim > 0):
+        peer_ranks_per_locale = comms_and_distrib.locale_comms.peer_ranks_per_locale
+        check_intra_partition_dims(
+            intra_partition_dims,
+            locale_extent.ndim,
+            tuple(len(peer_ranks_per_locale[i]) for i in range(len(peer_ranks_per_locale)))
         )
 
     rma_window_buffer = \
