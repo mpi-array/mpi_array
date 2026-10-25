@@ -19,6 +19,7 @@ Classes
    LoggingTest - Tests for :mod:`mpi_array.logging` functions.
 
 """
+import contextlib as _contextlib
 import io as _io
 import os as _os
 import re as _re
@@ -195,6 +196,33 @@ class LoggingTest(_unittest.TestCase):
         self.assertEqual(len(expected), len(lines))
         for line, regex in zip(lines, expected):
             self.assertRegex(line, regex)
+
+    def test_rank_logger_format_error(self):
+        """
+        A message which can't be formatted (e.g. a :samp:`%d` argument which isn't a number)
+        is reported by the handler (:meth:`logging.Handler.handleError`), as for other
+        loggers, and the logging call returns. It used to raise from the logging call,
+        for :func:`mpi_array.logging.get_root_logger` on rank 0 only.
+        """
+        class UnprintableObject(object):
+
+            def __str__(self):
+                raise RuntimeError("Raised for the test.")
+
+        parent = _builtin_logging.getLogger(self.logger_name)
+        self.add_handler(parent, _builtin_logging.StreamHandler(_io.StringIO()))
+        loggers = \
+            (
+                _logging.get_rank_logger(self.logger_name + ".child"),
+                _logging.get_root_logger(self.logger_name + ".child")
+            )
+        stderr = _io.StringIO()
+        with _contextlib.redirect_stderr(stderr):
+            for logger in loggers:
+                logger.warning("value=%d", "not a number")
+                logger.warning("value=%s", UnprintableObject())
+        num_errors = 4 if _mpi.COMM_WORLD.rank == 0 else 2
+        self.assertEqual(num_errors, stderr.getvalue().count("--- Logging error ---"))
 
     def test_initialise_loggers_does_not_duplicate_handlers(self):
         """

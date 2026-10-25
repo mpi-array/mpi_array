@@ -200,14 +200,21 @@ class MessageFormatFilter(_builtin_logging.Filter):
 
     def filter(self, record):
         """
-        Replaces the message of :samp:`{record}` with the formatted record.
+        Replaces the message of :samp:`{record}` with the formatted record. If formatting
+        raises (e.g. arguments which don't match the message), :samp:`{record}` is left
+        unchanged, so that the handlers report the error (:meth:`logging.Handler.handleError`)
+        instead of the logging call raising.
 
         :type record: :obj:`logging.LogRecord`
         :param record: The record to format.
         :rtype: :obj:`bool`
         :return: :samp:`True`, the record is logged.
         """
-        record.msg = self.formatter.format(record)
+        try:
+            msg = self.formatter.format(record)
+        except Exception:
+            return True
+        record.msg = msg
         record.args = None
         record.exc_info = None
         record.exc_text = None
