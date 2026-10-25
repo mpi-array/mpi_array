@@ -23,6 +23,7 @@ Classes
    :template: autosummary/inherits_TestCase_class.rst
 
    GndarrayTest - Tests for :obj:`mpi_array.globale.gndarray`.
+   CommLoggerTest - Tests for :obj:`mpi_array.globale.CommLogger`.
    PackageTest - Tests for the names of the :mod:`mpi_array` package.
 
 
@@ -1097,6 +1098,27 @@ class GndarrayTest(_unittest.TestCase):
             self.assertRaises(ValueError, _globale.copyto, gary, [1, ])
             self.assertRaises(ValueError, _globale.copyto, [1, ], gary)
             self.assertRaises(ValueError, _globale.copyto, [1, ], [1, ])
+
+
+class CommLoggerTest(_unittest.TestCase):
+
+    """
+    :obj:`unittest.TestCase` for :obj:`mpi_array.globale.CommLogger`.
+    """
+
+    def test_construct(self):
+        """
+        The :obj:`mpi_array.globale.CommLogger` constructor arguments set the loggers,
+        they used to be ignored.
+        """
+        rank_logger = _logging.get_rank_logger(self.id())
+        root_logger = _logging.get_root_logger(self.id())
+        comm_logger = _globale.CommLogger(rank_logger=rank_logger, root_logger=root_logger)
+        self.assertTrue(comm_logger.rank_logger is rank_logger)
+        self.assertTrue(comm_logger.root_logger is root_logger)
+        comm_logger = _globale.CommLogger()
+        self.assertTrue(comm_logger.rank_logger is None)
+        self.assertTrue(comm_logger.root_logger is None)
 
 
 class PackageTest(_unittest.TestCase):

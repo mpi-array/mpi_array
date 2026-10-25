@@ -56,11 +56,13 @@ _builtin_slice = slice
 class CommLogger:
 
     """
+    Has a logger for messages from all processes (:attr:`rank_logger`) and a logger
+    for messages from the root process (:attr:`root_logger`).
     """
 
     def __init__(self, rank_logger=None, root_logger=None):
-        self._rank_logger = None
-        self._root_logger = None
+        self._rank_logger = rank_logger
+        self._root_logger = root_logger
 
     @property
     def rank_logger(self):
