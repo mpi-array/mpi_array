@@ -853,30 +853,42 @@ class GndarrayTest(_unittest.TestCase):
         :meth:`mpi_array.globale.gndarray.locale_get` and
         :meth:`mpi_array.globale.gndarray.peer_rank_get` return a view on the processes
         whose locale has the region and fetched memory on the others. Both keep the
-        array alive, so that it is (collectively) freed at the same point on every process.
-        The fetched memory didn't, and the free mismatched (a hang).
+        array alive, also through arrays made from them (e.g. :samp:`numpy.asarray`), so
+        that it is (collectively) freed at the same point on every process. The fetched
+        memory didn't keep it alive, then :samp:`numpy.asarray` of it didn't, and the free
+        mismatched (a hang).
         """
         size = _mpi.COMM_WORLD.size
+        conversions = \
+            (
+                lambda ary: ary,
+                lambda ary: _np.asarray(ary),
+                lambda ary: ary.view(_np.ndarray),
+                lambda ary: ary[1:],
+            )
         with \
                 _globale_creation.ones(
                     (8 * size,), locale_type=LT_PROCESS, distrib_type=DT_BLOCK
                 ) as gary:
             peer_comm = gary.locale_comms.peer_comm
             for get_name in ("locale_get", "peer_rank_get"):
-                tmp_gary = gary + 1
-                tmp_gary.initialise_windows()
-                tmp_gary.inter_locale_barrier()
-                tmp_gary_ref = _weakref.ref(tmp_gary)
-                # The region is local on the process of the first locale only.
-                locale_ary = getattr(tmp_gary, get_name)((slice(0, 4),))
-                del tmp_gary
-                self.assertTrue(peer_comm.allreduce(tmp_gary_ref() is not None, op=_mpi.LAND))
-                self.assertTrue(peer_comm.allreduce(bool(_np.all(locale_ary == 2)), op=_mpi.LAND))
-                # Remote processes have finished fetching before the array is freed.
-                peer_comm.barrier()
-                locale_ary.free()
-                del locale_ary
-                self.assertTrue(tmp_gary_ref() is None)
+                for convert in conversions:
+                    tmp_gary = gary + 1
+                    tmp_gary.initialise_windows()
+                    tmp_gary.inter_locale_barrier()
+                    tmp_gary_ref = _weakref.ref(tmp_gary)
+                    # The region is local on the process of the first locale only.
+                    locale_ary = getattr(tmp_gary, get_name)((slice(0, 4),))
+                    converted = convert(locale_ary)
+                    # Remote processes have finished fetching before the arrays are freed.
+                    peer_comm.barrier()
+                    is_ok = bool(_np.all(converted == 2))
+                    locale_ary.free()
+                    del locale_ary, tmp_gary
+                    is_ok = is_ok and (tmp_gary_ref() is not None)
+                    self.assertTrue(peer_comm.allreduce(is_ok, op=_mpi.LAND))
+                    del converted
+                    self.assertTrue(tmp_gary_ref() is None)
 
     def test_all(self):
         """

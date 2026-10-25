@@ -120,7 +120,8 @@ class win_lndarray(_np.ndarray):
     #: The :obj:`mpi_array.globale.gndarray` whose :samp:`locale_get` (or :samp:`peer_rank_get`)
     #: fetched the elements of this array. It is kept alive like by the views of its
     #: memory which these methods return on the processes where the region is local,
-    #: so that it is (collectively) freed at the same point on every process.
+    #: so that it is (collectively) freed at the same point on every process. Arrays
+    #: made from this array get it too.
     _fetched_from = None
 
     def __new__(
@@ -201,7 +202,11 @@ class win_lndarray(_np.ndarray):
                     logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
                 )
                 buffer = get_win_memory(win)
-        buffer = _np.frombuffer(buffer, dtype='B')
+        else:
+            buffer = _np.frombuffer(buffer, dtype='B')
+        # The window memory buffer is the base (not a numpy.ndarray of it), so
+        # that numpy.asarray (base class arrays) of this array has this array as its base,
+        # it doesn't skip it.
         self = \
             _np.ndarray.__new__(
                 cls,
@@ -234,6 +239,9 @@ class win_lndarray(_np.ndarray):
         self._comm = getattr(obj, '_comm', None) if is_view else None
         self._win = getattr(obj, '_win', None) if is_view else None
         self._owns_win = False
+        # All arrays made from this array keep it alive, whether they are views or not
+        # (which can depend on the layout, and so differ between processes).
+        self._fetched_from = getattr(obj, '_fetched_from', None)
 
     @property
     def comm(self):
