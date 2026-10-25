@@ -583,12 +583,16 @@ def check_equivalent_inter_locale_comms(
     """
     Checks that all the :obj:`mpi_array.globale.gndarray` elements
     of :samp:`{gndarrays}` have equivalent inter-locale communicators.
+    On processes which are not inter-locale processes the communicators
+    are all :attr:`mpi4py.MPI.COMM_NULL`, there is nothing to compare.
 
     :raises ValueError: if the arrays do not have equivalent inter-locale communicators.
     """
     if (gndarrays is not None) and (len(gndarrays) > 0):
         inter_locale_comm0 = gndarrays[0].locale_comms.inter_locale_comm
         for c in (gndary.locale_comms.inter_locale_comm for gndary in gndarrays[1:]):
+            if (c == _mpi.COMM_NULL) and (inter_locale_comm0 == _mpi.COMM_NULL):
+                continue
             if (
                 (
                     (c == _mpi.COMM_NULL)

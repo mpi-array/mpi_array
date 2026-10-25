@@ -45,7 +45,7 @@ from .globale_ufunc import check_equivalent_inter_locale_comms
 from .globale import gndarray as _gndarray
 from .locale import win_lndarray as _win_lndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
-from .globale_creation import empty as _empty
+from .globale_creation import empty as _empty, zeros_like as _zeros_like
 from .globale import copyto as _copyto
 
 __author__ = "Shane J. Latham"
@@ -1167,6 +1167,29 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     check_equivalent_inter_locale_comms,
                     (gary0, gary1)
                 )
+
+    def test_ufunc_multiple_out_arrays(self):
+        """
+        Ufunc with several output arrays given as :samp:`out` on locales of more than one
+        process. The processes which are not inter-locale processes have :samp:`COMM_NULL`
+        inter-locale communicators, checking that the outputs have equivalent
+        communicators compared them, which raised an MPI error on those processes.
+        """
+        npy_ary = _np.linspace(0.25, 100.0, 64 * _mpi.COMM_WORLD.size)
+        npy_mantissa, npy_exponent = _np.frexp(npy_ary)
+        for locale_type in (LT_NODE, LT_PROCESS):
+            with \
+                    _asarray(npy_ary, locale_type=locale_type, distrib_type=DT_BLOCK) as gary, \
+                    _zeros_like(gary) as mantissa, \
+                    _zeros_like(gary, dtype=npy_exponent.dtype) as exponent:
+                check_equivalent_inter_locale_comms((gary, mantissa, exponent))
+                outputs = _np.frexp(gary, out=(mantissa, exponent))
+                self.assertTrue(outputs[0] is mantissa)
+                self.assertTrue(outputs[1] is exponent)
+                with _asarray(npy_mantissa) as cln_mantissa:
+                    self.compare_results(cln_mantissa, mantissa)
+                with _asarray(npy_exponent) as cln_exponent:
+                    self.compare_results(cln_exponent, exponent)
 
     def test_gufunc_not_implemented(self):
         """
