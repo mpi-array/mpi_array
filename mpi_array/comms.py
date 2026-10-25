@@ -1357,57 +1357,31 @@ def shape_squeeze(shape):
 
 def reshape_comms_distribution(comms_distrib, new_globale_shape):
     """
+    Returns the communicators and distribution for an array of
+    shape :samp:`{new_globale_shape}` which is distributed like the array
+    of :samp:`{comms_distrib}`. Only the same shape is implemented (the distribution is
+    copied), for a different shape (including added or removed axes of length one)
+    returns :samp:`None`, the caller can then create a new distribution.
+
+    :type comms_distrib: :obj:`CommsAndDistribution`
+    :param comms_distrib: The communicators and distribution of an array.
+    :type new_globale_shape: sequence of :obj:`int`
+    :param new_globale_shape: The globale shape of the new array.
+    :rtype: :obj:`CommsAndDistribution` or :samp:`None`
+    :return: The :samp:`{comms_distrib}` communicators with a copy of the distribution,
+       or :samp:`None` if :samp:`{new_globale_shape}` differs from the shape
+       of :samp:`{comms_distrib}`.
     """
     reshaped_comms_distrib = None
-
-    locale_comms = comms_distrib.locale_comms
     distrib = comms_distrib.distribution
-    this_locale = comms_distrib.this_locale
-    globale_shape = _np.array(distrib.globale_extent.shape)
-
-    new_globale_shape = _np.array(new_globale_shape)
-
-    if (
-        (new_globale_shape.size == globale_shape.size)
-        and
-        _np.all(new_globale_shape == globale_shape)
-    ):
+    globale_shape = tuple(int(s) for s in distrib.globale_extent.shape_n)
+    if tuple(int(s) for s in new_globale_shape) == globale_shape:
         reshaped_comms_distrib = \
-            CommsAndDistribution(locale_comms, _copy.deepcopy(distrib), this_locale)
-    else:
-        new_squeeze_shape = shape_squeeze(new_globale_shape)
-        org_squeeze_shape = shape_squeeze(globale_shape)
-        if len(new_squeeze_shape) == len(org_squeeze_shape):
-            if _np.all(_np.sort(org_squeeze_shape) == _np.sort(org_squeeze_shape)):
-                _np.all(new_squeeze_shape == org_squeeze_shape)
-                if new_globale_shape.size >= globale_shape.size:
-                    idx = \
-                        [
-                            _np.nonzero(new_globale_shape == globale_shape[i])[0][0]
-                            for i in range(len(globale_shape))
-                        ]
-                    reshaped_comms_distrib = \
-                        CommsAndDistribution(
-                            locale_comms.expand_dims(
-                                ndim=new_globale_shape.size,
-                                orig_axis_new_pos=idx
-                            ),
-                            distrib.expand_dims(ndim=new_globale_shape.size, orig_axis_new_pos=idx),
-                            this_locale
-                        )
-                else:
-                    idx = [_np.nonzero(new_globale_shape[0] == globale_shape)[0][0], ]
-                    for i in range(1, new_globale_shape.size):
-                        idx.append(
-                            _np.nonzero(new_globale_shape[i] == globale_shape[idx[-1]:])[0][0]
-                        )
-                    idx = _np.setdiff1d(idx, _np.arange(0, new_globale_shape.size))
-                    reshaped_comms_distrib = \
-                        CommsAndDistribution(
-                            locale_comms.squeeze(axis=idx),
-                            distrib.squeeze(axis=idx),
-                            this_locale
-                        )
+            CommsAndDistribution(
+                comms_distrib.locale_comms,
+                _copy.deepcopy(distrib),
+                comms_distrib.this_locale
+            )
 
     return reshaped_comms_distrib
 

@@ -906,6 +906,26 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     self.assertSequenceEqual(_np.broadcast_shapes(shape_a, shape_b), c.shape)
                     self.assertTrue((c == 1).all())
 
+    def test_umath_broadcast_to_more_dims(self):
+        """
+        Ufuncs whose output has more axes (of length one) than the gndarray input
+        with the most similar shape, e.g. inputs of shape :samp:`(41, 43)` and :samp:`(1, 1, 1)`
+        give a :samp:`(1, 41, 43)` output. Creating the output used to raise :obj:`AttributeError`.
+        """
+        npy_ary = _np.random.uniform(low=0.5, high=1.75, size=(41, 43))
+        npy_ones = _np.ones((1, 1, 1))
+
+        def add_numpy_array(ary):
+            return ary + npy_ones
+
+        self.do_multi_distribution_tests(add_numpy_array, npy_ary)
+        with \
+                _ones((41, 43), locale_type=LT_NODE, distrib_type=DT_BLOCK) as a, \
+                _ones((1, 1, 1), locale_type=LT_NODE, distrib_type=DT_BLOCK) as b:
+            with (a + b) as c:
+                self.assertSequenceEqual((1, 41, 43), c.shape)
+                self.assertTrue((c == 2).all())
+
     def test_umath_numpy_array_inputs(self):
         """
         Ufuncs of :obj:`numpy.ndarray` and :obj:`mpi_array.globale.gndarray` inputs.
