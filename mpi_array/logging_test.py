@@ -20,7 +20,11 @@ Classes
 
 """
 import io as _io
+import os as _os
+import re as _re
+import tempfile as _tempfile
 import logging as _builtin_logging
+import mpi4py.MPI as _mpi
 
 from .license import license as _license, copyright as _copyright, version as _version
 from . import unittest as _unittest
@@ -119,6 +123,99 @@ class LoggingTest(_unittest.TestCase):
             lines[0:3]
         )
         self.assertEqual(1, stream.getvalue().count("Stack (most recent call last)"))
+
+    def rank_prefix_regex(self, comm=None, rank_string="rank"):
+        """
+        Returns the regular expression for the prefix which
+        :func:`mpi_array.logging.get_rank_logger` adds to the lines of a message.
+        """
+        if comm is None:
+            comm = _mpi.COMM_WORLD
+        rank = ("%%0%dd" % (len(str(_mpi.COMM_WORLD.size - 1)),)) % comm.rank
+        return r"\d\d:\d\d:\d\d\|%s\|%s%s\|" % (_re.escape(comm.Get_name()), rank_string, rank)
+
+    def test_rank_logger_uses_configured_handlers(self):
+        """
+        The messages of a :func:`mpi_array.logging.get_rank_logger` logger, with the
+        time, communicator name and rank prefix on each line, go to the handlers of
+        the ancestor loggers. New handlers of the same classes used to be created with
+        no arguments, so a :obj:`logging.FileHandler` raised :obj:`TypeError` (and array
+        creation failed), and a :obj:`logging.StreamHandler` wrote to standard error
+        instead of its stream.
+        """
+        parent = _builtin_logging.getLogger(self.logger_name)
+        parent.setLevel(_builtin_logging.INFO)
+        stream = _io.StringIO()
+        self.add_handler(parent, _builtin_logging.StreamHandler(stream))
+        with _tempfile.TemporaryDirectory() as dir_name:
+            file_name = _os.path.join(dir_name, "rank_logger.log")
+            file_handler = self.add_handler(parent, _builtin_logging.FileHandler(file_name))
+            for i in range(2):
+                rank_logger = _logging.get_rank_logger(self.logger_name + ".child")
+            rank_logger.info("line %s\nline %s", 1, 2)
+            rank_logger.debug("not logged at level INFO")
+            try:
+                raise RuntimeError("Raised for the test.")
+            except RuntimeError:
+                rank_logger.exception("line 3")
+            file_handler.flush()
+            with open(file_name) as f:
+                file_text = f.read()
+
+        prefix = self.rank_prefix_regex()
+        for text in (stream.getvalue(), file_text):
+            lines = text.splitlines()
+            self.assertRegex(lines[0], "^" + prefix + "line 1$")
+            self.assertRegex(lines[1], "^" + prefix + "line 2$")
+            self.assertRegex(lines[2], "^" + prefix + "line 3$")
+            self.assertRegex(lines[3], "^" + prefix + "Traceback")
+            self.assertRegex(lines[-1], "^" + prefix + "RuntimeError: Raised for the test.$")
+            self.assertTrue(all(_re.match(prefix, line) for line in lines))
+            self.assertEqual(1, len([line for line in lines if line.endswith("|line 1")]))
+            self.assertEqual(1, text.count("Traceback"))
+
+    def test_rank_logger_ranks(self):
+        """
+        Only the processes in the :samp:`ranks` argument of
+        :func:`mpi_array.logging.get_rank_logger` (rank 0 for
+        :func:`mpi_array.logging.get_root_logger`) log messages.
+        """
+        parent = _builtin_logging.getLogger(self.logger_name)
+        stream = _io.StringIO()
+        self.add_handler(parent, _builtin_logging.StreamHandler(stream))
+        comm = _mpi.COMM_WORLD
+        _logging.get_rank_logger(self.logger_name + ".child", ranks=[comm.size - 1]).warning("A")
+        _logging.get_root_logger(self.logger_name + ".child").warning("B")
+        lines = stream.getvalue().splitlines()
+        expected = []
+        if comm.rank == (comm.size - 1):
+            expected.append("^" + self.rank_prefix_regex() + "A$")
+        if comm.rank == 0:
+            expected.append("^" + self.rank_prefix_regex(rank_string="root") + "B$")
+        self.assertEqual(len(expected), len(lines))
+        for line, regex in zip(lines, expected):
+            self.assertRegex(line, regex)
+
+    def test_initialise_loggers_does_not_duplicate_handlers(self):
+        """
+        :func:`mpi_array.logging.initialise_loggers` doesn't add a handler to a logger
+        which (or an ancestor of which) already has a handler of that class, a message
+        would then be output more than once.
+        """
+        parent = _builtin_logging.getLogger(self.logger_name)
+        child = _builtin_logging.getLogger(self.logger_name + ".child")
+        try:
+            for i in range(2):
+                _logging.initialise_loggers([self.logger_name], log_level=_builtin_logging.INFO)
+            self.assertEqual(1, len(parent.handlers))
+            self.assertTrue(isinstance(parent.handlers[0], _logging.SplitStreamHandler))
+            _logging.initialise_loggers([child.name], log_level=_builtin_logging.DEBUG)
+            self.assertEqual(0, len(child.handlers))
+            self.assertEqual(_builtin_logging.DEBUG, child.level)
+        finally:
+            for logger in (parent, child):
+                for handler in list(logger.handlers):
+                    logger.removeHandler(handler)
 
 
 _unittest.main(__name__)

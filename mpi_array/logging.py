@@ -18,6 +18,7 @@ Classes and Functions
    :toctree: generated/
 
    SplitStreamHandler - A :obj:`logging.StreamHandler` which splits errors and warnings to *stderr*.
+   MessageFormatFilter - A :obj:`logging.Filter` which formats the message of records.
    initialise_loggers - Initialises handlers and formatters for loggers.
    get_rank_logger - Returns :obj:`logging.Logger` for MPI ranks.
    get_root_logger - Returns :obj:`logging.Logger` for MPI root-rank.
@@ -178,6 +179,42 @@ class MultiLineFormatter(_builtin_logging.Formatter):
         return self.multi_line_split_string.join(s_list)
 
 
+class MessageFormatFilter(_builtin_logging.Filter):
+
+    """
+    A :obj:`logging.Filter` which replaces the message of a record with the record
+    formatted by a :obj:`logging.Formatter` (including the exception traceback and
+    stack information). Added to a logger, the handlers of the logger and of its
+    ancestors then output the formatted message.
+    """
+
+    def __init__(self, formatter):
+        """
+        Initialise.
+
+        :type formatter: :obj:`logging.Formatter`
+        :param formatter: Formats the records.
+        """
+        _builtin_logging.Filter.__init__(self)
+        self.formatter = formatter
+
+    def filter(self, record):
+        """
+        Replaces the message of :samp:`{record}` with the formatted record.
+
+        :type record: :obj:`logging.LogRecord`
+        :param record: The record to format.
+        :rtype: :obj:`bool`
+        :return: :samp:`True`, the record is logged.
+        """
+        record.msg = self.formatter.format(record)
+        record.args = None
+        record.exc_info = None
+        record.exc_text = None
+        record.stack_info = None
+        return True
+
+
 class LoggerFactory (object):
 
     """
@@ -212,7 +249,10 @@ class LoggerFactory (object):
     def get_rank_logger(self, name, comm=None, ranks=None, rank_string="rank"):
         """
         Returns a :obj:`logging.Logger` object with time-stamp, :samp:`{comm}.Get_name()`
-        and :samp:`{comm}.Get_rank()` in the message.
+        and :samp:`{comm}.Get_rank()` in the message. The messages, with this prefix on
+        each line (see :meth:`get_formatter`), are output by the handlers of the
+        :samp:`{name}` logger and of its ancestors (as configured, e.g. with
+        :func:`initialise_loggers`).
 
         :type name: :obj:`str`
         :param name: Name of logger (note that the name of logger actuallycreated will
@@ -241,12 +281,10 @@ class LoggerFactory (object):
                     (("%%0%dd" % (len(str(_mpi.COMM_WORLD.size - 1)),)) % comm.Get_rank())
                 )
             )
-        # First search for handler classes.
-        tmp_logger = _builtin_logging.getLogger(name)
-        hander_classes = get_handler_classes(tmp_logger)
-        # Don't propagate, new handler object instances are assigned at the leaf.
-        rank_logger.propagate = False
         rank_logger.handlers = []
+        for message_format_filter in rank_logger.filters:
+            if isinstance(message_format_filter, MessageFormatFilter):
+                rank_logger.removeFilter(message_format_filter)
         f = \
             self.get_formatter(
                 prefix_string=(
@@ -256,12 +294,13 @@ class LoggerFactory (object):
                 )
             )
         if (ranks is None) or (comm.Get_rank() in ranks):
-            for handler_class in hander_classes:
-                h = handler_class()
-                h.setFormatter(f)
-                rank_logger.addHandler(h)
+            # The messages are formatted with the rank prefix and then
+            # propagate to the handlers of the ancestor loggers.
+            rank_logger.propagate = True
+            rank_logger.addFilter(MessageFormatFilter(f))
         else:
             # NullHandler is always silent
+            rank_logger.propagate = False
             rank_logger.addHandler(_builtin_logging.NullHandler())
 
         return rank_logger
@@ -339,7 +378,9 @@ def initialise_loggers(names, log_level=_builtin_logging.WARNING, handler_class=
     """
     Initialises specified loggers to generate output at the
     specified logging level. If the specified named loggers do not exist,
-    they are created.
+    they are created. A :samp:`{handler_class}` handler is only added to a logger
+    which (and whose ancestors to which it propagates messages) doesn't
+    have one already, otherwise messages would be output more than once.
 
     :type names: :obj:`list` of :obj:`str`
     :param names: List of logger names.
@@ -355,8 +396,8 @@ def initialise_loggers(names, log_level=_builtin_logging.WARNING, handler_class=
     """
     for name in names:
         logr = _builtin_logging.getLogger(name)
-        handler = handler_class()
-        logr.addHandler(handler)
+        if handler_class not in get_handler_classes(logr):
+            logr.addHandler(handler_class())
         logr.setLevel(log_level)
 
 
