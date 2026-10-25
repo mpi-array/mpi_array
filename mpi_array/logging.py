@@ -155,17 +155,23 @@ class MultiLineFormatter(_builtin_logging.Formatter):
     def format(self, record):
         """
         Converts record to formatted string, each line of a multi-line
-        message string is individually formatted.
+        message string is individually formatted. This includes the lines
+        of the exception traceback and stack information, which are added
+        once (to the message).
         """
         # take care of the substitutions in record.args first
         fs = _builtin_logging.Formatter.format(self, record)
         messages = fs.split(self.multi_line_split_string)
         s_list = [messages[0], ]
-        # Now format each line individually (no substitutions).
+        # Now format each line individually (no substitutions, the traceback
+        # and stack information are lines of the message already).
         for msg in messages[1:]:
             single_line_record = _copy.copy(record)
             single_line_record.args = None
             single_line_record.msg = msg
+            single_line_record.exc_info = None
+            single_line_record.exc_text = None
+            single_line_record.stack_info = None
             fs = _builtin_logging.Formatter.format(self, single_line_record)
             s_list.append(fs)
 

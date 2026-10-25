@@ -87,6 +87,39 @@ class LoggingTest(_unittest.TestCase):
         self.assertEqual([child_handler], _logging.get_handlers(child))
         self.assertEqual([_builtin_logging.StreamHandler], _logging.get_handler_classes(child))
 
+    def test_multi_line_formatter(self):
+        """
+        :obj:`mpi_array.logging.MultiLineFormatter` formats each line of a message,
+        and adds an exception traceback (and stack information) once. They used to be
+        added again to every line of the message.
+        """
+        stream = _io.StringIO()
+        handler = _builtin_logging.StreamHandler(stream)
+        handler.setFormatter(_logging.MultiLineFormatter("prefix|%(message)s"))
+        logger = _builtin_logging.getLogger(self.logger_name)
+        logger.propagate = False
+        self.add_handler(logger, handler)
+        try:
+            raise RuntimeError("Raised for the test.")
+        except RuntimeError:
+            logger.exception("line %s\nline %s\nline %s", 1, 2, 3)
+        lines = stream.getvalue().splitlines()
+        self.assertEqual(["prefix|line 1", "prefix|line 2", "prefix|line 3"], lines[0:3])
+        self.assertEqual("prefix|Traceback (most recent call last):", lines[3])
+        self.assertEqual("prefix|RuntimeError: Raised for the test.", lines[-1])
+        self.assertEqual(1, stream.getvalue().count("Traceback"))
+        self.assertTrue(all(line.startswith("prefix|") for line in lines))
+
+        stream.truncate(0)
+        stream.seek(0)
+        logger.warning("line 1\nline 2", stack_info=True)
+        lines = stream.getvalue().splitlines()
+        self.assertEqual(
+            ["prefix|line 1", "prefix|line 2", "prefix|Stack (most recent call last):"],
+            lines[0:3]
+        )
+        self.assertEqual(1, stream.getvalue().count("Stack (most recent call last)"))
+
 
 _unittest.main(__name__)
 
