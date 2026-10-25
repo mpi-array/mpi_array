@@ -121,6 +121,8 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     :rtype: :samp:`type(ary)`
     :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{ary}`.
     """
+    if not isinstance(ary, _globale.gndarray):
+        ary = _np.asanyarray(ary)
     if dtype is None:
         dtype = ary.dtype
     order = _locale.check_order(order)
@@ -128,14 +130,13 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     if (isinstance(ary, _globale.gndarray)):
         ret_ary = \
             empty(
-                dtype=ary.dtype,
+                dtype=dtype,
                 comms_and_distrib=ary.comms_and_distrib,
                 order=order,
                 intra_partition_dims=ary.lndarray_proxy.intra_partition_dims
             )
     else:
-        ary = _np.asanyarray(ary)
-        ret_ary = empty(ary.shape, dtype=ary.dtype, order=order, **kwargs)
+        ret_ary = empty(ary.shape, dtype=dtype, order=order, **kwargs)
 
     return ret_ary
 

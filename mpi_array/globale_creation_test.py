@@ -38,6 +38,7 @@ from .globale_creation import asarray as _asarray, asanyarray as _asanyarray
 from .globale_creation import empty as _empty, zeros as _zeros, ones as _ones, copy as _copy
 from .globale_creation import empty_like as _empty_like, zeros_like as _zeros_like
 from .globale_creation import ones_like as _ones_like, full as _full, array as _array
+from .globale_creation import full_like as _full_like
 from .globale import copyto as _copyto
 from . import locale as _locale
 from .comms import create_distribution as _create_distribution, LT_PROCESS, LT_NODE, DT_CLONED
@@ -334,6 +335,43 @@ class GndarrayCreationTest(_unittest.TestCase):
         self.assertEqual(_np.dtype("int64"), gary1.dtype)
         gary.locale_comms.peer_comm.barrier()
         self.assertTrue((gary1 == 1).all())
+
+    def test_like_functions_dtype(self):
+        """
+        The :samp:`dtype` argument of :func:`mpi_array.globale_creation.empty_like`,
+        :func:`mpi_array.globale_creation.zeros_like`, :func:`mpi_array.globale_creation.ones_like`
+        and :func:`mpi_array.globale_creation.full_like` gives the type of the new array,
+        it used to be ignored.
+        """
+        like_funcs_and_values = \
+            (
+                (_empty_like, (), None),
+                (_zeros_like, (), 0),
+                (_ones_like, (), 1),
+                (_full_like, (3,), 3),
+            )
+        gshape = (8 * _mpi.COMM_WORLD.size, 5)
+        with \
+                _zeros(
+                    gshape,
+                    dtype="float64",
+                    locale_type=LT_PROCESS,
+                    distrib_type=DT_BLOCK,
+                    halo=1
+                ) as gary:
+            for like_func, args, value in like_funcs_and_values:
+                for ary in (gary, _np.zeros(gshape, dtype="float64"), [[0.0] * 5] * gshape[0]):
+                    with like_func(ary, *args, dtype="int16") as like_gary:
+                        self.assertEqual(_np.dtype("int16"), like_gary.dtype)
+                        self.assertSequenceEqual(gshape, like_gary.shape)
+                        if value is not None:
+                            self.assertTrue((like_gary == value).all())
+                        if ary is gary:
+                            self.assertTrue(
+                                _np.all(like_gary.distribution.halo == gary.distribution.halo)
+                            )
+                    with like_func(ary, *args) as like_gary:
+                        self.assertEqual(_np.dtype("float64"), like_gary.dtype)
 
     def test_copy_shared_1d(self):
         """

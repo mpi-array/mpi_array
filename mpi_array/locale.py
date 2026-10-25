@@ -896,7 +896,7 @@ def empty_like(ary, dtype=None):
     if (isinstance(ary, LndarrayProxy)):
         ret_ary = \
             empty(
-                dtype=ary.dtype,
+                dtype=dtype,
                 comms_and_distrib=ary.comms_and_distrib,
                 order=ary.md.order,
                 intra_partition_dims=ary.intra_partition_dims

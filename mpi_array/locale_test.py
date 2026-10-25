@@ -446,6 +446,26 @@ class LndarrayProxyTest(_unittest.TestCase):
                 cand.locale_comms.peer_comm.barrier()
                 self.assertTrue(_np.all(lary1 == 1))
 
+    def test_like_functions_dtype(self):
+        """
+        The :samp:`dtype` argument of :func:`mpi_array.locale.empty_like`,
+        :func:`mpi_array.locale.zeros_like` and :func:`mpi_array.locale.ones_like`
+        gives the type of the new array, it used to be ignored.
+        """
+        cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
+        with _locale.zeros(comms_and_distrib=cand, dtype="float64") as lary:
+            for like_func, value in \
+                    ((_locale.empty_like, None), (_locale.zeros_like, 0), (_locale.ones_like, 1)):
+                with like_func(lary, dtype="int16") as like_lary:
+                    self.assertEqual(_np.dtype("int16"), like_lary.dtype)
+                    self.assertSequenceEqual(lary.shape, like_lary.shape)
+                    if value is not None:
+                        cand.locale_comms.intra_locale_comm.barrier()
+                        self.assertTrue(_np.all(like_lary.view_n == value))
+                with like_func(lary) as like_lary:
+                    self.assertEqual(_np.dtype("float64"), like_lary.dtype)
+                cand.locale_comms.intra_locale_comm.barrier()
+
     def test_copy_shared_1d(self):
         """
         Test for :func:`_locale.copy`.

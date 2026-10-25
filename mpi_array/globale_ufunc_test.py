@@ -1008,6 +1008,25 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 self.assertTrue(world.allreduce(all_freed, op=_mpi.LAND))
                 del fetched_arys[:]
 
+    def test_ufunc_outputs_of_different_dtypes(self):
+        """
+        Each output of a ufunc gets its own type, e.g. :obj:`numpy.frexp` gives
+        a float mantissa and an int exponent. The outputs after the first used to get
+        the type of the first output.
+        """
+        npy_ary = _np.linspace(0.25, 100.0, 64 * _mpi.COMM_WORLD.size)
+        npy_mantissa, npy_exponent = _np.frexp(npy_ary)
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with _asarray(npy_ary, locale_type=locale_type, distrib_type=DT_BLOCK) as gary:
+                mantissa, exponent = _np.frexp(gary)
+                with mantissa, exponent:
+                    self.assertEqual(npy_mantissa.dtype, mantissa.dtype)
+                    self.assertEqual(npy_exponent.dtype, exponent.dtype)
+                    with _asarray(npy_mantissa) as cln_mantissa:
+                        self.compare_results(cln_mantissa, mantissa)
+                    with _asarray(npy_exponent) as cln_exponent:
+                        self.compare_results(cln_exponent, exponent)
+
     def test_ufunc_casting_arg(self):
         """
         Test ufunc with casting argument.
