@@ -627,6 +627,7 @@ def create_locale_comms_info(
     if len(bad_inter_rank_to_intra_rank) > 0:
         raise ValueError(
             "Got invalid inter_locale_comm rank to intra_locale_comm rank translation:\n"
+            +
             "\n".join(
                 (
                     (

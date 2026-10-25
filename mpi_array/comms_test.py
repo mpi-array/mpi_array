@@ -119,6 +119,30 @@ class LocaleCommsTest(_unittest.TestCase):
                 lc.peer_comm  # inter
             )
 
+    def test_construct_invalid_comms_message(self):
+        """
+        The :obj:`ValueError` for inter-locale processes which are not rank 0 of their
+        intra-locale communicator has a heading line, followed by one line for each
+        of them. The message was built with an implicit string concatenation, which
+        joined the lines with the heading.
+        """
+        lc = LocaleComms()
+        if lc.intra_locale_comm.size > 1:
+            with self.assertRaises(ValueError) as context:
+                LocaleComms(lc.peer_comm, lc.intra_locale_comm, lc.peer_comm)
+            lines = str(context.exception).split("\n")
+            self.assertEqual(
+                "Got invalid inter_locale_comm rank to intra_locale_comm rank translation:",
+                lines[0]
+            )
+            self.assertEqual(lc.peer_comm.size - lc.num_locales, len(lines) - 1)
+            for line in lines[1:]:
+                self.assertRegex(
+                    line,
+                    r"^peer rank=\d+, inter_locale_comm rank=\d+ translated to "
+                    + r"intra_locale_comm rank=[1-9]\d*, should be intra_locale_comm rank=0$"
+                )
+
     def test_construct_no_shared(self):
         lc = LocaleComms(intra_locale_comm=_mpi.COMM_SELF)
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
