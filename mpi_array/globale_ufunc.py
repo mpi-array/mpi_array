@@ -808,7 +808,8 @@ class GndarrayArrayUfuncExecutor(object):
 
         :type outputs: :samp:`None` or :obj:`tuple` of :obj:`mpi_array.globale.gndarray`
         :param outputs: Output arrays passed in as the :samp:`out` argument
-           of the :obj:`numpy.ufunc`.
+           of the :obj:`numpy.ufunc`. A new array is created for each :samp:`None` element
+           (and for the outputs which are not given).
         :type result_shape: sequence of :obj:`int`
         :param result_shape: The shape of all output arrays.
         :type result_types: sequence of :samp:`numpy.dtype`
@@ -821,10 +822,13 @@ class GndarrayArrayUfuncExecutor(object):
            each element is a :obj:`mpi_array.globale.gndarray`.
         """
 
+        outputs = () if outputs is None else tuple(outputs)
+        outputs = outputs + (None,) * (len(result_types) - len(outputs))
+        given_outputs = tuple(output for output in outputs if output is not None)
         template_output_gary = None
-        if (outputs is not None) and (len(outputs) > 0):
-            check_equivalent_inter_locale_comms(outputs)
-            template_output_gary = outputs[-1]
+        if len(given_outputs) > 0:
+            check_equivalent_inter_locale_comms(given_outputs)
+            template_output_gary = given_outputs[-1]
         else:
             best_match_input = self.get_best_match_input(result_shape)
             comms_distrib = None
@@ -853,15 +857,12 @@ class GndarrayArrayUfuncExecutor(object):
                         peer_comm=self.peer_comm,
                         intra_locale_comm=self.intra_locale_comm
                     )
-            outputs = (template_output_gary,)
+            outputs = (template_output_gary,) + outputs[1:]
         outputs = \
-            (
-                outputs
-                +
-                tuple(
-                    _globale_creation.empty_like(template_output_gary, dtype=result_types[i])
-                    for i in range(len(outputs), len(result_types))
-                )
+            tuple(
+                output if output is not None else
+                _globale_creation.empty_like(template_output_gary, dtype=result_types[i])
+                for i, output in enumerate(outputs)
             )
 
         return outputs

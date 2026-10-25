@@ -1191,6 +1191,37 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 with _asarray(npy_exponent) as cln_exponent:
                     self.compare_results(cln_exponent, exponent)
 
+    def test_ufunc_out_with_none(self):
+        """
+        Ufunc with :samp:`out` arrays and :samp:`None` entries, a new output array is
+        created for each :samp:`None` entry. They used to raise :obj:`AttributeError`.
+        """
+        npy_ary = _np.linspace(0.25, 100.0, 64 * _mpi.COMM_WORLD.size)
+        npy_mantissa, npy_exponent = _np.frexp(npy_ary)
+        for locale_type in (LT_NODE, LT_PROCESS):
+            with \
+                    _asarray(npy_ary, locale_type=locale_type, distrib_type=DT_BLOCK) as gary, \
+                    _zeros_like(gary) as mantissa, \
+                    _zeros_like(gary, dtype=npy_exponent.dtype) as exponent:
+                for out in ((None, exponent), (mantissa, None), (None, None)):
+                    outputs = _np.frexp(gary, out=out)
+                    for i in range(2):
+                        if out[i] is not None:
+                            self.assertTrue(outputs[i] is out[i])
+                    with \
+                            _asarray(npy_mantissa) as cln_mantissa, \
+                            _asarray(npy_exponent) as cln_exponent:
+                        self.assertEqual(npy_mantissa.dtype, outputs[0].dtype)
+                        self.assertEqual(npy_exponent.dtype, outputs[1].dtype)
+                        self.compare_results(cln_mantissa, outputs[0])
+                        self.compare_results(cln_exponent, outputs[1])
+                    for i in range(2):
+                        if out[i] is None:
+                            outputs[i].free()
+                with _np.add(gary, 1.0, out=(None,)) as gary_sum:
+                    with _asarray(npy_ary + 1.0) as cln_sum:
+                        self.compare_results(cln_sum, gary_sum)
+
     def test_gufunc_not_implemented(self):
         """
         Generalised ufuncs (e.g. :obj:`numpy.matmul`) used to be computed tile by tile,
