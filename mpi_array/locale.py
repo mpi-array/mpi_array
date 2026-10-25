@@ -54,6 +54,7 @@ Utilities
 
 from __future__ import absolute_import
 
+import weakref as _weakref
 import numpy as _np
 import mpi4py.MPI as _mpi
 import array_split as _array_split
@@ -279,6 +280,12 @@ class lndarray(_np.ndarray):
     be specified for instantiation.
     """
 
+    #: The object which frees the memory of the array (e.g. the
+    #: :obj:`mpi_array.globale.gndarray`), for views returned
+    #: by :obj:`LndarrayProxy`, which keep it alive. Views of a view get it too.
+    #: It is not set for the locale array itself (it would be a reference cycle).
+    _memory_owner = None
+
     def __new__(
         cls,
         shape=None,
@@ -337,6 +344,9 @@ class lndarray(_np.ndarray):
             return
 
         self._md = getattr(obj, '_md', None)
+        memory_owner = getattr(obj, '_memory_owner', None)
+        if (memory_owner is not None) and _np.may_share_memory(self, obj):
+            self._memory_owner = memory_owner
 
     @property
     def md(self):
@@ -454,6 +464,7 @@ class LndarrayProxy(object):
         # because they are referenced in self.free (via self.__del__).
         self._lndarray = None
         self.rma_window_buffer = None
+        self._memory_owner_ref = None
 
         if locale_extent is None or (not isinstance(locale_extent, _LocaleExtent)):
             raise ValueError(
@@ -634,11 +645,56 @@ class LndarrayProxy(object):
 
         return partition_pair
 
+    def set_memory_owner(self, owner):
+        """
+        Sets the object which frees the memory of the locale array, when it is not this
+        proxy, e.g. the :obj:`mpi_array.globale.gndarray` which has this proxy. Only a weak
+        reference to :samp:`{owner}` is kept.
+
+        :type owner: :obj:`object`
+        :param owner: The object which frees the memory of :attr:`lndarray`.
+        """
+        self._memory_owner_ref = _weakref.ref(owner)
+
+    @property
+    def memory_owner(self):
+        """
+        The object which frees the memory of the locale array: the object given
+        to :meth:`set_memory_owner`, otherwise this proxy when it has
+        an :attr:`rma_window_buffer` (:samp:`None` when there is no owner).
+        The views of the array (e.g. :attr:`view_n`) keep it alive, its memory
+        is not freed by garbage collection while they exist. They are invalid
+        after an explicit :meth:`free` of the owner.
+        """
+        owner = None
+        if self._memory_owner_ref is not None:
+            owner = self._memory_owner_ref()
+        elif self.rma_window_buffer is not None:
+            owner = self
+        return owner
+
+    def keep_owner_alive(self, view):
+        """
+        Returns :samp:`{view}`, a view of :attr:`lndarray`, which keeps
+        the :attr:`memory_owner` alive.
+
+        :type view: :obj:`lndarray`
+        :param view: A view of :attr:`lndarray` (other objects, e.g. the scalars
+           returned by indexing, are returned unchanged).
+        :rtype: :samp:`type({view})`
+        :return: The :samp:`{view}`.
+        """
+        if isinstance(view, lndarray):
+            owner = self.memory_owner
+            if owner is not None:
+                view._memory_owner = owner
+        return view
+
     def __getitem__(self, *args, **kwargs):
         """
         Return slice/item from :attr:`lndarray` array.
         """
-        return self._lndarray.__getitem__(*args, **kwargs)
+        return self.keep_owner_alive(self._lndarray.__getitem__(*args, **kwargs))
 
     def __setitem__(self, *args, **kwargs):
         """
@@ -658,7 +714,8 @@ class LndarrayProxy(object):
     def lndarray(self):
         """
         An :obj:`lndarray` instance containing array data in (potentially)
-        shared memory.
+        shared memory. Unlike its views (e.g. :attr:`view_h`) it doesn't keep
+        the :attr:`memory_owner` alive.
         """
         return self._lndarray
 
@@ -719,14 +776,14 @@ class LndarrayProxy(object):
         """
         A tile view of the array for this rank of :samp:`peer_comm`.
         """
-        return self._lndarray[self._intra_partition.rank_view_slice_n]
+        return self.keep_owner_alive(self._lndarray[self._intra_partition.rank_view_slice_n])
 
     @property
     def rank_view_h(self):
         """
         A tile view (including halo elements) of the array for this rank of :samp:`peer_comm`.
         """
-        return self._lndarray[self._intra_partition.rank_view_slice_h]
+        return self.keep_owner_alive(self._lndarray[self._intra_partition.rank_view_slice_h])
 
     @property
     def rank_view_slice_n(self):
@@ -749,21 +806,24 @@ class LndarrayProxy(object):
         (i.e. partition of halo array). Same as :samp:`self.rank_view_n` when
         halo is zero.
         """
-        return self._lndarray[self._intra_partition.rank_view_partition_slice_h]
+        return \
+            self.keep_owner_alive(
+                self._lndarray[self._intra_partition.rank_view_partition_slice_h]
+            )
 
     @property
     def view_n(self):
         """
         View of entire array without halo.
         """
-        return self._lndarray[self._intra_partition.lndarray_view_slice_n]
+        return self.keep_owner_alive(self._lndarray[self._intra_partition.lndarray_view_slice_n])
 
     @property
     def view_h(self):
         """
         The entire :obj:`LndarrayProxy` view including halo (i.e. :samp:{self}).
         """
-        return self._lndarray.view()
+        return self.keep_owner_alive(self._lndarray.view())
 
     def fill(self, value):
         """

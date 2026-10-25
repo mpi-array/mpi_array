@@ -623,6 +623,9 @@ class gndarray(_NDArrayOperatorsMixin):
         self._rma_window_buffer = rma_window_buffer
         self._lndarray_proxy = lndarray_proxy
         self._halo_updater = None
+        if lndarray_proxy is not None:
+            # The views of the locale array keep this array, which frees the memory, alive.
+            lndarray_proxy.set_memory_owner(self)
 
         return self
 
@@ -749,18 +752,32 @@ class gndarray(_NDArrayOperatorsMixin):
 
     @property
     def view_n(self):
+        """
+        View of the locale array without the halo. Views keep this array alive
+        (its memory is not freed by garbage collection while they exist),
+        they are invalid after an explicit :meth:`free`.
+        """
         return self._lndarray_proxy.view_n
 
     @property
     def view_h(self):
+        """
+        View of the locale array including the halo, see :attr:`view_n`.
+        """
         return self._lndarray_proxy.view_h
 
     @property
     def rank_view_n(self):
+        """
+        View of the tile of this process without the halo, see :attr:`view_n`.
+        """
         return self._lndarray_proxy.rank_view_n
 
     @property
     def rank_view_h(self):
+        """
+        View of the tile of this process including the halo, see :attr:`view_n`.
+        """
         return self._lndarray_proxy.rank_view_h
 
     @property
@@ -944,7 +961,7 @@ class gndarray(_NDArrayOperatorsMixin):
             lstart = locale_extent.globale_to_locale_h(dst_extent.start_h)
             lstop = lstart + shape
             slc = tuple(_builtin_slice(lstart[a], lstop[a]) for a in range(locale_extent.ndim))
-            locale_ary = self.lndarray_proxy.lndarray[slc]
+            locale_ary = self.lndarray_proxy[slc]
 
         return locale_ary, dst_extent
 

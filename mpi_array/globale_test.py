@@ -31,6 +31,7 @@ Classes
 from __future__ import absolute_import
 
 import os.path as _os_path
+import weakref as _weakref
 import mpi4py.MPI as _mpi
 import numpy as _np
 
@@ -728,6 +729,73 @@ class GndarrayTest(_unittest.TestCase):
                 gary.inter_locale_barrier()
                 gary.intra_locale_barrier()
                 locale_ary.free()
+
+    def test_view_keeps_array_alive(self):
+        """
+        A view of the locale memory of a gndarray keeps the array (which frees the memory)
+        alive, e.g. a view of a temporary, :samp:`(a + 1).view_n`. The temporary used to be freed
+        (:meth:`mpi_array.globale.gndarray.__del__`) as soon as the view was made, and reading
+        the view read freed memory (which could segfault). The array is freed when the last
+        view is released.
+        """
+        def locale_get_locale_extent(gary):
+            extent = gary.lndarray_proxy.locale_extent
+            return gary.locale_get(start=extent.start_n, stop=extent.stop_n)
+
+        # (view function, whether the view excludes the halo)
+        get_views = \
+            (
+                (lambda gary: gary.view_n, True),
+                (lambda gary: gary.view_h, False),
+                (lambda gary: gary.rank_view_n, True),
+                (lambda gary: gary.rank_view_h, False),
+                (lambda gary: gary.lndarray_proxy.view_n, True),
+                (lambda gary: gary.lndarray_proxy.rank_view_partition_h, False),
+                (lambda gary: gary.lndarray_proxy[...], False),
+                (lambda gary: gary.view_n[1:], True),
+                (lambda gary: _np.asarray(gary.view_n), True),
+                (locale_get_locale_extent, True),
+            )
+        size = _mpi.COMM_WORLD.size
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.ones(
+                        (100 * size,), locale_type=locale_type, distrib_type=DT_BLOCK, halo=2
+                    ) as gary:
+                peer_comm = gary.locale_comms.peer_comm
+                for get_view, is_no_halo_view in get_views:
+                    tmp_gary = gary + 1
+                    tmp_gary_ref = _weakref.ref(tmp_gary)
+                    rma_window_buffer = tmp_gary.rma_window_buffer
+                    view = get_view(tmp_gary)
+                    del tmp_gary
+                    is_alive = \
+                        (
+                            (tmp_gary_ref() is not None)
+                            and
+                            (rma_window_buffer.intra_locale_win != _mpi.WIN_NULL)
+                        )
+                    self.assertTrue(peer_comm.allreduce(is_alive, op=_mpi.LAND))
+                    if is_no_halo_view:
+                        self.assertTrue(peer_comm.allreduce(bool(_np.all(view == 2)), op=_mpi.LAND))
+                    sub_view = view[...]
+                    del view
+                    self.assertTrue(tmp_gary_ref() is not None)
+                    del sub_view
+                    # The last view is released, the array is freed (no reference cycle).
+                    self.assertTrue(tmp_gary_ref() is None)
+                    self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+
+                # A copy of a view doesn't keep the array alive.
+                tmp_gary = gary + 1
+                tmp_gary_ref = _weakref.ref(tmp_gary)
+                view_n = tmp_gary.view_n
+                copies = (view_n.copy(), view_n + 1, view_n.astype("int32"))
+                del tmp_gary, view_n
+                self.assertTrue(tmp_gary_ref() is None)
+                self.assertTrue(_np.all(copies[0] == 2))
+                self.assertTrue(_np.all(copies[1] == 3))
+                self.assertTrue(_np.all(copies[2] == 2))
 
     def test_all(self):
         """

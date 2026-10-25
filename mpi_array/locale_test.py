@@ -24,6 +24,7 @@ Classes
 """
 from __future__ import absolute_import
 
+import weakref as _weakref
 from array_split.split import shape_factors as _shape_factors
 import mpi4py.MPI as _mpi
 import numpy as _np  # noqa: E402,F401
@@ -583,6 +584,30 @@ class LndarrayProxyTest(_unittest.TestCase):
                 for axis in range(2):
                     if dims[axis] == 1:
                         self.assertEqual(lary.view_n.shape[axis], lary.rank_view_n.shape[axis])
+
+    def test_view_keeps_array_alive(self):
+        """
+        A view of an :obj:`mpi_array.locale.LndarrayProxy` which has its own memory
+        (an :attr:`mpi_array.locale.LndarrayProxy.rma_window_buffer`) keeps the proxy alive,
+        it used to be freed (:meth:`mpi_array.locale.LndarrayProxy.__del__`) while
+        the view existed.
+        """
+        cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
+        lary = _locale.ones(comms_and_distrib=cand, dtype="int64")
+        # All processes of the locale have filled their tile.
+        cand.locale_comms.intra_locale_comm.barrier()
+        lary_ref = _weakref.ref(lary)
+        rma_window_buffer = lary.rma_window_buffer
+        self.assertTrue(lary.memory_owner is lary)
+        view = lary.view_n[1:]
+        del lary
+        self.assertTrue(lary_ref() is not None)
+        self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+        is_ok = bool(_np.all(view == 1))
+        self.assertTrue(cand.locale_comms.peer_comm.allreduce(is_ok, op=_mpi.LAND))
+        del view
+        self.assertTrue(lary_ref() is None)
+        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
     def test_exit_with_exception_skips_free(self):
         """
