@@ -38,7 +38,7 @@ from .comms import CartLocaleComms, LocaleComms
 from .comms import create_single_locale_distribution, create_locale_comms, create_distribution
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
 from .comms import check_locale_type, LT_NODE, LT_PROCESS
-from .comms import reshape_comms_distribution
+from .comms import reshape_comms_distribution, shape_squeeze
 from .utils import get_shared_mem_usage_percent_string
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
@@ -350,6 +350,16 @@ class CreateDistributionTest(_unittest.TestCase):
             (20, 31, 17, 4),
             tuple(distrib.globale_extent.stop_n)
         )
+
+    def test_shape_squeeze(self):
+        """
+        Tests for :func:`mpi_array.comms.shape_squeeze`, a sequence (e.g. :obj:`tuple`)
+        shape argument used to raise :obj:`ValueError` (or give a wrong result).
+        """
+        for shape in ((1, 5, 1, 7), [1, 5, 1, 7], _np.array((1, 5, 1, 7))):
+            self.assertSequenceEqual([5, 7], shape_squeeze(shape).tolist())
+        self.assertSequenceEqual([], shape_squeeze((1, 1)).tolist())
+        self.assertSequenceEqual([], shape_squeeze(()).tolist())
 
     def test_reshape_comms_distribution(self):
         """

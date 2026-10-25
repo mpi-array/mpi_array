@@ -1352,8 +1352,19 @@ class CartLocaleComms(LocaleComms):
 def shape_squeeze(shape):
     """
     Returns sequence with the the :samp:`1` elements removed.
+
+    :type shape: sequence of :obj:`int`
+    :param shape: A shape.
+    :rtype: :obj:`numpy.ndarray`
+    :return: The elements of :samp:`{shape}` which are not :samp:`1`.
+
+    Example::
+
+       >>> shape_squeeze((1, 5, 1, 7)).tolist()
+       [5, 7]
     """
-    return _np.asarray(shape)[_np.where(shape != 1)]
+    shape = _np.asarray(shape, dtype="int64")
+    return shape[shape != 1]
 
 
 def reshape_comms_distribution(comms_distrib, new_globale_shape):
