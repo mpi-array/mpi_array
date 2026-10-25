@@ -110,7 +110,8 @@ class SplitStreamHandler(_builtin_logging.Handler):
 def get_handlers(logger):
     """
     Returns the handler objects for the specified :obj:`logging.Logger`
-    object. Searches up the parent tree to find handlers.
+    object. Searches up the parent tree to find handlers (the parents
+    to which the logger propagates messages).
 
     :type logger: :obj:`logging.Logger`
     :param logger: Searches this :obj:`logging.Logger` and parents
@@ -119,10 +120,9 @@ def get_handlers(logger):
     :rtype: :obj:`list`
     :return: :obj:`list` of :obj:`logging.Handler` instance objects.
     """
-    handler_list = logger.handlers
-    if logger.propagate and (not isinstance(logger, _builtin_logging.RootLogger)):
-        handler_list += \
-            get_handlers(_builtin_logging.getLogger(".".join(logger.name.split(".")[:-1])))
+    handler_list = list(logger.handlers)
+    if logger.propagate and (logger.parent is not None):
+        handler_list += get_handlers(logger.parent)
     return handler_list
 
 
