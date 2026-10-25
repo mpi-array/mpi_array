@@ -282,7 +282,7 @@ class LoggerFactory (object):
                 )
             )
         rank_logger.handlers = []
-        for message_format_filter in rank_logger.filters:
+        for message_format_filter in list(rank_logger.filters):
             if isinstance(message_format_filter, MessageFormatFilter):
                 rank_logger.removeFilter(message_format_filter)
         f = \
