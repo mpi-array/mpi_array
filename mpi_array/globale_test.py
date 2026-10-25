@@ -834,6 +834,36 @@ class GndarrayTest(_unittest.TestCase):
             del view
             self.assertTrue(tmp_gary_ref() is None)
 
+    def test_get_keeps_array_alive_on_all_processes(self):
+        """
+        :meth:`mpi_array.globale.gndarray.locale_get` and
+        :meth:`mpi_array.globale.gndarray.peer_rank_get` return a view on the processes
+        whose locale has the region and fetched memory on the others. Both keep the
+        array alive, so that it is (collectively) freed at the same point on every process.
+        The fetched memory didn't, and the free mismatched (a hang).
+        """
+        size = _mpi.COMM_WORLD.size
+        with \
+                _globale_creation.ones(
+                    (8 * size,), locale_type=LT_PROCESS, distrib_type=DT_BLOCK
+                ) as gary:
+            peer_comm = gary.locale_comms.peer_comm
+            for get_name in ("locale_get", "peer_rank_get"):
+                tmp_gary = gary + 1
+                tmp_gary.initialise_windows()
+                tmp_gary.inter_locale_barrier()
+                tmp_gary_ref = _weakref.ref(tmp_gary)
+                # The region is local on the process of the first locale only.
+                locale_ary = getattr(tmp_gary, get_name)((slice(0, 4),))
+                del tmp_gary
+                self.assertTrue(peer_comm.allreduce(tmp_gary_ref() is not None, op=_mpi.LAND))
+                self.assertTrue(peer_comm.allreduce(bool(_np.all(locale_ary == 2)), op=_mpi.LAND))
+                # Remote processes have finished fetching before the array is freed.
+                peer_comm.barrier()
+                locale_ary.free()
+                del locale_ary
+                self.assertTrue(tmp_gary_ref() is None)
+
     def test_all(self):
         """
         Tests for :meth:`mpi_array.globale.gndarray.all`.

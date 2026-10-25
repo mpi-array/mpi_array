@@ -116,6 +116,11 @@ class win_lndarray(_np.ndarray):
     _win = None
     #: Only the array which allocated the window frees it, not views or derived arrays.
     _owns_win = False
+    #: The :obj:`mpi_array.globale.gndarray` whose :samp:`locale_get` (or :samp:`peer_rank_get`)
+    #: fetched the elements of this array. It is kept alive like by the views of its
+    #: memory which these methods return on the processes where the region is local,
+    #: so that it is (collectively) freed at the same point on every process.
+    _fetched_from = None
 
     def __new__(
         cls,

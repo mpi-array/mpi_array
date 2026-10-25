@@ -982,6 +982,9 @@ class gndarray(_NDArrayOperatorsMixin):
         communicator) when it is no longer needed. Raises :obj:`ValueError` if
         the region is not within the array.
 
+        Either result keeps this array alive (its memory isn't freed by garbage collection
+        while the result exists).
+
         Synchronisation is the caller's responsibility (the :obj:`numpy.ufunc`
         implementation in :mod:`mpi_array.globale_ufunc` does this):
 
@@ -1015,6 +1018,7 @@ class gndarray(_NDArrayOperatorsMixin):
                     dtype=self.dtype,
                     comm=self.locale_comms.intra_locale_comm
                 )
+            locale_ary._fetched_from = self
 
             if self.locale_comms.have_valid_inter_locale_comm:
                 # Calculate the update objects which indicate where to fetch the data.
@@ -1053,7 +1057,8 @@ class gndarray(_NDArrayOperatorsMixin):
         otherwise allocates non-shared memory (a :obj:`mpi_array.locale.win_lndarray`)
         and performs one-sided RMA to fetch data from remote locales. Free the
         allocated array with its :samp:`free` method when it is no longer needed.
-        Raises :obj:`ValueError` if the region is not within the array.
+        Raises :obj:`ValueError` if the region is not within the array. Either
+        result keeps this array alive.
 
         Synchronisation is the caller's responsibility: the processes which write
         the requested elements must have finished before the fetch, and must not
@@ -1082,6 +1087,7 @@ class gndarray(_NDArrayOperatorsMixin):
                     dtype=self.dtype,
                     comm=_mpi.COMM_SELF
                 )
+            locale_ary._fetched_from = self
 
             update_calculator = \
                 _MpiUpdatesForGet(
