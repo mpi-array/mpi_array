@@ -652,7 +652,11 @@ def agree_on_error(comm, error):
     error_info = None
     if error is not None:
         error_type = next(t for t in type(error).__mro__ if t.__module__ == "builtins")
-        error_info = (error_type, str(error))
+        try:
+            message = str(error)
+        except Exception:
+            message = "%s (no message)" % (type(error).__name__,)
+        error_info = (error_type, message)
     error_infos = comm.allgather(error_info)
     if error is None:
         for error_info in error_infos:
