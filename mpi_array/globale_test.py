@@ -638,6 +638,69 @@ class GndarrayTest(_unittest.TestCase):
                         )
                     )
 
+    def test_update_fetches_each_halo_once(self):
+        """
+        Test for :meth:`mpi_array.globale.gndarray.update` with block distributions
+        over 2 and 3 dimensions. The halo elements (including those of the corners) must
+        equal the elements of the neighbouring locales, and each halo slab is fetched
+        with one RMA :samp:`Get`. The update of each axis used to fetch the halos of
+        every axis.
+        """
+
+        class CountingWin(object):
+
+            def __init__(self, win):
+                self.win = win
+                self.num_gets = 0
+
+            @property
+            def group(self):
+                return self.win.group
+
+            def Fence(self, *args, **kwargs):
+                return self.win.Fence(*args, **kwargs)
+
+            def Get(self, *args, **kwargs):
+                self.num_gets += 1
+                return self.win.Get(*args, **kwargs)
+
+        halo = 2
+        for ndim in (2, 3):
+            gshape = (12,) * ndim
+            npy_ary = _np.arange(_np.prod(gshape), dtype="int64").reshape(gshape)
+            with \
+                    _globale_creation.zeros(
+                        gshape,
+                        dtype="int64",
+                        distrib_type=DT_BLOCK,
+                        locale_type=LT_PROCESS,
+                        halo=halo
+                    ) as gary:
+                extent = gary.lndarray_proxy.locale_extent
+                slice_n = tuple(slice(extent.start_n[a], extent.stop_n[a]) for a in range(ndim))
+                slice_h = tuple(slice(extent.start_h[a], extent.stop_h[a]) for a in range(ndim))
+                gary.fill_h(-1)
+                gary.lndarray_proxy.view_n[...] = npy_ary[slice_n]
+                counting_win = CountingWin(gary.halo_updater._inter_locale_win)
+                gary.halo_updater._inter_locale_win = counting_win
+
+                gary.update()
+
+                # The tiles are at least as big as the halo, so each halo slab
+                # is a part of one neighbouring tile.
+                num_halo_slabs = int(_np.sum(extent.halo > 0))
+                self.assertGreaterEqual(min(extent.shape_n), halo)
+                is_ok = \
+                    (
+                        _np.all(gary.lndarray_proxy.view_h == npy_ary[slice_h])
+                        and
+                        (counting_win.num_gets == num_halo_slabs)
+                    )
+                gary.rank_logger.debug(
+                    "num_gets=%s, num_halo_slabs=%s", counting_win.num_gets, num_halo_slabs
+                )
+                self.assertTrue(gary.locale_comms.peer_comm.allreduce(is_ok, op=_mpi.LAND))
+
     def test_all(self):
         """
         Tests for :meth:`mpi_array.globale.gndarray.all`.

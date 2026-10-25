@@ -270,6 +270,39 @@ class HalosUpdateTest(_unittest.TestCase):
         self.assertTrue(self.se is hu.updates_per_axis[0][0][0].src_extent)
         self.assertEqual(self.ue, hu.updates_per_axis[0][0][0].update_extent)
 
+    def test_updates_per_axis(self):
+        """
+        Tests that each axis of :attr:`mpi_array.update.HalosUpdate.updates_per_axis`
+        has its own low-index and high-index updates. The axes used to share a single
+        pair of update lists, so the update of each axis fetched the halos of every axis.
+        """
+        for dims in ((2, 2), (3, 1), (2, 2, 2)):
+            ndim = len(dims)
+            num_locales = int(_np.prod(dims))
+            partition = \
+                BlockPartition(
+                    GlobaleExtent(stop=(8,) * ndim),
+                    dims,
+                    _np.arange(num_locales).reshape(dims),
+                    halo=1,
+                    inter_locale_rank_to_peer_rank=_np.arange(num_locales)
+                )
+            for rank in range(num_locales):
+                extent = partition.locale_extents[rank]
+                hu = HalosUpdate(rank, partition.locale_extents)
+                self.assertEqual(ndim, len(hu.updates_per_axis))
+                for axis in range(ndim):
+                    for dir in (hu.LO, hu.HI):
+                        updates = hu.updates_per_axis[axis][dir]
+                        # A halo of one element is within the adjacent tile.
+                        self.assertEqual(extent.halo[axis, dir], len(updates))
+                        slab = extent.halo_slab_extent(axis, dir)
+                        for update in updates:
+                            self.assertEqual(
+                                update.update_extent,
+                                slab.calc_intersection(update.update_extent)
+                            )
+
 
 class UpdatesForRedistributeTest(_unittest.TestCase):
 

@@ -730,7 +730,7 @@ class HalosUpdate(object):
         """
         self._dst_rank = dst_rank
         self._dst_extent = rank_to_extents_map[dst_rank]
-        self._updates = [[[], []]] * self._dst_extent.ndim
+        self._updates = [[[], []] for a in range(self._dst_extent.ndim)]
         if hasattr(rank_to_extents_map, "keys"):
             ranks = rank_to_extents_map.keys()
         else:
