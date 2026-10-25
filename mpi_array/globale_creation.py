@@ -356,6 +356,8 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
        Otherwise, a copy will only be made if :samp:`__array__` returns a copy,
        if :samp:`a` is a nested sequence, or if a copy is needed to satisfy any of
        the other requirements (:samp:`dtype`, :samp:`order`, etc.).
+       A sub-class instance :samp:`{a}` is copied when :samp:`{subok}` is :samp:`False`,
+       the returned array never shares the memory (windows) of :samp:`{a}`.
     :type order: :samp:`{'K', 'A', 'C', 'F'}`
     :param order: Only C order is implemented: :samp:`'C'`, :samp:`'A'` and :samp:`'K'` all give
         a C order array, :samp:`'F'` raises :obj:`NotImplementedError`.
@@ -373,23 +375,28 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     """
     order = _locale.check_order(order)
 
-    if hasattr(a, "__class__") and (a.__class__ is _globale.gndarray):
-        if copy:
-            ret_ary = a.copy()
-        else:
+    if isinstance(a, _globale.gndarray):
+        if a.ndim < ndmin:
+            raise NotImplementedError(
+                "Got ndmin=%s for a gndarray with ndim=%s, reshaping a gndarray is not implemented."
+                %
+                (ndmin, a.ndim)
+            )
+        dtype = a.dtype if dtype is None else _np.dtype(dtype)
+        if (
+            (not copy)
+            and
+            (subok or (a.__class__ is _globale.gndarray))
+            and
+            (dtype == a.dtype)
+        ):
             ret_ary = a
-    elif isinstance(a, _globale.gndarray):
-        if subok:
-            ret_ary = a
         else:
-            ret_ary =\
-                _globale.gndarray(
-                    comms_and_distrib=a.comms_and_distrib,
-                    rma_window_buffer=a.rma_window_buffer,
-                    lndarray_proxy=a.lndarray_proxy
-                )
-        if copy:
-            ret_ary = a.copy()
+            # A new array, a second gndarray with the windows of a would also free them.
+            ret_ary = empty_like(a, dtype=dtype, order=order)
+            ret_ary.lndarray_proxy.rank_view_partition_h[...] = \
+                a.lndarray_proxy.rank_view_partition_h[...]
+            ret_ary.intra_locale_barrier()
     else:
         if "distrib_type" not in kwargs.keys() or kwargs["distrib_type"] is None:
             kwargs["distrib_type"] = _comms.DT_CLONED
@@ -398,6 +405,7 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
             empty(
                 shape=np_ary.shape,
                 dtype=np_ary.dtype,
+                order=order,
                 **kwargs
             )
         if (ret_ary.ndim == 0) and (ret_ary.locale_comms.have_valid_inter_locale_comm):
@@ -413,9 +421,6 @@ def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
                     np_ary[globale_rank_view_slice_n]
 
         ret_ary.intra_locale_barrier()
-
-    if ret_ary.ndim < ndmin:
-        ret_ary = ret_ary.reshape((1,) * (ndmin - ret_ary.ndim) + tuple(ret_ary.shape))
 
     return ret_ary
 

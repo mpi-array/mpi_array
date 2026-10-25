@@ -145,8 +145,47 @@ class GndarrayCreationTest(_unittest.TestCase):
         ary_subclass = GndarraySubclass(candd, rma_window_buffer, lndarray_proxy)
         self.assertTrue(ary_subclass.__class__ is not _gndarray)
         self.assertTrue(isinstance(ary_subclass, _gndarray))
+        ary_subclass.fill(3)
         asary0 = _asarray(ary_subclass)
         self.assertTrue(asary0.__class__ is _gndarray)
+        # A copy: a second gndarray which owned (and freed) the same windows was returned.
+        self.assertTrue(asary0.rma_window_buffer is not ary_subclass.rma_window_buffer)
+        self.assertTrue(asary0.lndarray_proxy is not ary_subclass.lndarray_proxy)
+        self.assertTrue((asary0 == 3).all())
+        asary0.free()
+        self.assertTrue((ary_subclass == 3).all())
+        # array() (copy=True) used to free the windows of ary_subclass.
+        with _array(ary_subclass) as ary0:
+            self.assertTrue(ary0.__class__ is _gndarray)
+            self.assertTrue((ary0 == 3).all())
+        self.assertTrue((ary_subclass == 3).all())
+        ary_subclass.free()
+
+    def test_array_of_gndarray(self):
+        """
+        :func:`mpi_array.globale_creation.array` of a :obj:`mpi_array.globale.gndarray`.
+        The result has type :samp:`dtype` (it used to be ignored), and with :samp:`copy=False`
+        it is the input array when no conversion is needed.
+        """
+        gshape = (8 * _mpi.COMM_WORLD.size, 5)
+        npy_ary = _np.arange(_np.prod(gshape), dtype="float64").reshape(gshape) + 0.5
+        with _asarray(npy_ary, locale_type=LT_PROCESS, distrib_type=DT_BLOCK, halo=1) as gary:
+            for copy in (True, False):
+                with _array(gary, dtype="int32", copy=copy) as int_gary:
+                    self.assertTrue(int_gary is not gary)
+                    self.assertEqual(_np.dtype("int32"), int_gary.dtype)
+                    self.assertSequenceEqual(
+                        gary.distribution.halo.tolist(),
+                        int_gary.distribution.halo.tolist()
+                    )
+                    self.assertTrue((int_gary == npy_ary.astype("int32")).all())
+            with _array(gary) as copy_gary:
+                self.assertTrue(copy_gary is not gary)
+                self.assertTrue((copy_gary == npy_ary).all())
+            self.assertTrue(_array(gary, copy=False) is gary)
+            self.assertTrue(_asarray(gary, dtype="float64") is gary)
+            self.assertTrue(_asanyarray(gary) is gary)
+            self.assertRaises(NotImplementedError, _array, gary, ndmin=3)
 
     def test_asanyarray_with_tuple(self):
         """
