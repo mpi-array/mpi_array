@@ -870,13 +870,19 @@ class GndarrayArrayUfuncExecutor(object):
         outputs = () if outputs is None else tuple(outputs)
         outputs = outputs + (None,) * (len(result_types) - len(outputs))
         given_outputs = tuple(output for output in outputs if output is not None)
-        for output in given_outputs:
-            # As for numpy.ndarray outputs, they aren't broadcast.
-            if tuple(output.shape) != tuple(result_shape):
+        if len(given_outputs) > 0:
+            # As for numpy.ndarray outputs: the inputs broadcast to the output shape,
+            # but the outputs aren't broadcast.
+            output_shapes = tuple(tuple(output.shape) for output in given_outputs)
+            try:
+                full_shape = broadcast_shape(result_shape, *output_shapes)
+            except ValueError:
+                full_shape = None
+            if any(output_shape != full_shape for output_shape in output_shapes):
                 raise ValueError(
-                    "Got an output array of shape %s, the shape of the result is %s."
+                    "Got output arrays of shapes %s, the inputs have the broadcast shape %s."
                     %
-                    (tuple(output.shape), tuple(result_shape))
+                    (output_shapes, tuple(result_shape))
                 )
         template_output_gary = None
         if len(given_outputs) > 0:

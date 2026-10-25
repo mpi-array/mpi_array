@@ -1317,6 +1317,27 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     raised = True
                 self.assertTrue(world.allreduce(raised == expect_raise, op=_mpi.LAND))
 
+    def test_ufunc_out_broadcast(self):
+        """
+        Ufunc with :samp:`out` arrays to which the inputs broadcast, as for NumPy (the outputs
+        aren't broadcast). Checking the :samp:`out` shapes used to compare them with the
+        broadcast shape of the inputs only, and raised :obj:`ValueError`.
+        """
+        size = _mpi.COMM_WORLD.size
+        for locale_type in (LT_PROCESS, LT_NODE):
+            kwargs = dict(locale_type=locale_type, distrib_type=DT_BLOCK)
+            with \
+                    _ones((3,), **kwargs) as row, \
+                    _zeros((2 * size, 3), **kwargs) as out_2d, \
+                    _zeros((3,), **kwargs) as out_1d, \
+                    _asarray(_np.float64(2.5), locale_type=locale_type) as zero_dim:
+                self.assertTrue(_np.add(row, 1, out=out_2d) is out_2d)
+                self.assertTrue((out_2d == 2).all())
+                self.assertTrue(_np.add(zero_dim, 1, out=out_1d) is out_1d)
+                self.assertTrue((out_1d == 3.5).all())
+                self.assertTrue(_np.add(1.0, 2.0, out=out_1d) is out_1d)
+                self.assertTrue((out_1d == 3).all())
+
     def test_ufunc_errors_on_all_processes(self):
         """
         A ufunc error of the per-tile call on some processes of a locale only (one process
