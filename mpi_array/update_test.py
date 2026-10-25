@@ -408,6 +408,34 @@ class UpdatesForRedistributeTest(_unittest.TestCase):
         u4r.check_updates()
         self.rank_logger.info("END: u4r.check_updates()...")
 
+    def test_check_updates_intersecting_updates(self):
+        """
+        :meth:`mpi_array.update.UpdatesForRedistribute.check_updates` raises
+        :obj:`RuntimeError` describing the intersecting updates. Building the message
+        used to raise :obj:`TypeError` (a missing :samp:`%`).
+        """
+        gshape = (16,)
+        dst_distrib = \
+            BlockPartition(
+                gshape,
+                (2,),
+                {(i,): i for i in range(2)},
+                inter_locale_rank_to_peer_rank=_np.arange(2)
+            )
+        src_distrib = \
+            BlockPartition(
+                gshape,
+                (4,),
+                {(i,): i for i in range(4)},
+                inter_locale_rank_to_peer_rank=_np.arange(4)
+            )
+        u4r = UpdatesForRedistribute(dst_distrib, src_distrib)
+        u4r.check_updates()
+        updates = [u for u in u4r._dst_rget_updates.values() if len(u) > 0][0]
+        updates.append(updates[0])
+        with self.assertRaisesRegex(RuntimeError, "Got intersecting updates"):
+            u4r.check_updates()
+
 
 _unittest.main(__name__)
 

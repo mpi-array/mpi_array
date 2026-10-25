@@ -1001,6 +1001,7 @@ class UpdatesForRedistribute(object):
                     msg += \
                         (
                             "Got intersecting updates, intersection=%s, updates:\n%s\n%s\n\n"
+                            %
                             (isect, u0, u1)
                         )
 
