@@ -669,7 +669,8 @@ class GndarrayTest(_unittest.TestCase):
 
         halo = 2
         for ndim in (2, 3):
-            gshape = (12,) * ndim
+            # Each axis has at most size tiles, so tiles have at least halo elements.
+            gshape = (max(12, halo * _mpi.COMM_WORLD.size),) * ndim
             npy_ary = _np.arange(_np.prod(gshape), dtype="int64").reshape(gshape)
             with \
                     _globale_creation.zeros(
@@ -692,9 +693,10 @@ class GndarrayTest(_unittest.TestCase):
                 # The tiles are at least as big as the halo, so each halo slab
                 # is a part of one neighbouring tile.
                 num_halo_slabs = int(_np.sum(extent.halo > 0))
-                self.assertGreaterEqual(min(extent.shape_n), halo)
                 is_ok = \
                     (
+                        (min(extent.shape_n) >= halo)
+                        and
                         _np.all(gary.lndarray_proxy.view_h == npy_ary[slice_h])
                         and
                         (counting_win.num_gets == num_halo_slabs)

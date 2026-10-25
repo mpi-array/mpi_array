@@ -461,12 +461,18 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 tuple(mpi_cln_npy_result_ary.shape),
                 tuple(mpi_cln_mpi_result_ary.shape)
             )
-            self.assertTrue(
-                _np.all(
-                    mpi_cln_npy_result_ary.lndarray_proxy.view_n
-                    ==
-                    mpi_cln_mpi_result_ary.lndarray_proxy.view_n
+            # All processes agree, so that a difference on one locale fails on all of them
+            # (and they all leave the with statement).
+            is_equal = \
+                bool(
+                    _np.all(
+                        mpi_cln_npy_result_ary.lndarray_proxy.view_n
+                        ==
+                        mpi_cln_mpi_result_ary.lndarray_proxy.view_n
+                    )
                 )
+            self.assertTrue(
+                mpi_cln_mpi_result_ary.locale_comms.peer_comm.allreduce(is_equal, op=_mpi.LAND)
             )
 
     def convert_func_args_to_gndarrays(self, converter, func_args):
