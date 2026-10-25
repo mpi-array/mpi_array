@@ -1317,6 +1317,37 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     raised = True
                 self.assertTrue(world.allreduce(raised == expect_raise, op=_mpi.LAND))
 
+    def test_ufunc_errors_on_all_processes(self):
+        """
+        A ufunc error of the per-tile call on some processes of a locale only (one process
+        of a locale computes a 0-d output, processes with empty tiles compute nothing)
+        is raised on all processes of the locale, the others used to wait in a barrier.
+        An :samp:`out` array of the wrong shape raises :obj:`ValueError` on every process.
+        """
+        world = _mpi.COMM_WORLD
+
+        def raises_on_all(func):
+            try:
+                func()
+                raised = False
+            except ValueError:
+                raised = True
+            return world.allreduce(raised, op=_mpi.LAND)
+
+        kwargs = dict(locale_type=LT_NODE, distrib_type=DT_BLOCK)
+        with \
+                _asarray(_np.int64(2), locale_type=LT_NODE, distrib_type=DT_CLONED) as zero_dim, \
+                _asarray(_np.array([2], dtype="int64"), **kwargs) as one_element, \
+                _zeros((), locale_type=LT_NODE, distrib_type=DT_CLONED) as zero_dim_float, \
+                _ones((8,), **kwargs) as gary, \
+                _zeros((4,), **kwargs) as wrong_shape:
+            # Integers to negative integer powers are not allowed.
+            self.assertTrue(raises_on_all(lambda: zero_dim ** -1))
+            self.assertTrue(raises_on_all(lambda: one_element ** -1))
+            self.assertTrue(raises_on_all(lambda: _np.add(gary, 1.0, out=zero_dim_float)))
+            self.assertTrue(raises_on_all(lambda: _np.add(gary, 1.0, out=wrong_shape)))
+            self.assertTrue((gary == 1).all())
+
     def test_gufunc_not_implemented(self):
         """
         Generalised ufuncs (e.g. :obj:`numpy.matmul`) used to be computed tile by tile,

@@ -20,6 +20,7 @@ Functions
    :toctree: generated/
 
    get_dtype_and_ndim - Return :obj:`numpy.dtype` and :samp:`ndim` properties for an object.
+   agree_on_error - Processes agree on an error, so that they all raise.
    ufunc_result_type - Like :func:`numpy.result_type`.
    broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
    shape_extend_dims - Prepend ones to 1D *shape* sequence to make it a specified dimension.
@@ -633,6 +634,37 @@ def check_equivalent_inter_locale_comms(
             raise ValueError(errors[0])
 
 
+def agree_on_error(comm, error):
+    """
+    Collective over :samp:`{comm}` (it synchronises like a barrier). Returns the
+    exception to raise on this process: :samp:`{error}` if it is not :samp:`None`, otherwise
+    an exception like the error of another process (same built-in exception type,
+    e.g. :obj:`ValueError` for a sub-class of it, and same message), or :samp:`None`
+    if no process had an error.
+
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: The processes which agree.
+    :type error: :samp:`None` or :obj:`Exception`
+    :param error: The error of this process.
+    :rtype: :samp:`None` or :obj:`Exception`
+    :return: The exception to raise.
+    """
+    error_info = None
+    if error is not None:
+        error_type = next(t for t in type(error).__mro__ if t.__module__ == "builtins")
+        error_info = (error_type, str(error))
+    error_infos = comm.allgather(error_info)
+    if error is None:
+        for error_info in error_infos:
+            if error_info is not None:
+                try:
+                    error = error_info[0](error_info[1])
+                except Exception:
+                    error = RuntimeError(error_info[1])
+                break
+    return error
+
+
 class GndarrayArrayUfuncExecutor(object):
 
     """
@@ -834,6 +866,14 @@ class GndarrayArrayUfuncExecutor(object):
         outputs = () if outputs is None else tuple(outputs)
         outputs = outputs + (None,) * (len(result_types) - len(outputs))
         given_outputs = tuple(output for output in outputs if output is not None)
+        for output in given_outputs:
+            # As for numpy.ndarray outputs, they aren't broadcast.
+            if tuple(output.shape) != tuple(result_shape):
+                raise ValueError(
+                    "Got an output array of shape %s, the shape of the result is %s."
+                    %
+                    (tuple(output.shape), tuple(result_shape))
+                )
         template_output_gary = None
         if len(given_outputs) > 0:
             check_equivalent_inter_locale_comms(given_outputs)
@@ -1108,6 +1148,7 @@ class GndarrayArrayUfuncExecutor(object):
         np_ufunc_inputs_and_outputs = \
             self.get_numpy_ufunc_peer_rank_inputs_outputs(gndarray_outputs)
 
+        error = None
         if np_ufunc_inputs_and_outputs is not None:
             np_ufunc_inputs, np_ufunc_outputs = np_ufunc_inputs_and_outputs
 
@@ -1120,7 +1161,10 @@ class GndarrayArrayUfuncExecutor(object):
                 "Calling numpy.ufunc=%s:\ninputs=%s\noutputs=%s",
                 self.ufunc, np_ufunc_inputs, kwargs["out"]
             )
-            self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+            try:
+                self.ufunc.__call__(*np_ufunc_inputs, **kwargs)
+            except Exception as e:
+                error = e
             self.array_like_obj.rank_logger.debug(
                 "Finished numpy.ufunc=%s:\noutputs=%s",
                 self.ufunc,
@@ -1133,13 +1177,23 @@ class GndarrayArrayUfuncExecutor(object):
                 gndarray_outputs[0].lndarray_proxy.locale_extent
             )
 
-        gndarray_outputs[0].intra_locale_barrier()
+        # All processes of this locale have finished (in place of a barrier), and they all
+        # raise if the ufunc raised on any of them: not every process calls it (empty
+        # tiles, and one process computes a 0-d output).
+        error = agree_on_error(gndarray_outputs[0].locale_comms.intra_locale_comm, error)
 
         # All processes of this locale have finished reading the fetched input
         # elements, free their memory (collective over the intra-locale communicator).
         for ary in self._fetched_locale_arys:
             ary.free()
         self._fetched_locale_arys = []
+
+        if error is not None:
+            try:
+                raise error
+            finally:
+                # The frame shouldn't reference its own exception (a reference cycle).
+                error = None
 
         if need_remote_data:
             # Other locales may still be fetching (RMA) input elements from this locale.
