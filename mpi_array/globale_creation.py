@@ -254,7 +254,7 @@ def zeros_like(ary, *args, **kwargs):
     return full_like(ary, 0, *args, **kwargs)
 
 
-def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwargs):
+def ones(shape=None, dtype="float64", order='C', comms_and_distrib=None, **kwargs):
     """
     Creates array of one-initialised elements.
 

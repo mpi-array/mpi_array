@@ -111,6 +111,25 @@ class GndarrayCreationTest(_unittest.TestCase):
                         _copyto(dst, src)
                         self.assertTrue(_np.all(dst.view_n == npy_ary.astype(dtype)))
 
+    def test_positional_arguments(self):
+        """
+        The creation functions take the :samp:`shape`, :samp:`dtype` and :samp:`order`
+        positional arguments in the same order as NumPy. :func:`mpi_array.globale_creation.ones`
+        used to take :samp:`comms_and_distrib` before :samp:`order`.
+        """
+        for gary, value in \
+                (
+                    (_empty((4, 6), "int32", "C"), None),
+                    (_zeros((4, 6), "int32", "C"), 0),
+                    (_ones((4, 6), "int32", "C"), 1),
+                    (_full((4, 6), 3, "int32", "C"), 3),
+                ):
+            with gary:
+                self.assertEqual(_np.dtype("int32"), gary.dtype)
+                self.assertSequenceEqual((4, 6), gary.shape)
+                if value is not None:
+                    self.assertTrue((gary == value).all())
+
     def test_asarray_with_tuple(self):
         """
         :obj:`unittest.TestCase` for :func:`mpi_array.globale_creation.asarray`.
