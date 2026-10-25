@@ -926,6 +926,42 @@ class GndarrayUfuncTest(_unittest.TestCase):
                 self.assertSequenceEqual((1, 41, 43), c.shape)
                 self.assertTrue((c == 2).all())
 
+    def test_umath_zero_dim_gndarray_input(self):
+        """
+        Ufuncs of a 0-d gndarray (each locale has a copy of its element) and gndarrays
+        with more dimensions. Checking whether remote data was needed raised :obj:`ValueError`
+        for a 2-D output (all axes of the output were compared with the zero axes of the
+        0-d input), and the 0-d gndarray itself was passed to the per-tile ufunc call.
+        """
+        npy_arys = \
+            (
+                _np.random.uniform(low=0.5, high=1.75, size=(41,)).astype("float32"),
+                _np.random.uniform(low=0.5, high=1.75, size=(41, 43)).astype("float32"),
+            )
+        for distrib_type in (DT_CLONED, DT_SINGLE_LOCALE):
+            for locale_type in (LT_PROCESS, LT_NODE):
+                for value in (_np.float32(2.5), _np.float64(2.5)):
+                    npy_value = _np.asarray(value)
+                    for npy_ary in npy_arys:
+                        with \
+                                _asarray(
+                                    value, distrib_type=distrib_type, locale_type=locale_type
+                                ) as zero_dim, \
+                                _asarray(
+                                    npy_ary, locale_type=LT_PROCESS, distrib_type=DT_BLOCK
+                                ) as gary:
+                            for func in (_np.add, _np.multiply):
+                                with \
+                                        func(gary, zero_dim) as result, \
+                                        _asarray(func(npy_ary, npy_value)) as cln_npy_result:
+                                    self.assertEqual(cln_npy_result.dtype, result.dtype)
+                                    self.compare_results(cln_npy_result, result)
+                                with \
+                                        func(zero_dim, gary) as result, \
+                                        _asarray(func(npy_value, npy_ary)) as cln_npy_result:
+                                    self.assertEqual(cln_npy_result.dtype, result.dtype)
+                                    self.compare_results(cln_npy_result, result)
+
     def test_umath_numpy_array_inputs(self):
         """
         Ufuncs of :obj:`numpy.ndarray` and :obj:`mpi_array.globale.gndarray` inputs.

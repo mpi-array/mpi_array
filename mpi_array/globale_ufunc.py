@@ -925,6 +925,9 @@ class GndarrayArrayUfuncExecutor(object):
                     else:
                         # is a numpy array (or similar)
                         inp_locale_arys[i] = input[slice_tuple]
+                elif hasattr(input, "lndarray_proxy"):
+                    # is a 0-d gndarray, every locale has a copy of its element
+                    inp_locale_arys[i] = input.lndarray_proxy.lndarray
                 else:
                     # is a scalar
                     inp_locale_arys[i] = input
@@ -976,10 +979,13 @@ class GndarrayArrayUfuncExecutor(object):
         if out_gndary.locale_comms.inter_locale_comm != _mpi.COMM_NULL:
             START_STR = LocaleExtent.START_N_STR
             STOP_STR = LocaleExtent.STOP_N_STR
+            # A 0-d gndarray input doesn't need remote data, every locale has a
+            # copy of its element.
             gndarray_inputs = \
                 tuple(
                     input for input in self.inputs
                     if hasattr(input, "distribution") and hasattr(input, "locale_comms")
+                    and (input.ndim > 0)
                 )
             out_s_ext = out_gndary.distribution.struct_locale_extents
             for inp_gndary in gndarray_inputs:
