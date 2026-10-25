@@ -753,9 +753,12 @@ class gndarray(_NDArrayOperatorsMixin):
     @property
     def view_n(self):
         """
-        View of the locale array without the halo. Views keep this array alive
-        (its memory is not freed by garbage collection while they exist),
-        they are invalid after an explicit :meth:`free`.
+        View of the locale array without the halo. Views, and the arrays (of their type)
+        made from them, keep this array alive (its memory is not freed by garbage collection
+        while they exist). Views are invalid after an explicit :meth:`free`. Garbage
+        collection frees collectively: if views (or e.g. :samp:`numpy.asarray` copies made
+        from them) are released at different points on different processes, free this array
+        explicitly (:meth:`free` or a :samp:`with` statement).
         """
         return self._lndarray_proxy.view_n
 

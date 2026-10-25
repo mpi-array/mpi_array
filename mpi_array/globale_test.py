@@ -750,8 +750,9 @@ class GndarrayTest(_unittest.TestCase):
         alive, e.g. a view of a temporary, :samp:`(a + 1).view_n`. The temporary used to be freed
         (:meth:`mpi_array.globale.gndarray.__del__`) as soon as the view was made, and reading
         the view read freed memory (which could segfault). The array is freed when the last
-        view is released. Empty views keep it alive too, the size of a view can differ
-        between processes, and so would the point where the array is (collectively) freed.
+        view is released. Empty views and copies (of the array type) keep it alive too:
+        the size of a view, and whether NumPy makes a view or a copy, can differ between
+        processes, and so would the point where the array is (collectively) freed.
         """
         def locale_get_locale_extent(gary):
             extent = gary.lndarray_proxy.locale_extent
@@ -803,7 +804,9 @@ class GndarrayTest(_unittest.TestCase):
                     self.assertTrue(tmp_gary_ref() is None)
                     self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
-                # A copy doesn't keep the array alive.
+                # Copies of the array type keep the array alive too (whether NumPy
+                # makes a view or a copy can depend on the layout of a process's tile).
+                # NumPy copies (numpy.ndarray) don't.
                 tmp_gary = gary + 1
                 tmp_gary_ref = _weakref.ref(tmp_gary)
                 view_n = tmp_gary.view_n
@@ -814,18 +817,24 @@ class GndarrayTest(_unittest.TestCase):
                         view_n.astype("int32"),
                         tmp_gary.lndarray_proxy[[2, 3]],  # advanced indexing copies
                     )
+                npy_copies = (_np.array(view_n), view_n.tolist())
                 del tmp_gary, view_n
-                self.assertTrue(tmp_gary_ref() is None)
+                self.assertTrue(tmp_gary_ref() is not None)
                 self.assertTrue(_np.all(copies[0] == 2))
                 self.assertTrue(_np.all(copies[1] == 3))
                 self.assertTrue(_np.all(copies[2] == 2))
                 self.assertTrue(_np.all(copies[3] == 2))
+                del copies
+                self.assertTrue(tmp_gary_ref() is None)
+                self.assertTrue(_np.all(npy_copies[0] == 2))
 
     def test_view_lifetime_on_all_processes(self):
         """
         A view which is empty on some processes (and not on others) keeps the array
         alive on every process, the array is then freed (collectively) at the same point
-        on all of them. Views of views used to keep it alive only when not empty.
+        on all of them. Views of views used to keep it alive only when not empty. And
+        arrays derived from a view keep it alive whether NumPy makes them views or copies,
+        which depends on the layout of a process's tile.
         """
         size = _mpi.COMM_WORLD.size
         with \
@@ -847,6 +856,19 @@ class GndarrayTest(_unittest.TestCase):
             self.assertTrue(gary.locale_comms.peer_comm.allreduce(is_alive, op=_mpi.LAND))
             del view
             self.assertTrue(tmp_gary_ref() is None)
+
+        # The tiles of a 2-D locale array have different layouts: ravel (and reshape) make a
+        # view of a contiguous tile, and a copy of a non-contiguous one.
+        with _globale_creation.ones((3, 4), locale_type=LT_NODE, distrib_type=DT_BLOCK) as gary:
+            for derive in (lambda ary: ary.ravel(), lambda ary: ary.reshape(-1)):
+                tmp_gary = gary + 1
+                tmp_gary_ref = _weakref.ref(tmp_gary)
+                derived = derive(tmp_gary.rank_view_n)
+                del tmp_gary
+                is_alive = tmp_gary_ref() is not None
+                self.assertTrue(gary.locale_comms.peer_comm.allreduce(is_alive, op=_mpi.LAND))
+                del derived
+                self.assertTrue(tmp_gary_ref() is None)
 
     def test_get_keeps_array_alive_on_all_processes(self):
         """
