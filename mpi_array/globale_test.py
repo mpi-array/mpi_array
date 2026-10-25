@@ -701,6 +701,32 @@ class GndarrayTest(_unittest.TestCase):
                 )
                 self.assertTrue(gary.locale_comms.peer_comm.allreduce(is_ok, op=_mpi.LAND))
 
+    def test_get_outside_of_array(self):
+        """
+        :meth:`mpi_array.globale.gndarray.locale_get` and
+        :meth:`mpi_array.globale.gndarray.peer_rank_get` of a region which is not
+        within the array raise :obj:`ValueError` on every process, before allocating
+        memory. They used to raise :obj:`AttributeError`, only on the inter-locale
+        processes for :samp:`locale_get` (the other processes of a locale waited).
+        """
+        size = _mpi.COMM_WORLD.size
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.ones(
+                        (10 * size,), locale_type=locale_type, distrib_type=DT_BLOCK
+                    ) as gary:
+                gary.initialise_windows()
+                gary.inter_locale_barrier()
+                for get in (gary.locale_get, gary.peer_rank_get):
+                    self.assertRaises(ValueError, get, (slice(5, 10 * size + 5),))
+                    self.assertRaises(ValueError, get, start=(-1,), stop=(5,))
+                # A view of the locale array or fetched (win_lndarray) memory.
+                locale_ary = gary.locale_get((slice(0, 10 * size),))
+                self.assertTrue(_np.all(locale_ary == 1))
+                gary.inter_locale_barrier()
+                gary.intra_locale_barrier()
+                locale_ary.free()
+
     def test_all(self):
         """
         Tests for :meth:`mpi_array.globale.gndarray.all`.

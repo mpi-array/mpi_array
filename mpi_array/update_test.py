@@ -34,8 +34,9 @@ from . import logging as _logging  # noqa: E402,F401
 
 from .indexing import IndexingExtent
 from .distribution import CartLocaleExtent, GlobaleExtent, BlockPartition
+from .distribution import ClonedDistribution, LocaleExtent
 from .update import MpiHaloSingleExtentUpdate, HalosUpdate
-from .update import MpiPairExtentUpdate, UpdatesForRedistribute
+from .update import MpiPairExtentUpdate, UpdatesForRedistribute, UpdatesForGet
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -435,6 +436,34 @@ class UpdatesForRedistributeTest(_unittest.TestCase):
         updates.append(updates[0])
         with self.assertRaisesRegex(RuntimeError, "Got intersecting updates"):
             u4r.check_updates()
+
+    def test_destination_not_covered(self):
+        """
+        :obj:`mpi_array.update.UpdatesForRedistribute` and :obj:`mpi_array.update.UpdatesForGet`
+        raise :obj:`ValueError` for destination elements which are not in the source
+        distribution. They used to raise :obj:`AttributeError`.
+        """
+        src_distrib = \
+            BlockPartition(
+                (16,),
+                (4,),
+                {(i,): i for i in range(4)},
+                inter_locale_rank_to_peer_rank=_np.arange(4)
+            )
+        dst_distrib = \
+            BlockPartition(
+                (20,),
+                (2,),
+                {(i,): i for i in range(2)},
+                inter_locale_rank_to_peer_rank=_np.arange(2)
+            )
+        with self.assertRaisesRegex(ValueError, "not in the source distribution"):
+            UpdatesForRedistribute(dst_distrib, src_distrib)
+
+        src_distrib = ClonedDistribution((10,), 1, inter_locale_rank_to_peer_rank=[0])
+        dst_extent = LocaleExtent(peer_rank=0, inter_locale_rank=0, start=(5,), stop=(20,))
+        with self.assertRaisesRegex(ValueError, "not in the source distribution"):
+            UpdatesForGet(dst_extent, src_distrib)
 
 
 _unittest.main(__name__)

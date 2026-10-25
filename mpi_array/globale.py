@@ -573,6 +573,29 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         )
 
 
+def _check_extent_within(extent, globale_extent):
+    """
+    Raises :obj:`ValueError` if the elements of :samp:`{extent}` (including
+    the halo) are not all within :samp:`{globale_extent}`. Called on all processes
+    before a (collective) fetch, so that they all raise.
+    """
+    if (
+        _np.any(extent.start_h < globale_extent.start_n)
+        or
+        _np.any(extent.stop_h > globale_extent.stop_n)
+    ):
+        raise ValueError(
+            "Got region start=%s, stop=%s which is not within the array, start=%s, stop=%s."
+            %
+            (
+                extent.start_h.tolist(),
+                extent.stop_h.tolist(),
+                globale_extent.start_n.tolist(),
+                globale_extent.stop_n.tolist()
+            )
+        )
+
+
 class gndarray(_NDArrayOperatorsMixin):
 
     """
@@ -937,7 +960,8 @@ class gndarray(_NDArrayOperatorsMixin):
         shared memory (a :obj:`mpi_array.locale.win_lndarray`) and performs
         one-sided RMA to fetch data from remote locales. Free the allocated
         array with its :samp:`free` method (collective over the intra-locale
-        communicator) when it is no longer needed.
+        communicator) when it is no longer needed. Raises :obj:`ValueError` if
+        the region is not within the array.
 
         Synchronisation is the caller's responsibility (the :obj:`numpy.ufunc`
         implementation in :mod:`mpi_array.globale_ufunc` does this):
@@ -952,6 +976,7 @@ class gndarray(_NDArrayOperatorsMixin):
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:
             # Need to fetch remote data
+            _check_extent_within(dst_extent, self.distribution.globale_extent)
 
             if not self.rma_window_buffer.inter_locale_win_initialised:
                 raise ValueError(
@@ -1009,6 +1034,7 @@ class gndarray(_NDArrayOperatorsMixin):
         otherwise allocates non-shared memory (a :obj:`mpi_array.locale.win_lndarray`)
         and performs one-sided RMA to fetch data from remote locales. Free the
         allocated array with its :samp:`free` method when it is no longer needed.
+        Raises :obj:`ValueError` if the region is not within the array.
 
         Synchronisation is the caller's responsibility: the processes which write
         the requested elements must have finished before the fetch, and must not
@@ -1019,6 +1045,7 @@ class gndarray(_NDArrayOperatorsMixin):
         locale_ary, dst_extent = self.get_view(slice=slice, start=start, stop=stop, halo=halo)
         if locale_ary is None:
             # Need to fetch remote data
+            _check_extent_within(dst_extent, self.distribution.globale_extent)
 
             if not self.rma_window_buffer.peer_win_initialised:
                 raise ValueError(

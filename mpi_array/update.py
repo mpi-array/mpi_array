@@ -119,6 +119,32 @@ def pair_extent_update_copyto(peu, dst_array, src_array, casting):
     _np.copyto(dst_array[dst_slice], src_array[src_slice], casting=casting)
 
 
+def raise_not_in_source_distribution(dst_extents, src_distrib):
+    """
+    Raises :obj:`ValueError` for the regions :samp:`{dst_extents}` of
+    the destination, which no locale extent of :samp:`{src_distrib}` provides.
+
+    :type dst_extents: sequence of :obj:`mpi_array.distribution.LocaleExtent`
+    :param dst_extents: The destination regions which are not in the source distribution.
+    :type src_distrib: :obj:`mpi_array.distribution.Distribution`
+    :param src_distrib: The source distribution.
+    :raises ValueError: Always.
+    """
+    raise ValueError(
+        "Got destination regions which are not in the source distribution "
+        "(globale extent start=%s, stop=%s):\n%s"
+        %
+        (
+            src_distrib.globale_extent.start_n.tolist(),
+            src_distrib.globale_extent.stop_n.tolist(),
+            "\n".join(
+                "start=%s, stop=%s" % (extent.start_h.tolist(), extent.stop_h.tolist())
+                for extent in dst_extents
+            )
+        )
+    )
+
+
 class PairExtentUpdate(ExtentUpdate):
 
     """
@@ -969,10 +995,7 @@ class UpdatesForRedistribute(object):
                 break
 
         if len(self._dst_extent_queue) > 0:
-            self._dst_cad.rank_logger.warning(
-                "Non-empty leftover queue=%s",
-                self._dst_extent_queue
-            )
+            raise_not_in_source_distribution(self._dst_extent_queue, self._src_distrib)
 
     def check_updates(self):
         """
@@ -1176,10 +1199,7 @@ class UpdatesForGet(object):
             if len(self._dst_extent_queue) <= 0:
                 break
         if len(self._dst_extent_queue) > 0:
-            self._dst_cad.rank_logger.warning(
-                "Non-empty leftover queue=%s",
-                self._dst_extent_queue
-            )
+            raise_not_in_source_distribution(self._dst_extent_queue, self._src_distrib)
 
     def initialise_updates(self):
         """
