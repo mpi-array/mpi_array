@@ -913,6 +913,21 @@ class GndarrayUfuncTest(_unittest.TestCase):
                     self.assertSequenceEqual(_np.broadcast_shapes(shape_a, shape_b), c.shape)
                     self.assertTrue((c == 1).all())
 
+    def test_output_shares_input_distribution(self):
+        """
+        The output of a ufunc which has the shape of a gndarray input shares the
+        distribution (object) of that input, the distribution used to be copied. Copies
+        between them then use the cached updates
+        (:obj:`mpi_array.globale.RedistributeUpdatesCache`).
+        """
+        for distrib_type in (DT_BLOCK, DT_CLONED):
+            with _ones((8, 13), locale_type=LT_PROCESS, distrib_type=distrib_type) as a:
+                with (a + 1) as b, _np.multiply(a, b) as c:
+                    self.assertTrue(b.comms_and_distrib.distribution is a.distribution)
+                    self.assertTrue(c.comms_and_distrib.distribution is a.distribution)
+                    self.assertTrue(b.locale_comms is a.locale_comms)
+                    self.assertTrue((c == 2).all())
+
     def test_umath_broadcast_to_more_dims(self):
         """
         Ufuncs whose output has more axes (of length one) than the gndarray input

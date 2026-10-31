@@ -65,7 +65,6 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
 import atexit as _atexit
-import copy as _copy
 import sys as _sys
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -1414,8 +1413,9 @@ def reshape_comms_distribution(comms_distrib, new_globale_shape):
     """
     Returns the communicators and distribution for an array of
     shape :samp:`{new_globale_shape}` which is distributed like the array
-    of :samp:`{comms_distrib}`. Only the same shape is implemented (the distribution is
-    copied), for a different shape (including added or removed axes of length one)
+    of :samp:`{comms_distrib}`. Only the same shape is implemented (the communicators
+    and distribution are shared, a distribution is not modified after it is created),
+    for a different shape (including added or removed axes of length one)
     returns :samp:`None`, the caller can then create a new distribution.
 
     :type comms_distrib: :obj:`CommsAndDistribution`
@@ -1423,7 +1423,7 @@ def reshape_comms_distribution(comms_distrib, new_globale_shape):
     :type new_globale_shape: sequence of :obj:`int`
     :param new_globale_shape: The globale shape of the new array.
     :rtype: :obj:`CommsAndDistribution` or :samp:`None`
-    :return: The :samp:`{comms_distrib}` communicators with a copy of the distribution,
+    :return: The :samp:`{comms_distrib}` communicators and distribution,
        or :samp:`None` if :samp:`{new_globale_shape}` differs from the shape
        of :samp:`{comms_distrib}`.
     """
@@ -1434,7 +1434,7 @@ def reshape_comms_distribution(comms_distrib, new_globale_shape):
         reshaped_comms_distrib = \
             CommsAndDistribution(
                 comms_distrib.locale_comms,
-                _copy.deepcopy(distrib),
+                distrib,
                 comms_distrib.this_locale
             )
 

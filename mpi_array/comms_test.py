@@ -402,10 +402,11 @@ class CreateDistributionTest(_unittest.TestCase):
 
     def test_reshape_comms_distribution(self):
         """
-        Tests for :func:`mpi_array.comms.reshape_comms_distribution`, it copies
-        the distribution for the same shape and returns :samp:`None` for a different
-        shape (reshaping distributions is not implemented). Shapes with the same
-        axis lengths, apart from axes of length one, used to raise :obj:`AttributeError`.
+        Tests for :func:`mpi_array.comms.reshape_comms_distribution`, it shares
+        the distribution for the same shape (it used to copy it) and returns :samp:`None`
+        for a different shape (reshaping distributions is not implemented). Shapes with
+        the same axis lengths, apart from axes of length one, used to
+        raise :obj:`AttributeError`.
         """
         gshape = (20, 31)
         for distrib_type in (DT_BLOCK, DT_CLONED):
@@ -418,7 +419,7 @@ class CreateDistributionTest(_unittest.TestCase):
                 )
             reshaped = reshape_comms_distribution(candd, gshape)
             self.assertTrue(reshaped.locale_comms is candd.locale_comms)
-            self.assertTrue(reshaped.distribution is not candd.distribution)
+            self.assertTrue(reshaped.distribution is candd.distribution)
             self.assertSequenceEqual(gshape, tuple(reshaped.distribution.globale_extent.shape_n))
             self.assertEqual(candd.this_locale, reshaped.this_locale)
             for shape in ((1, 20, 31), (20, 31, 1), (20, 1, 31), (31, 20), (20, 30), (620,)):
