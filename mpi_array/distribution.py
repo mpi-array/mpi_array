@@ -1198,6 +1198,25 @@ class BlockPartition(Distribution):
             globale_extent_type=self._globale_extent_type
         )
 
+    @property
+    def dims(self):
+        """
+        The number of blocks (locales) along each axis.
+        """
+        return self._dims
+
+    def get_extent_for_cart_coord(self, cart_coord):
+        """
+        Returns the extent of the locale with the cartesian coordinate :samp:`{cart_coord}`
+        (without creating the extents of the other locales).
+
+        :type cart_coord: sequence of :obj:`int`
+        :param cart_coord: The coordinate of the locale.
+        :rtype: :obj:`CartLocaleExtent`
+        :return: The extent of the locale.
+        """
+        return self.get_extent_for_rank(self._cart_coord_to_cart_rank[tuple(cart_coord)])
+
     def initialise_struct_locale_extents(self, struct_locale_extents, locale_extents_descr):
         """
         """

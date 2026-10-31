@@ -718,6 +718,110 @@ class GndarrayTest(_unittest.TestCase):
                 )
                 self.assertTrue(gary.locale_comms.peer_comm.allreduce(is_ok, op=_mpi.LAND))
 
+    def test_halo_updates_of_locale(self):
+        """
+        :obj:`mpi_array.globale.PerAxisRmaHaloUpdater` calculates the halo updates of its own
+        locale, they are the updates :obj:`mpi_array.update.MpiHalosUpdate` calculates from
+        the extents of all locales, and the extents of the other locales are not created.
+        The axes with halo updates come from the distribution, so that all locales agree
+        on them: they include every axis for which a locale has updates. The updates
+        of every locale were calculated, the neighbours of each found in a map of all
+        the extents.
+        """
+        from .distribution import BlockPartition
+        from .update import MpiHalosUpdate
+
+        LO = _globale.PerAxisRmaHaloUpdater.LO
+        HI = _globale.PerAxisRmaHaloUpdater.HI
+
+        def create_block_partition(dims, halo):
+            num_locales = int(_np.prod(dims))
+            return \
+                BlockPartition(
+                    tuple(6 * d for d in dims),
+                    dims,
+                    _np.arange(num_locales).reshape(dims),
+                    halo=halo,
+                    inter_locale_rank_to_peer_rank=_np.arange(num_locales)
+                )
+
+        def describe(updates):
+            return \
+                [
+                    (
+                        int(u.src_extent.cart_rank),
+                        tuple(u.update_extent.start.tolist()),
+                        tuple(u.update_extent.stop.tolist())
+                    )
+                    for u in updates
+                ]
+
+        for dims, halo in (((5, 5, 5), 2), ((5, 1, 5), ((1, 0), (2, 2), (0, 3))), ((1, 1, 1), 1)):
+            num_locales = int(_np.prod(dims))
+            reference_distrib = create_block_partition(dims, halo)
+            references = \
+                [MpiHalosUpdate(r, reference_distrib.locale_extents) for r in range(num_locales)]
+            reference_have_axis_updates = \
+                [
+                    any(
+                        (len(u.updates_per_axis[a][LO]) + len(u.updates_per_axis[a][HI])) > 0
+                        for u in references
+                    )
+                    for a in range(3)
+                ]
+            for inter_locale_rank in (0, num_locales // 2, num_locales - 1):
+                distrib = create_block_partition(dims, halo)
+                halos_update, have_axis_updates = \
+                    _globale.PerAxisRmaHaloUpdater(
+                        distrib,
+                        _np.dtype("float64"),
+                        "C",
+                        None,
+                        None,
+                        inter_locale_rank
+                    ).calc_halo_updates()
+                self.assertTrue(distrib._locale_extents is None)
+                self.assertSequenceEqual(
+                    [bool(d > 1) and _np.any(distrib.halo[a] > 0) for a, d in enumerate(dims)],
+                    have_axis_updates.tolist()
+                )
+                for a in range(3):
+                    self.assertTrue(have_axis_updates[a] or (not reference_have_axis_updates[a]))
+                    if not have_axis_updates[a]:
+                        self.assertTrue(
+                            (halos_update is None) or (halos_update.updates_per_axis[a] is None)
+                        )
+                    else:
+                        for dir in (LO, HI):
+                            self.assertSequenceEqual(
+                                describe(references[inter_locale_rank].updates_per_axis[a][dir]),
+                                describe(halos_update.updates_per_axis[a][dir])
+                            )
+                self.assertEqual(not _np.any(have_axis_updates), halos_update is None)
+
+    def test_update_of_cloned_and_single_locale_arrays(self):
+        """
+        :meth:`mpi_array.globale.gndarray.update` of cloned and single locale arrays with
+        a halo does nothing, their locale extents have no halo (the whole array, or nothing).
+        It used to raise :obj:`AttributeError` with more than one locale.
+        """
+        for distrib_type in (DT_CLONED, DT_SINGLE_LOCALE):
+            for locale_type in (LT_PROCESS, LT_NODE):
+                with \
+                        _globale_creation.ones(
+                            (10, 4),
+                            distrib_type=distrib_type,
+                            locale_type=locale_type,
+                            halo=1
+                        ) as gary:
+                    gary.update()
+                    self.assertTrue(
+                        gary.locale_comms.peer_comm.allreduce(
+                            bool(_np.all(gary.lndarray_proxy.view_h == 1)),
+                            op=_mpi.LAND
+                        )
+                    )
+
     def test_get_outside_of_array(self):
         """
         :meth:`mpi_array.globale.gndarray.locale_get` and

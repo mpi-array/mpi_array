@@ -96,14 +96,20 @@ class PerAxisRmaHaloUpdater(CommLogger):
     #: Halo "high index" indices.
     HI = _HaloIndexingExtent.HI
 
-    def __init__(self, locale_extents, dtype, order, inter_locale_win, dst_buffer):
+    def __init__(
+        self,
+        distribution,
+        dtype,
+        order,
+        inter_locale_win,
+        dst_buffer,
+        inter_locale_rank
+    ):
         """
         Initialise.
 
-        :type locale_extents: sequence of :obj:`mpi_array.distributon.LocaleExtent`
-        :param locale_extents: :samp:`locale_extents[r]` is the extent of the array
-           elements which reside on rank :samp:`r` of the :samp:`inter_locale_comm`
-           communicator.
+        :type distribution: :obj:`mpi_array.distribution.Distribution`
+        :param distribution: The distribution of the array.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type of elements in array.
         :type order: :obj:`str`
@@ -112,15 +118,26 @@ class PerAxisRmaHaloUpdater(CommLogger):
         :param inter_locale_win: The window used to exchange halo element data.
         :type dst_buffer: :obj:`memoryview`
         :param dst_buffer: The buffer into which the halo elements are written.
+        :type inter_locale_rank: :obj:`int`
+        :param inter_locale_rank: The rank (of the :samp:`inter_locale_comm` communicator)
+           of the locale whose halo elements are updated.
         """
         CommLogger.__init__(self)
-        self._locale_extents = locale_extents
+        self._distribution = distribution
         self._dtype = dtype
         self._order = order
         self._inter_locale_win = inter_locale_win
         self._dst_buffer = dst_buffer
+        self._inter_locale_rank = inter_locale_rank
         self._halo_updates = None
         self._have_axis_updates = None
+
+    @property
+    def distribution(self):
+        """
+        The :obj:`mpi_array.distribution.Distribution` of the array.
+        """
+        return self._distribution
 
     @property
     def locale_extents(self):
@@ -128,7 +145,15 @@ class PerAxisRmaHaloUpdater(CommLogger):
         Sequence of :obj:`mpi_array.distribution.LocaleExtent` objects which
         define the partitioning of the array.
         """
-        return self._locale_extents
+        return self._distribution.locale_extents
+
+    @property
+    def inter_locale_rank(self):
+        """
+        The rank (of the :samp:`inter_locale_comm` communicator) of the locale whose
+        halo elements are updated.
+        """
+        return self._inter_locale_rank
 
     @property
     def dtype(self):
@@ -144,58 +169,65 @@ class PerAxisRmaHaloUpdater(CommLogger):
         """
         return self._order
 
+    def calc_have_axis_updates(self):
+        """
+        Returns the axes which have halo updates: those along which a block partition has
+        more than one locale and which have a halo. It depends on the distribution only,
+        all processes agree on the axes for which they call the (collective) fences without
+        calculating the updates of the other locales. Other distributions (e.g. cloned)
+        have no halo updates, the halos of their locale extents are empty.
+
+        :rtype: :obj:`numpy.ndarray`
+        :return: The :obj:`bool` array, :samp:`have_axis_updates[a]` is true when axis
+           :samp:`a` has halo updates.
+        """
+        ndim = self._distribution.globale_extent.ndim
+        have_axis_updates = _np.zeros((ndim,), dtype="bool")
+        extent = self._distribution.get_extent_for_rank(self._inter_locale_rank)
+        if hasattr(extent, "cart_shape"):
+            have_axis_updates = \
+                (_np.asarray(extent.cart_shape) > 1) \
+                & \
+                _np.any(_np.asarray(self._distribution.halo) > 0, axis=1)
+        return have_axis_updates
+
     def calc_halo_updates(self):
         """
-        Calculates the per-axis halo-region updates for
-        all inter-locale ranks (of the :samp:`inter_locale_comm`).
+        Calculates the per-axis halo-region updates of the locale of :attr:`inter_locale_rank`
+        (only, the updates of the other locales are not calculated).
 
         :rtype: :obj:`tuple` pair
-        :return: A :samp:`(rank_2_updates_dict, bool_sequence)` pair
-           where `rank_2_updates` is a :obj:`dict` of :samp:`{inter_locale_rank, halos_update}`,
-           where :samp:`inter_locale_rank` is an :obj:`int` indicating the
-           rank of the process in :samp:`inter_locale_comm` and :samp:`halos_update`
+        :return: A :samp:`(halos_update, bool_sequence)` pair where :samp:`halos_update`
            is a :obj:`mpi_array.update.MpiHalosUpdate` containing the description
-           of regions which are required to be fetched from remote processes.
-           The :samp:`bool_sequence` is of length :attr:`ndim` and :samp:`bool_sequence[a] is True`
-           indicates that halo updates are required on axis :samp:`a`.
+           of regions which are required to be fetched from remote processes,
+           :samp:`None` when no axis has halo updates. The :samp:`bool_sequence` is
+           of length :attr:`ndim` and :samp:`bool_sequence[a] is True`
+           indicates that halo updates are required on axis :samp:`a`
+           (see :meth:`calc_have_axis_updates`), :samp:`halos_update.updates_per_axis[a]`
+           is :samp:`None` for the other axes.
         """
-        halo_updates_dict = dict()
-        ndim = self.locale_extents[0].ndim
-        have_axis_updates = _np.zeros((ndim, ), dtype="bool")
-        for inter_locale_rank in range(len(self.locale_extents)):
-            rank_inter_locale_updates = \
+        have_axis_updates = self.calc_have_axis_updates()
+        halos_update = None
+        if _np.any(have_axis_updates):
+            distribution = self._distribution
+            inter_locale_rank = self._inter_locale_rank
+            cart_coord_to_extent = getattr(distribution, "get_extent_for_cart_coord", None)
+            if cart_coord_to_extent is not None:
+                rank_to_extents_map = \
+                    {inter_locale_rank: distribution.get_extent_for_rank(inter_locale_rank)}
+            else:
+                rank_to_extents_map = distribution.locale_extents
+            halos_update = \
                 _MpiHalosUpdate(
                     inter_locale_rank,
-                    self.locale_extents
+                    rank_to_extents_map,
+                    cart_coord_to_extent=cart_coord_to_extent
                 )
-            halo_updates_dict[inter_locale_rank] = rank_inter_locale_updates
-            have_axis_updates = \
-                _np.logical_or(
-                    have_axis_updates,
-                    _np.array(
-                        [
-                            (rank_inter_locale_updates.updates_per_axis[a] is not None)
-                            and
-                            (
-                                (len(rank_inter_locale_updates.updates_per_axis[a][self.LO]) > 0)
-                                or
-                                (len(rank_inter_locale_updates.updates_per_axis[a][self.HI]) > 0)
-                            )
-                            for a in range(ndim)
-                        ],
-                        dtype="bool"
-                    )
-                )
-
-        if _np.any(have_axis_updates):
-            for a in range(ndim):
+            for a in range(len(have_axis_updates)):
                 if not have_axis_updates[a]:
-                    for inter_locale_rank in range(len(self.locale_extents)):
-                        halo_updates_dict[inter_locale_rank].updates_per_axis[a] = None
-        else:
-            halo_updates_dict = None
+                    halos_update.updates_per_axis[a] = None
 
-        return halo_updates_dict, have_axis_updates
+        return halos_update, have_axis_updates
 
     @property
     def dst_buffer(self):
@@ -208,10 +240,10 @@ class PerAxisRmaHaloUpdater(CommLogger):
     @property
     def halo_updates(self):
         """
-        The :samp:`(rank_2_updates_dict, bool_sequence)` pair calculated
+        The :obj:`mpi_array.update.MpiHalosUpdate` (or :samp:`None`) calculated
         by :meth:`calc_halo_updates`.
         """
-        if self._halo_updates is None:
+        if self._have_axis_updates is None:
             self._halo_updates, self._have_axis_updates = self.calc_halo_updates()
 
         return self._halo_updates
@@ -220,7 +252,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
         """
         Performs the data exchange required to update the halo (ghost)
         elements of the array buffer :attr:`dst_buffer`:samp:`.buffer`.
-        Can be called :samp:`peer_comm` collectively.
+        Collective over the :samp:`inter_locale_comm` processes.
         """
         self.do_update_halos(self.halo_updates)
 
@@ -228,20 +260,17 @@ class PerAxisRmaHaloUpdater(CommLogger):
         """
         Performs the data exchange required to update the halo (ghost)
         elements of the array buffer :attr:`dst_buffer`:samp:`.buffer`.
-        Can be called :samp:`peer_comm` collectively.
+        Collective over the :samp:`inter_locale_comm` processes.
 
         :type halo_updates: :obj:`mpi_array.update.MpiHalosUpdate`
-        :param halo_updates: A :obj:`dict` of per :samp:`inter_locale_rank`
-           halo region updates. See :meth:`calc_halo_updates`.
+        :param halo_updates: The halo region updates of this locale (:samp:`None`
+           on all processes when no axis has halo updates). See :meth:`calc_halo_updates`.
         """
         if halo_updates is not None:
-            # Get the halo updates for this rank
-            rank_inter_locale_updates = halo_updates[self._inter_locale_win.group.rank]
+            rank_inter_locale_updates = halo_updates
             # Get the updates separated into per-axis (hyper-slab) updates
             rank_updates_per_axis = rank_inter_locale_updates.updates_per_axis
 
-            # rank_updates_per_axis is None, on *all* inter_locale_win.group ranks,
-            # when there are no halos on any axis.
             if rank_updates_per_axis is not None:
                 for a in range(len(rank_updates_per_axis)):
                     lo_hi_updates_pair = rank_updates_per_axis[a]
@@ -956,11 +985,12 @@ class gndarray(_NDArrayOperatorsMixin):
         if self._halo_updater is None:
             self._halo_updater = \
                 PerAxisRmaHaloUpdater(
-                    locale_extents=self.distribution.locale_extents,
+                    distribution=self.distribution,
                     dtype=self.dtype,
                     order=self.order,
                     inter_locale_win=self.rma_window_buffer.inter_locale_win,
-                    dst_buffer=self.lndarray_proxy.lndarray
+                    dst_buffer=self.lndarray_proxy.lndarray,
+                    inter_locale_rank=self.this_locale.inter_locale_rank
                 )
             self._halo_updater.rank_logger = self.rank_logger
             self._halo_updater.root_logger = self.root_logger

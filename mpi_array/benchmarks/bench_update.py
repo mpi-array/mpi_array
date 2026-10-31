@@ -278,7 +278,7 @@ class HaloPlanBench(object):
     Benchmarks for the calculation of the halo updates
     (:meth:`mpi_array.globale.PerAxisRmaHaloUpdater.calc_halo_updates`) of a 3-D block
     partitioned array with a halo of 2 elements, on one process for :samp:`num_locales`
-    locales.
+    locales: the updates of the locale of the process (a locale in the middle).
     """
 
     #: Number of repetitions to run each benchmark
@@ -313,11 +313,12 @@ class HaloPlanBench(object):
         Time the calculation of the halo updates.
         """
         self.globale.PerAxisRmaHaloUpdater(
-            self.distrib.locale_extents,
+            self.distrib,
             self.dtype,
             "C",
             None,
-            None
+            None,
+            inter_locale_rank=num_locales // 2
         ).calc_halo_updates()
 
 

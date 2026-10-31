@@ -704,7 +704,7 @@ class HalosUpdate(object):
     #: The "high index" indices.
     HI = HaloIndexingExtent.HI
 
-    def __init__(self, dst_rank, rank_to_extents_map):
+    def __init__(self, dst_rank, rank_to_extents_map, cart_coord_to_extent=None):
         """
         Construct.
 
@@ -715,9 +715,15 @@ class HalosUpdate(object):
         :param rank_to_extents_map: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
            is a :obj:`CartLocaleExtent` object indicating the indexing extent
-           (tile) on MPI rank :samp:`r.`
+           (tile) on MPI rank :samp:`r.` Only the extent of :samp:`{dst_rank}` is needed
+           when :samp:`{cart_coord_to_extent}` is given.
+        :type cart_coord_to_extent: callable
+        :param cart_coord_to_extent: Returns the extent of the tile with a cartesian
+           coordinate (:obj:`tuple`), e.g.
+           :meth:`mpi_array.distribution.BlockPartition.get_extent_for_cart_coord`. If
+           :samp:`None`, a coordinate to extent map is made from :samp:`{rank_to_extents_map}`.
         """
-        self.initialise(dst_rank, rank_to_extents_map)
+        self.initialise(dst_rank, rank_to_extents_map, cart_coord_to_extent)
 
     def create_single_extent_update(self, dst_extent, src_extent, halo_extent):
         """
@@ -775,7 +781,7 @@ class HalosUpdate(object):
         """
         return [extent, ]
 
-    def initialise(self, dst_rank, rank_to_extents_map):
+    def initialise(self, dst_rank, rank_to_extents_map, cart_coord_to_extent=None):
         """
         Calculates the ranks and regions required to update the
         halo regions of the :samp:`dst_rank` MPI rank.
@@ -788,19 +794,24 @@ class HalosUpdate(object):
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
            is a :obj:`CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
+        :type cart_coord_to_extent: callable
+        :param cart_coord_to_extent: Returns the extent of the tile with a cartesian
+           coordinate, see :meth:`__init__`.
         """
         self._dst_rank = dst_rank
         self._dst_extent = rank_to_extents_map[dst_rank]
         self._updates = [[[], []] for a in range(self._dst_extent.ndim)]
-        if hasattr(rank_to_extents_map, "keys"):
-            ranks = rank_to_extents_map.keys()
-        else:
-            ranks = range(0, len(rank_to_extents_map))
-        cart_coord_to_extents_dict = \
-            {
-                tuple(rank_to_extents_map[r].cart_coord): rank_to_extents_map[r]
-                for r in ranks
-            }
+        if cart_coord_to_extent is None:
+            if hasattr(rank_to_extents_map, "keys"):
+                ranks = rank_to_extents_map.keys()
+            else:
+                ranks = range(0, len(rank_to_extents_map))
+            cart_coord_to_extents_dict = \
+                {
+                    tuple(rank_to_extents_map[r].cart_coord): rank_to_extents_map[r]
+                    for r in ranks
+                }
+            cart_coord_to_extent = cart_coord_to_extents_dict.__getitem__
         for dir in [self.LO, self.HI]:
             for a in range(self._dst_extent.ndim):
                 if dir == self.LO:
@@ -811,7 +822,7 @@ class HalosUpdate(object):
                 for i in i_range:
                     src_cart_coord = _np.array(self._dst_extent.cart_coord, copy=True)
                     src_cart_coord[a] += i
-                    src_extent = cart_coord_to_extents_dict[tuple(src_cart_coord)]
+                    src_extent = cart_coord_to_extent(tuple(src_cart_coord))
                     halo_extent = self.calc_halo_intersection(self._dst_extent, src_extent, a, dir)
                     if halo_extent is not None:
                         self._updates[a][dir] += \
