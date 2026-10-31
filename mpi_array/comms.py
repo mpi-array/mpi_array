@@ -741,7 +741,11 @@ def get_locale_comms_info(
 ):
     """
     Finds or creates a :obj:`LocaleCommsInfo` associated with
-    the specified communicators. Collective over :samp:`{peer_comm}`.
+    the specified communicators. Collective over :samp:`{peer_comm}`. The communicators
+    are cached by object: the processes of a locale must pass the same communicators
+    (e.g. not a communicator on some of them and :samp:`None` on the others), otherwise
+    the cache can have an entry on some of them only, and the collective creation of the
+    communicators doesn't match.
     """
     key = (peer_comm, intra_locale_comm, inter_locale_comm)
     comms_info = _comms_info_cache.find(key)
@@ -1586,7 +1590,8 @@ def get_cart_locale_comms_info(
 ):
     """
     Finds or creates a :obj:`CartLocaleCommsInfo` associated with
-    the specified communicators. Collective over :samp:`{peer_comm}`.
+    the specified communicators. Collective over :samp:`{peer_comm}`. The processes of
+    a locale must pass the same communicators, see :func:`get_locale_comms_info`.
     """
     key = (ndims, dims, peer_comm, intra_locale_comm, inter_locale_comm, cart_comm)
     comms_info = _comms_info_cache.find(key)
