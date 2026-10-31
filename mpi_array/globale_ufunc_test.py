@@ -1358,7 +1358,9 @@ class GndarrayUfuncTest(_unittest.TestCase):
         A ufunc error of the per-tile call on some processes of a locale only (one process
         of a locale computes a 0-d output, processes with empty tiles compute nothing)
         is raised on all processes of the locale, the others used to wait in a barrier.
-        An :samp:`out` array of the wrong shape raises :obj:`ValueError` on every process.
+        The errors are agreed within each locale (the arrays are cloned, every locale
+        computes the same elements). An :samp:`out` array of the wrong shape raises
+        :obj:`ValueError` on every process.
         """
         world = _mpi.COMM_WORLD
 
@@ -1371,10 +1373,11 @@ class GndarrayUfuncTest(_unittest.TestCase):
             return world.allreduce(raised, op=_mpi.LAND)
 
         kwargs = dict(locale_type=LT_NODE, distrib_type=DT_BLOCK)
+        cloned = dict(locale_type=LT_NODE, distrib_type=DT_CLONED)
         with \
-                _asarray(_np.int64(2), locale_type=LT_NODE, distrib_type=DT_CLONED) as zero_dim, \
-                _asarray(_np.array([2], dtype="int64"), **kwargs) as one_element, \
-                _zeros((), locale_type=LT_NODE, distrib_type=DT_CLONED) as zero_dim_float, \
+                _asarray(_np.int64(2), **cloned) as zero_dim, \
+                _asarray(_np.array([2], dtype="int64"), **cloned) as one_element, \
+                _zeros((), **cloned) as zero_dim_float, \
                 _ones((8,), **kwargs) as gary, \
                 _zeros((4,), **kwargs) as wrong_shape:
             # Integers to negative integer powers are not allowed.
