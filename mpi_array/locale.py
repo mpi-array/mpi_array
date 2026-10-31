@@ -164,7 +164,9 @@ class win_lndarray(_np.ndarray):
         :type comm: :obj:`mpi4py.MPI.Comm`
         :param comm: Communicator used for allocating MPI window memory.
         :type root_rank: :obj:`int`
-        :param root_rank: Rank of root process which allocates the shared memory.
+        :param root_rank: Rank (of :samp:`{comm}`) of the process which allocates the memory,
+           the other processes of :samp:`{comm}` share it. Raises :obj:`ValueError` if it
+           isn't a rank of :samp:`{comm}` (when the memory is allocated).
         """
         dtype = _np.dtype(dtype)
         if comm is None:
@@ -175,6 +177,12 @@ class win_lndarray(_np.ndarray):
             )
         win = None
         if buffer is None:
+            if not (0 <= root_rank < comm.size):
+                raise ValueError(
+                    "Got root_rank=%s, expected a rank of comm (of size %s)."
+                    %
+                    (root_rank, comm.size)
+                )
             # All the processes of comm allocate (an array of the same shape), they free
             # the windows which all of them have deferred.
             _deferred_frees.note_allocation(comm, int(_np.prod(shape)) * dtype.itemsize)
@@ -200,7 +208,7 @@ class win_lndarray(_np.ndarray):
                 _log_shared_memory_alloc(
                     logger.debug, "END: ", num_rank_bytes, rank_shape, dtype
                 )
-                buf_isize_pair = win.Shared_query(0)
+                buf_isize_pair = win.Shared_query(root_rank)
                 buffer = buf_isize_pair[0]
             else:
                 _log_memory_alloc(

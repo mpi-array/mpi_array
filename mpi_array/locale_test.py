@@ -82,6 +82,32 @@ class WinLndarrayTest(_unittest.TestCase):
                 for r in range(0, comm.size):
                     self.assertTrue(_np.all(ary[r] == (r + 1)))
 
+    def test_construct_with_root_rank(self):
+        """
+        The memory of a :obj:`mpi_array.locale.win_lndarray` is allocated by
+        its :samp:`root_rank` process and shared by the others. A root rank other than 0
+        used to raise :obj:`TypeError` (the processes used the empty memory of rank 0).
+        A root rank which isn't a rank of the communicator raises :obj:`ValueError`.
+        """
+        world = _mpi.COMM_WORLD
+        comm = world.Split_type(_mpi.COMM_TYPE_SHARED, key=world.rank)
+        try:
+            for root_rank in sorted(set([0, comm.size - 1])):
+                with \
+                        _locale.win_lndarray(
+                            shape=(comm.size, 4), dtype="int32", comm=comm, root_rank=root_rank
+                        ) as ary:
+                    ary[comm.rank] = comm.rank + 1
+                    comm.barrier()
+                    self.assertSequenceEqual(list(range(1, comm.size + 1)), ary[:, 0].tolist())
+                    comm.barrier()
+            for root_rank in (-1, comm.size):
+                self.assertRaises(
+                    ValueError, _locale.win_lndarray, shape=(4,), comm=comm, root_rank=root_rank
+                )
+        finally:
+            comm.Free()
+
     def test_construct_with_buffer(self):
         """
         Tests :obj:`mpi_array.locale.win_lndarray` construction with a :samp:`buffer`
