@@ -46,6 +46,8 @@ Functions
    :toctree: generated/
 
    agree_on_error - Processes agree on an error, so that they all raise.
+   flush_shared_memory_channels - Processes the messages between the processes of a node.
+   get_shared_memory_comm - The communicator of the processes of a node.
 
 
 Attributes
@@ -293,6 +295,10 @@ class RmaWindowBuffer(object):
         self._registration = None
         if peer_comm is not None:
             self._registration = deferred_frees.register(self, peer_comm)
+            # All the processes of the peer communicator create the buffer (see register):
+            # its node communicator, used when the windows are freed (see free), is created
+            # while this is collective over all of them.
+            get_shared_memory_comm(peer_comm)
 
     def defer_free(self):
         """
@@ -527,15 +533,21 @@ class RmaWindowBuffer(object):
 
     def free(self):
         """
-        Free MPI windows and associated buffer memory (collective).
+        Free MPI windows and associated buffer memory (collective). The messages between
+        the processes of a node are processed before each window of one-sided communication
+        is freed (see :func:`flush_shared_memory_channels`): those between the processes of
+        the inter-locale communicator, then those between all the processes of the peer
+        communicator, on the node communicator of the peer communicator.
         """
         if self._registration is not None:
             deferred_frees.unregister(self._registration)
             self._registration = None
         if (self._inter_locale_win != _mpi.WIN_NULL) and (self._inter_locale_win is not None):
+            flush_shared_memory_channels(self._peer_comm, self._inter_locale_comm)
             self._inter_locale_win.Free()
             self._inter_locale_win = _mpi.WIN_NULL
         if (self._peer_win != _mpi.WIN_NULL) and (self._peer_win is not None):
+            flush_shared_memory_channels(self._peer_comm)
             self._peer_win.Free()
             self._peer_win = _mpi.WIN_NULL
         if self._intra_locale_win != _mpi.WIN_NULL:
@@ -801,6 +813,97 @@ def can_free_in_del():
     :return: :samp:`True` if windows can be freed.
     """
     return (not _mpi4py_aborts) and (not _mpi.Is_finalized())
+
+
+#: The node communicators of :func:`get_shared_memory_comm`, by :samp:`id` of the
+#: communicator (with a reference to it).
+_shared_memory_comms = dict()
+
+#: The ranks, in the node communicator of a communicator, of the processes of a
+#: sub-communicator which share the memory of this process (see
+#: :func:`flush_shared_memory_channels`), by :samp:`id` of both (with references to them).
+_shared_memory_ranks = dict()
+
+
+def get_shared_memory_comm(comm):
+    """
+    Returns the communicator of the processes of :samp:`{comm}` which share the memory of
+    this process (node), a communicator of the library. It is created
+    by :samp:`{comm}.Split_type(COMM_TYPE_SHARED)` when this is first called
+    for :samp:`{comm}` (collective over :samp:`{comm}`), and cached.
+
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: The communicator.
+    :rtype: :obj:`mpi4py.MPI.Comm`
+    :return: The node communicator.
+    """
+    key = id(comm)
+    entry = _shared_memory_comms.get(key, None)
+    if entry is None:
+        entry = (comm, comm.Split_type(_mpi.COMM_TYPE_SHARED, key=comm.rank))
+        _shared_memory_comms[key] = entry
+    return entry[1]
+
+
+def flush_shared_memory_channels(comm, sub_comm=None):
+    """
+    Each process sends a message to, and receives one from, every other process
+    of :samp:`{comm}` (or of :samp:`{sub_comm}`) which shares its memory (node), on the node
+    communicator of :samp:`{comm}` (:func:`get_shared_memory_comm`). The messages which
+    these processes sent each other before (e.g. those of one-sided communication) are then
+    processed: shared memory transports deliver the messages of a pair of processes in order
+    (a barrier doesn't involve every pair). Collective over :samp:`{comm}`, or
+    over :samp:`{sub_comm}`, a communicator of some of the processes of :samp:`{comm}`: the
+    node communicator of :samp:`{comm}` isn't created then (nothing is exchanged if it
+    doesn't exist).
+
+    Called before freeing the windows of one-sided communication. When the shared memory
+    transport can't access the memory of other processes (e.g. without permission to
+    trace them), Open MPI 5.0 emulates one-sided communication with messages, and messages
+    which arrived after their window was freed crashed it (segmentation faults). No node
+    communicator is split from a sub-communicator: with Open MPI 5.0.8 on a cluster,
+    splitting the inter-locale communicators of arrays (which span several nodes) made
+    :func:`mpi4py.MPI.Finalize` abort.
+
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: The communicator of the processes (the peer communicator of an array).
+    :type sub_comm: :samp:`None` or :obj:`mpi4py.MPI.Comm`
+    :param sub_comm: The communicator of a window of some of the processes of :samp:`{comm}`
+       (e.g. the inter-locale communicator of an array).
+    """
+    if sub_comm is None:
+        node_comm = get_shared_memory_comm(comm)
+        ranks = range(node_comm.size)
+    else:
+        entry = _shared_memory_comms.get(id(comm), None)
+        if entry is None:
+            return
+        node_comm = entry[1]
+        key = (id(comm), id(sub_comm))
+        entry = _shared_memory_ranks.get(key, None)
+        if entry is None:
+            sub_group = sub_comm.Get_group()
+            node_group = node_comm.Get_group()
+            try:
+                translated = \
+                    _mpi.Group.Translate_ranks(sub_group, list(range(sub_group.size)), node_group)
+            finally:
+                sub_group.Free()
+                node_group.Free()
+            entry = (comm, sub_comm, sorted(r for r in translated if r != _mpi.UNDEFINED))
+            _shared_memory_ranks[key] = entry
+        ranks = entry[2]
+    size = len(ranks)
+    if size > 1:
+        index = ranks.index(node_comm.rank)
+        buffers = _np.zeros((size,), dtype="B")
+        requests = []
+        for i in range(1, size):
+            requests.append(
+                node_comm.Irecv([buffers[i:i + 1], _mpi.BYTE], ranks[(index - i) % size])
+            )
+            requests.append(node_comm.Isend([buffers[0:1], _mpi.BYTE], ranks[(index + i) % size]))
+        _mpi.Request.Waitall(requests)
 
 
 class DeferredFrees(object):

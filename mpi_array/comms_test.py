@@ -192,6 +192,61 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertTrue(cache.find((comm, None, [2, 0])) is None)
         self.assertEqual(0, len(cache.lookup))
 
+    def test_flush_before_freeing_one_sided_windows(self):
+        """
+        The messages between the processes of a node are processed
+        (:func:`mpi_array.comms.flush_shared_memory_channels`) before the windows of one-sided
+        communication of an array are freed: those of the inter-locale processes before the
+        inter-locale window is freed (halo updates create this window only), those of all
+        processes before the peer window is freed. No node communicator is split from the
+        inter-locale communicator (it made MPI_Finalize abort on a cluster). Open MPI 5.0
+        crashed when messages of its emulated one-sided communication arrived after their
+        window was freed.
+        """
+        from . import comms as _comms
+        from .globale_creation import zeros as _zeros
+
+        flush = _comms.flush_shared_memory_channels
+        flushes = []
+
+        def recording_flush(comm, sub_comm=None):
+            flushes.append((comm, sub_comm))
+            flush(comm, sub_comm)
+
+        world = _mpi.COMM_WORLD
+        flush(world)
+        flush(_mpi.COMM_SELF)
+        # Locales of two processes: the inter-locale processes of a node exchange messages.
+        intra_locale_comm = world.Split(world.rank // 2, world.rank)
+        for windows in ("peer and inter-locale", "inter-locale", "none"):
+            gary = _zeros((10 * world.size,), peer_comm=world, intra_locale_comm=intra_locale_comm)
+            locale_comms = gary.locale_comms
+            have_inter_locale_comm = locale_comms.have_valid_inter_locale_comm
+            if windows == "peer and inter-locale":
+                gary.initialise_windows()
+            elif (windows == "inter-locale") and have_inter_locale_comm:
+                gary.rma_window_buffer.inter_locale_win
+            del flushes[:]
+            _comms.flush_shared_memory_channels = recording_flush
+            try:
+                gary.free()
+            finally:
+                _comms.flush_shared_memory_channels = flush
+            expected = []
+            if (windows != "none") and have_inter_locale_comm:
+                expected.append((locale_comms.peer_comm, locale_comms.inter_locale_comm))
+            if windows == "peer and inter-locale":
+                expected.append((locale_comms.peer_comm, None))
+            self.assertEqual(len(expected), len(flushes))
+            for (expected_comm, expected_sub_comm), (comm, sub_comm) in zip(expected, flushes):
+                self.assertTrue(comm is expected_comm)
+                self.assertTrue(sub_comm is expected_sub_comm)
+            if have_inter_locale_comm:
+                self.assertTrue(
+                    id(locale_comms.inter_locale_comm) not in _comms._shared_memory_comms
+                )
+        intra_locale_comm.Free()
+
     def test_lru_cache(self):
         """
         Tests for :obj:`mpi_array.utils.LruCache`.
