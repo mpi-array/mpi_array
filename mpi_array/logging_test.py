@@ -14,7 +14,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    LoggingTest - Tests for :mod:`mpi_array.logging` functions.
 

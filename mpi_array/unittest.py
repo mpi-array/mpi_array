@@ -11,7 +11,6 @@ Classes and Functions
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    TestCase - Extends :obj:`unittest.TestCase` with :obj:`TestCase.assertArraySplitEqual`.
 

@@ -20,7 +20,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    UfuncResultTypeTest - Tests for :func:`mpi_array.globale_ufunc.ufunc_result_type` function.
    BroadcastShapeTest - Tests for :func:`mpi_array.globale_ufunc.broadcast_shape` function.

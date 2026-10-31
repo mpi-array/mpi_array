@@ -10,20 +10,11 @@ using :meth:`mpi4py.MPI.Win.Allocate_shared` or :meth:`mpi4py.MPI.Win.Allocate`.
 Classes
 =======
 
-..
-   Special template for mpi_array.locale.LndarrayProxy to avoid numpydoc
-   documentation style sphinx warnings/errors from numpy.ndarray inheritance.
-
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_ndarray_class.rst
 
    lndarray - Sub-class of :obj:`numpy.ndarray` which uses MPI allocated memory buffer.
-
-.. autosummary::
-   :toctree: generated/
-   :template: autosummary/class.rst
-
+   win_lndarray - Sub-class of :obj:`numpy.ndarray` which allocates its memory in an MPI window.
    LndarrayProxy - Thin container for :obj:`lndarray` which provides convenience views.
    PartitionViewSlices - Container for per-rank slices for created locale extent array views.
 

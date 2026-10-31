@@ -14,7 +14,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    MpiTest - Tests for :obj:`mpi4py` one-sided comms.
 

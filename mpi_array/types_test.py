@@ -14,7 +14,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    TypesTest - Tests for :func:`mpi_array.types.to_datatype`.
 

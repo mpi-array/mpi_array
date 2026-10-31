@@ -18,7 +18,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    LocaleCommsTest - Tests for :obj:`mpi_array.comms.LocaleComms`.
    CartLocaleCommsTest - Tests for :obj:`mpi_array.comms.CartLocaleComms`.

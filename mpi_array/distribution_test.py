@@ -14,7 +14,6 @@ Classes
 
 .. autosummary::
    :toctree: generated/
-   :template: autosummary/inherits_TestCase_class.rst
 
    CartLocaleExtentTest - Tests for :obj:`mpi_array.distribution.CartLocaleExtent`.
    BlockPartitionTest - Tests for :obj:`mpi_array.distribution.BlockPartition`.
