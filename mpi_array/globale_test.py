@@ -265,27 +265,27 @@ class GndarrayTest(_unittest.TestCase):
 
     def test_readme_quick_start(self):
         """
-        Runs the ``quickstart.py`` code block from :samp:`README.rst`
+        Runs the ``quickstart.py`` code block from :samp:`README.md`
         (the code asserts the resulting element values).
         """
         readme_file_name = \
-            _os_path.realpath(_os_path.join(_os_path.dirname(__file__), "..", "README.rst"))
+            _os_path.realpath(_os_path.join(_os_path.dirname(__file__), "..", "README.md"))
         if not _os_path.exists(readme_file_name):
-            self.skipTest("No README.rst at %s." % readme_file_name)
+            self.skipTest("No README.md at %s." % readme_file_name)
         with open(readme_file_name, "rt") as readme_file:
             lines = readme_file.read().split("\n")
-        # The code block follows the first "::" line from the
+        # The code block is the first fenced block after the
         # paragraph which introduces the ``quickstart.py`` script.
-        intro = [i for i in range(len(lines)) if "``quickstart.py`` script" in lines[i]]
+        intro = [i for i in range(len(lines)) if "`quickstart.py` script" in lines[i]]
         self.assertTrue(len(intro) > 0)
         start = intro[0]
-        while not lines[start].rstrip().endswith("::"):
+        while not lines[start].startswith("```"):
             start += 1
         code_lines = []
         for line in lines[start + 1:]:
-            if (len(line.strip()) > 0) and (not line.startswith("   ")):
+            if line.startswith("```"):
                 break
-            code_lines.append(line[3:])
+            code_lines.append(line)
         code = "\n".join(code_lines)
         self.assertTrue("mpia.zeros" in code)
         exec(compile(code, readme_file_name + ":quickstart.py", "exec"), dict())

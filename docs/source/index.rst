@@ -6,9 +6,10 @@ mpi_array documentation
 
 .. sectionauthor:: Shane J. Latham
 
-.. include:: ../../README.rst
-   :start-after: start badges.
-   :end-before: end badges.
+.. include:: ../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- start badges -->
+   :end-before: <!-- end badges -->
 
 :Release: |release|
 :Version: |version|

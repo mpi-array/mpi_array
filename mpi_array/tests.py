@@ -57,7 +57,7 @@ class DocTestTestSuite(_unittest.TestSuite):
     def __init__(self):
         readme_file_name = \
             _os_path.realpath(
-                _os_path.join(_os_path.dirname(__file__), "..", "README.rst")
+                _os_path.join(_os_path.dirname(__file__), "..", "README.md")
             )
         suite = _unittest.TestSuite()
 

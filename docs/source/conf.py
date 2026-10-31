@@ -69,6 +69,8 @@ extensions = [
     "sphinx.ext.mathjax",
     "sphinx.ext.ifconfig",
     "sphinx.ext.viewcode",
+    # Parses the README.md included in the docs.
+    "myst_parser",
 ]
 templates_path = ["_templates"]
 source_suffix = {".rst": "restructuredtext"}
@@ -76,7 +78,8 @@ root_doc = "index"
 language = "en"
 exclude_patterns = ["_templates*"]
 pygments_style = "sphinx"
-suppress_warnings = ["image.nonlocal_uri"]
+# The sections of the README.md included in the "about" page start at H2.
+suppress_warnings = ["image.nonlocal_uri", "myst.header"]
 todo_include_todos = True
 
 # Generic types in the docstrings, which aren't objects to link to, and base classes

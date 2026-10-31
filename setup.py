@@ -6,9 +6,9 @@ import subprocess
 
 def read_readme():
     """
-    Reads part of the README.rst for use as long_description in setup().
+    Reads part of the README.md for use as long_description in setup().
     """
-    text = open("README.rst", "rt").read()
+    text = open("README.md", "rt").read()
     text_lines = text.split("\n")
     ld_i_beg = 0
     while text_lines[ld_i_beg].find("start long description") < 0:
@@ -81,6 +81,7 @@ setup(
         "Python package providing PGAS multi-dimensional array with numpy-like API."
     ),
     long_description=_long_description,
+    long_description_content_type="text/markdown",
     license="MIT",
     keywords=(
         "MPI mpi4py data-parallelism distributed numpy ndarray distributed-array"
@@ -123,7 +124,7 @@ setup(
         ]
         + mpi4py_requires,
     extras_require={
-        "docs": ["sphinx", "sphinx_rtd_theme", ],
+        "docs": ["sphinx", "sphinx_rtd_theme", "myst-parser", ],
     },
     package_data={
         "mpi_array": ["version.txt", "git_describe.txt", "copyright.txt", "license.txt"]

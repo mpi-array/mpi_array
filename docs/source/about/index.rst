@@ -3,5 +3,6 @@
 Introduction
 ============
 
-.. include:: ../../../README.rst
-   :start-after: end badges.
+.. include:: ../../../README.md
+   :parser: myst_parser.sphinx_
+   :start-after: <!-- end badges -->
