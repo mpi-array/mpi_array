@@ -262,14 +262,19 @@ class LoggerFactory (object):
         :func:`initialise_loggers`).
 
         :type name: :obj:`str`
-        :param name: Name of logger (note that the name of logger actuallycreated will
-           be :samp:`{name} + "." + {comm}.Get_name() + ".rank." + ("%04d" % {comm}.Get_rank())`).
+        :param name: Name of logger (note that the name of logger actually created
+           is :samp:`{name} + "." + {comm}.Get_name() + "." + {rank_string} + "." + {rank}`,
+           where :samp:`{rank}` is :samp:`{comm}.Get_rank()` zero-padded to the number of digits
+           of the largest rank of :obj:`mpi4py.MPI.COMM_WORLD`).
         :type comm: :obj:`mpi4py.MPI.Comm`
         :param comm: MPI communicator. Used for determining the rank of this process.
             If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
         :type ranks: :obj:`None` or :obj:`list`-of-:obj:`int`
         :param ranks: Limits logging output to ranks specified in this list.
             If :samp:`None`, all ranks produce logging output.
+        :type rank_string: :obj:`str`
+        :param rank_string: Precedes the rank in the logger name and in the message
+            prefix (:samp:`"root"` for :meth:`get_root_logger`).
         :rtype: :obj:`logging.Logger`
         :return: Logger object.
         """
@@ -320,7 +325,9 @@ class LoggerFactory (object):
 
         :type name: :obj:`str`
         :param name: Name of logger (note that the name of logger actually
-           created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+           created is :samp:`{name} + "." + {comm}.Get_name() + ".root." + {rank}`,
+           where :samp:`{rank}` is :samp:`{comm}.Get_rank()` zero-padded to the number of digits
+           of the largest rank of :obj:`mpi4py.MPI.COMM_WORLD`).
         :type comm: :obj:`mpi4py.MPI.Comm`
         :param comm: MPI communicator. Used for determining the rank of this process.
             If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
@@ -346,7 +353,9 @@ def get_rank_logger(name, comm=None, ranks=None):
 
     :type name: :obj:`str`
     :param name: Name of logger (note that the name of logger actually
-       created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+       created is :samp:`{name} + "." + {comm}.Get_name() + ".rank." + {rank}`,
+       where :samp:`{rank}` is :samp:`{comm}.Get_rank()` zero-padded to the number of digits
+       of the largest rank of :obj:`mpi4py.MPI.COMM_WORLD`).
     :type comm: :obj:`mpi4py.MPI.Comm`
     :param comm: MPI communicator. Used for determining the rank of this process.
         If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.
@@ -367,7 +376,9 @@ def get_root_logger(name, comm=None, root_rank=0):
 
     :type name: :obj:`str`
     :param name: Name of logger (note that the name of logger actually
-       created will be :samp:`{name} + ".rank." + ("%04d" % {comm}.Get_rank())`).
+       created is :samp:`{name} + "." + {comm}.Get_name() + ".root." + {rank}`,
+       where :samp:`{rank}` is :samp:`{comm}.Get_rank()` zero-padded to the number of digits
+       of the largest rank of :obj:`mpi4py.MPI.COMM_WORLD`).
     :type comm: :obj:`mpi4py.MPI.Comm`
     :param comm: MPI communicator. Used for determining the rank of this process.
         If :samp:`None` uses :samp:`mpi4py.MPI.COMM_WORLD`.

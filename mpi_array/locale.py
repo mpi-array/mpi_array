@@ -141,12 +141,13 @@ class win_lndarray(_np.ndarray):
         root_rank=0
     ):
         """
-        Construct. Allocates shared-memory (:meth:`mpi4py.MPI.Win.Allocated_shared`)
-        buffer when :samp:`{comm}.size > 1`. Uses :meth:`mpi4py.MPI.Win.Allocate`
-        to allocate buffer when :samp:`{comm}.size == 1`.
+        Construct. When :samp:`{buffer}` is :samp:`None`, allocates shared memory
+        (:meth:`mpi4py.MPI.Win.Allocate_shared`) when :samp:`{comm}.size > 1`, and
+        uses :meth:`mpi4py.MPI.Win.Allocate` when :samp:`{comm}.size == 1`.
 
-        :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: **Local** shape of the array, this parameter is ignored.
+        :type shape: sequence of :obj:`int`
+        :param shape: Shape of the array. When the memory is allocated, it must be
+           the same on all processes of :samp:`{comm}` (they share the memory of the array).
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
         :type buffer: :samp:`None` or :obj:`memoryview`
@@ -332,11 +333,11 @@ class lndarray(_np.ndarray):
         order=None
     ):
         """
-        Construct, at least one of :samp:{shape} or :samp:`decomp` should
-        be specified (i.e. at least one should not be :samp:`None`).
+        Construct an array of the memory :samp:`{buffer}` (e.g. the buffer of
+        an :obj:`mpi_array.comms.RmaWindowBuffer`), which must be given.
 
-        :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: **Local** shape of the array, this parameter is ignored.
+        :type shape: sequence of :obj:`int`
+        :param shape: Shape of the array.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
         :type buffer: :obj:`memoryview`
@@ -397,7 +398,9 @@ class lndarray(_np.ndarray):
 
     def free(self):
         """
-        Release reference to buffer, and zero-ise :samp:`self.shape`.
+        Does nothing: the array doesn't own its memory, which is freed with the
+        windows of the :obj:`mpi_array.comms.RmaWindowBuffer` it belongs to
+        (e.g. by :meth:`LndarrayProxy.free`).
         """
         pass
 
@@ -476,12 +479,12 @@ class LndarrayProxy(object):
         rma_window_buffer=None
     ):
         """
-        Initialise, at least one of :samp:{shape} or :samp:`locale_extent` should
-        be specified (i.e. at least one should not be :samp:`None`).
+        Initialise, :samp:`{locale_extent}` must be specified (raises :obj:`ValueError`
+        otherwise), it determines the shape of the locale array.
 
         :type shape: :samp:`None` or sequence of :obj:`int`
-        :param shape: Shape of the array apportioned to this locale. If :samp:`None`
-           shape is taken as :samp:`{locale_extent}.shape_h`.
+        :param shape: Shape of the array apportioned to this locale. If not :samp:`None`,
+           it must equal :samp:`{locale_extent}.shape_h` (raises :obj:`ValueError` otherwise).
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
         :type buffer: :obj:`memoryview`
@@ -514,7 +517,7 @@ class LndarrayProxy(object):
             )
         if (shape is not None) and (not _np.all(locale_extent.shape_h == shape)):
             raise ValueError(
-                "Got conflicting locale shape: shape=%s, locale_extent.shape_n=%s"
+                "Got conflicting locale shape: shape=%s, locale_extent.shape_h=%s"
                 %
                 (shape, locale_extent.shape_h)
             )
@@ -998,16 +1001,25 @@ def empty(
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array
+       (e.g. from :func:`mpi_array.comms.create_distribution`), :samp:`{shape}` is then
+       ignored. If :samp:`None`, they are created by :func:`mpi_array.comms.create_distribution`
+       from :samp:`{shape}` and :samp:`{kwargs}`.
     :type order: :samp:`{'C', 'K', 'A'}` or :samp:`None`
     :param order: Only C order is implemented, see :func:`check_order`.
+    :type return_rma_window_buffer: :obj:`bool`
+    :param return_rma_window_buffer: If :samp:`True`, returns the locale array and
+       its :obj:`mpi_array.comms.RmaWindowBuffer`, which the caller frees (the returned
+       :obj:`LndarrayProxy` doesn't have it).
     :type intra_partition_dims: :samp:`None` or sequence of :obj:`int`
     :param intra_partition_dims: The number of tiles (one for each process of the locale)
        along each axis of the locale array, zero elements are calculated.
        See :func:`check_intra_partition_dims`.
     :rtype: :obj:`LndarrayProxy`
-    :return: Newly created array with uninitialised elements.
+    :return: Newly created array with uninitialised elements, or
+       the :samp:`(lndarray_proxy, rma_window_buffer)` pair
+       when :samp:`{return_rma_window_buffer}` is :samp:`True`.
     :raises NotImplementedError: If :samp:`{order}` is :samp:`'F'`.
     """
     order = check_order(order)
@@ -1068,14 +1080,17 @@ def empty(
 
 def empty_like(ary, dtype=None):
     """
-    Return a new array with the same shape and type as a given array.
+    Return a new array with the same shape and type as a given array. For
+    an :obj:`LndarrayProxy`, the new array has the same communicators and distribution
+    (collective, see :func:`empty`).
 
-    :type ary: :obj:`numpy.ndarray`
+    :type ary: :obj:`LndarrayProxy` or :obj:`numpy.ndarray`
     :param ary: Copy attributes from this array.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :rtype: :samp:`type(ary)`
-    :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{a}`.
+    :return: Array of uninitialized (arbitrary) data with the same shape and type
+       as :samp:`{ary}`.
     """
     if dtype is None:
         dtype = ary.dtype
@@ -1102,8 +1117,11 @@ def zeros(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwar
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array,
+       see :func:`empty`.
+    :type order: :samp:`{'C', 'K', 'A'}` or :samp:`None`
+    :param order: Only C order is implemented, see :func:`check_order`.
     :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with zero-initialised elements.
     """
@@ -1139,8 +1157,11 @@ def ones(shape=None, dtype="float64", comms_and_distrib=None, order='C', **kwarg
        memory nodes.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array,
+       see :func:`empty`.
+    :type order: :samp:`{'C', 'K', 'A'}` or :samp:`None`
+    :param order: Only C order is implemented, see :func:`check_order`.
     :rtype: :obj:`LndarrayProxy`
     :return: Newly created array with one-initialised elements.
     """

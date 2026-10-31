@@ -1207,8 +1207,8 @@ class LocaleComms(object):
            which can use a MPI window to allocate shared memory
            (i.e. in this case locale is a (possibly NUMA) node).
            Can also specify as :samp:`mpi4py.MPI.COMM_SELF`, in which case the
-           locale is a single process and regular (non-shared) memory
-           is not allocated in :meth:`alloc_locale_buffer`.
+           locale is a single process and :meth:`alloc_locale_buffer` allocates
+           regular (non-shared) memory.
         :type inter_locale_comm: :obj:`mpi4py.MPI.Comm`
         :param inter_locale_comm: Inter-locale communicator used to exchange
             data between different locales. If :samp:`None` then one process
@@ -1253,8 +1253,7 @@ class LocaleComms(object):
         :type dtype: :obj:`numpy.dtype`
         :param dtype: The array element type.
         :rtype: :obj:`RmaWindowBuffer`
-        :returns: A :obj:`collections.namedtuple` containing allocated buffer
-           and associated RMA MPI windows.
+        :returns: The allocated buffer and the associated RMA MPI windows.
         """
         is_shared_alloc = False
         self.rank_logger.debug("BEG: alloc_locale_buffer")
@@ -1754,9 +1753,10 @@ class CartLocaleComms(LocaleComms):
     @property
     def cart_coord_to_cart_rank_map(self):
         """
-        A :obj:`dict` of :obj:`tuple`
-        cartesian coordinate (:meth:`mpi4py.MPI.Cartcomm.Get_coords`) keys
-        which map to the associated :attr:`cart_comm` peer_rank.
+        A :obj:`numpy.ndarray` of shape :attr:`dims` whose element at a
+        cartesian coordinate (:meth:`mpi4py.MPI.Cartcomm.Get_coords`) is the
+        associated :attr:`cart_comm` rank. :samp:`None` when :attr:`cart_comm`
+        isn't valid (see :attr:`have_valid_cart_comm`).
         """
         d = None
         if self.have_valid_cart_comm:
@@ -2171,6 +2171,10 @@ def create_distribution(shape, distrib_type=None, locale_type=LT_NODE, **kwargs)
     :type locale_type: :obj:`str`
     :param locale_type: One of :attr:`mpi_array.comms.LT_PROCESS`
        or :attr:`mpi_array.comms.LT_NODE`. Defines locales.
+    :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(ndim, 2)` shaped array
+    :param halo: The number of ghost elements of the locale arrays, for all axes, for each
+       axis, or for the low and high index sides of each axis (see
+       :func:`array_split.split.convert_halo_to_array_form`). Defaults to :samp:`0`.
     :type dims: sequence of :obj:`int`
     :param dims: Only relevant when :samp:`{distrib_type} == DT_BLOCK`.
        Defines the partitioning of the globale array axes.

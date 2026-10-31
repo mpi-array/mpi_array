@@ -679,12 +679,17 @@ class gndarray(_NDArrayOperatorsMixin):
         lndarray_proxy
     ):
         """
-        Construct, at least one of :samp:{shape} or :samp:`comms_and_distrib` should
-        be specified (i.e. at least one should not be :samp:`None`).
+        Construct from an allocated locale array. Use the creation functions
+        (e.g. :func:`mpi_array.globale_creation.empty`) to create arrays.
 
-        :type comms_and_distrib: :obj:`mpi_array.distribution.Decomposition`
-        :param comms_and_distrib: Array distribution info and used to allocate (possibly)
-           shared memory.
+        :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+        :param comms_and_distrib: The communicators and distribution of the array.
+        :type rma_window_buffer: :obj:`mpi_array.comms.RmaWindowBuffer`
+        :param rma_window_buffer: The memory and RMA windows of the locale array,
+           freed by :meth:`free`.
+        :type lndarray_proxy: :obj:`mpi_array.locale.LndarrayProxy`
+        :param lndarray_proxy: The locale array, its memory is
+           that of :samp:`{rma_window_buffer}`.
         """
         self = _NDArrayOperatorsMixin.__new__(cls)
         self._comms_and_distrib = comms_and_distrib

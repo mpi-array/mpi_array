@@ -73,8 +73,15 @@ def empty(
        raises :obj:`NotImplementedError` (see :func:`mpi_array.locale.check_order`).
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array
+       (e.g. the :samp:`comms_and_distrib` of another array), :samp:`{shape}` is then
+       ignored. If :samp:`None`, they are created by :func:`mpi_array.comms.create_distribution`
+       from :samp:`{shape}` and :samp:`{kwargs}` (e.g. :samp:`locale_type`, :samp:`distrib_type`,
+       :samp:`dims` and :samp:`halo`).
+    :type intra_partition_dims: :samp:`None` or sequence of :obj:`int`
+    :param intra_partition_dims: The number of tiles (one for each process of a locale)
+       along each axis of the locale arrays, see :func:`mpi_array.locale.empty`.
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: Newly created array with uninitialised elements.
     """
@@ -103,8 +110,10 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     """
     Return a new array with the same shape and type as a given array.
 
-    :type ary: :obj:`numpy.ndarray`
-    :param ary: Copy attributes from this array.
+    :type ary: :obj:`mpi_array.globale.gndarray` or array-like
+    :param ary: Copy attributes from this array. A :obj:`mpi_array.globale.gndarray` gives
+       an array with the same communicators and distribution, otherwise the array is
+       created from the shape of :samp:`{ary}` (and :samp:`{kwargs}`, see :func:`empty`).
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :type order: :samp:`{'C', 'F', 'A', or 'K'}`
@@ -118,7 +127,7 @@ def empty_like(ary, dtype=None, order='K', subok=True, **kwargs):
     :param subok: Ignored.
        If True, then the newly created array will use the sub-class type of :samp:`{ary}`,
        otherwise it will be a base-class array. Defaults to True.
-    :rtype: :samp:`type(ary)`
+    :rtype: :obj:`mpi_array.globale.gndarray`
     :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{ary}`.
     """
     if not isinstance(ary, _globale.gndarray):
@@ -158,13 +167,15 @@ def full(
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
     :type order: :samp:`{'C', 'F'}`
-    :param order: Only :samp:`'C'` implemented.
+    :param order: Only :samp:`'C'` implemented, see :func:`empty`.
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array,
+       see :func:`empty`.
     :rtype: :obj:`mpi_array.globale.gndarray`
-    :return: Newly created array with uninitialised elements.
+    :return: Newly created array with all elements (including the halo) set
+       to :samp:`{fill_value}`.
     """
     ary = empty(shape, *args, **kwargs)
     ary.fill_h(ary.dtype.type(fill_value))
@@ -174,16 +185,17 @@ def full(
 
 def full_like(ary, fill_value, *args, **kwargs):
     """
-    Return a new array with the same shape and type as a given array.
+    Return a new array with the same shape and type as a given array,
+    filled with :samp:`{fill_value}`.
 
-    :type ary: :obj:`numpy.ndarray`
-    :param ary: Copy attributes from this array.
+    :type ary: :obj:`mpi_array.globale.gndarray` or array-like
+    :param ary: Copy attributes from this array, see :func:`empty_like`.
     :type fill_value: scalar
     :param fill_value: Fill value.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :type order: :samp:`{'C', 'F', 'A', or 'K'}`
-    :param order: Only :samp:`'K'` implemented.
+    :param order: Only C order is implemented, see :func:`empty_like`.
         Overrides the memory layout of the result. :samp:`'C'` means C-order, :samp:`'F'`
         means F-order, :samp:`'A'` means :samp:`'F'` if a is Fortran
         contiguous, :samp:`'C'` otherwise. :samp:`'K'` means match the layout
@@ -192,8 +204,9 @@ def full_like(ary, fill_value, *args, **kwargs):
     :param subok: Ignored.
        If True, then the newly created array will use the sub-class type of :samp:`{ary}`,
        otherwise it will be a base-class array. Defaults to True.
-    :rtype: :samp:`type(ary)`
-    :return: Array of uninitialized (arbitrary) data with the same shape and type as :samp:`{ary}`.
+    :rtype: :obj:`mpi_array.globale.gndarray`
+    :return: Array with all elements (including the halo) set to :samp:`{fill_value}`,
+       with the same shape and type as :samp:`{ary}`.
     """
     ary = empty_like(ary, *args, **kwargs)
     ary.fill_h(ary.dtype.type(fill_value))
@@ -211,11 +224,12 @@ def zeros(shape=None, dtype="float64", order='C', comms_and_distrib=None, **kwar
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
     :type order: :samp:`{'C', 'F'}`
-    :param order: Only :samp:`'C'` implemented.
+    :param order: Only :samp:`'C'` implemented, see :func:`empty`.
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array,
+       see :func:`empty`.
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: Newly created array with zero-initialised elements.
     """
@@ -239,7 +253,7 @@ def zeros_like(ary, *args, **kwargs):
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :type order: :samp:`{'C', 'F', 'A', or 'K'}`
-    :param order: Only :samp:`'K'` implemented.
+    :param order: Only C order is implemented, see :func:`empty_like`.
         Overrides the memory layout of the result. :samp:`'C'` means C-order, :samp:`'F'`
         means F-order, :samp:`'A'` means :samp:`'F'` if a is Fortran
         contiguous, :samp:`'C'` otherwise. :samp:`'K'` means match the layout
@@ -264,11 +278,12 @@ def ones(shape=None, dtype="float64", order='C', comms_and_distrib=None, **kwarg
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Data type of array elements.
     :type order: :samp:`{'C', 'F'}`
-    :param order: Only :samp:`'C'` implemented.
+    :param order: Only :samp:`'C'` implemented, see :func:`empty`.
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory.
-    :type comms_and_distrib: :obj:`numpy.dtype`
-    :param comms_and_distrib: Data type of array elements.
+    :type comms_and_distrib: :obj:`mpi_array.comms.CommsAndDistribution`
+    :param comms_and_distrib: The communicators and distribution of the array,
+       see :func:`empty`.
     :rtype: :obj:`mpi_array.globale.gndarray`
     :return: Newly created array with one-initialised elements.
     """
@@ -292,7 +307,7 @@ def ones_like(ary, *args, **kwargs):
     :type dtype: :obj:`numpy.dtype`
     :param dtype: Specifies different dtype for the returned array.
     :type order: :samp:`{'C', 'F', 'A', or 'K'}`
-    :param order: Only :samp:`'K'` implemented.
+    :param order: Only C order is implemented, see :func:`empty_like`.
         Overrides the memory layout of the result. :samp:`'C'` means C-order, :samp:`'F'`
         means F-order, :samp:`'A'` means :samp:`'F'` if a is Fortran
         contiguous, :samp:`'C'` otherwise. :samp:`'K'` means match the layout
@@ -342,15 +357,22 @@ def copy(ary, **kwargs):
 def array(a, dtype=None, copy=True, order='K', subok=False, ndmin=0, **kwargs):
     """
     Create a :obj:`mpi_array.globale.gndarray` from an existing *array-like* object.
+    Creating the array is collective over its peer communicator.
 
-    :type object: array_like
-    :param object: An array, any object exposing the array interface, an object
+    An :samp:`{a}` which isn't a :obj:`mpi_array.globale.gndarray` must be the same on all
+    processes: each process copies the elements of its own part of the new array from its
+    :samp:`{a}`. The new array is then distributed as given by :samp:`{kwargs}` (see
+    :func:`empty`), it is cloned (:attr:`mpi_array.comms.DT_CLONED`, every locale has all the
+    elements) when they don't give the :samp:`distrib_type`. A copy of
+    a :obj:`mpi_array.globale.gndarray` has its distribution (:samp:`{kwargs}` are ignored).
+
+    :type a: array_like
+    :param a: An array, any object exposing the array interface, an object
        whose :samp:`__array__` method returns an array, or any (nested) sequence.
     :type dtype: :obj:`numpy.dtype`
     :param dtype: The desired data-type for the array. If not given,
        then the type will be determined as the minimum type required to hold the
-       objects in the sequence. This argument can only be used to `upcast` the
-       array.
+       objects in the sequence.
     :type copy: :obj:`bool`
     :param copy: If :samp:`True`, then the object is copied.
        Otherwise, a copy will only be made if :samp:`__array__` returns a copy,

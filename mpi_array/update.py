@@ -16,10 +16,10 @@ Classes and Functions
    MpiExtentAndRegion - Provides MPI datatype creation.
    ExtentUpdate - Base class for describing a sub-extent update.
    PairExtentUpdate - Describes sub-extent source and sub-extent destination.
-   MpiPairExtentUpdate - Extends :obj:`PairExtentUpdate` with MPI data type factory.
+   MpiPairExtentUpdate - Like :obj:`PairExtentUpdate`, with MPI data types.
    MpiPairExtentUpdateDifferentDtypes - Over-rides :meth:`MpiPairExtentUpdate.do_get`.
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
-   MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
+   MpiHaloSingleExtentUpdate - Like :obj:`HaloSingleExtentUpdate`, with MPI data types.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
    MpiUpdatesForRedistribute - Extends :obj:`UpdatesForRedistribute` with MPI data types.
    ProcessUpdates - The updates of a process for a copy between arrays.
@@ -80,8 +80,8 @@ class ExtentUpdate(object):
 
         :type dst_extent_info: :obj:`ExtentAndRegion`
         :param dst_extent_info: Info containing locale extent which is to receive region update.
-        :type dst_extent_info: :obj:`ExtentAndRegion`
-        :param dst_extent_info: Info containing locale extent from which the region update is read.
+        :type src_extent_info: :obj:`ExtentAndRegion`
+        :param src_extent_info: Info containing locale extent from which the region update is read.
         """
         object.__init__(self)
         self._dst = dst_extent_info
@@ -329,7 +329,8 @@ class MpiExtentAndRegion(ExtentAndRegion):
 class MpiPairExtentUpdate(ExtentUpdate):
 
     """
-    Source and destination indexing info for updating the whole of a halo portion.
+    Source and destination indexing info for updating a sub-extent region
+    (like :obj:`PairExtentUpdate`).
     Extends :obj:`ExtentUpdate` with API to create :obj:`mpi4py.MPI.Datatype`
     instances (using :meth:`mpi4py.MPI.Datatype.Create_subarray`) for convenient
     transfer of sub-array data.
@@ -434,8 +435,8 @@ class MpiPairExtentUpdate(ExtentUpdate):
         """
         A :obj:`mpi4py.MPI.Datatype` object created
         using :meth:`mpi4py.MPI.Datatype.Create_subarray` which
-        defines the sub-array of halo elements which are to
-        receive update values.
+        defines the sub-array (:attr:`dst_update_extent`) of the destination
+        locale array which receives the update values.
         """
         return self._dst.mpi_data_type
 
@@ -444,8 +445,8 @@ class MpiPairExtentUpdate(ExtentUpdate):
         """
         A :obj:`mpi4py.MPI.Datatype` object created
         using :meth:`mpi4py.MPI.Datatype.Create_subarray` which
-        defines the sub-array of halo elements from which
-        receive update values.
+        defines the sub-array (:attr:`src_update_extent`) of the source
+        locale array from which the update values are read.
         """
         return self._src.mpi_data_type
 
@@ -708,8 +709,8 @@ class MpiHaloSingleExtentUpdate(ExtentUpdate):
         """
         A :obj:`mpi4py.MPI.Datatype` object created
         using :meth:`mpi4py.MPI.Datatype.Create_subarray` which
-        defines the sub-array of halo elements from which
-        receive update values.
+        defines the sub-array of source elements from which
+        the halo elements receive their values.
         """
         return self._src.mpi_data_type
 
@@ -826,17 +827,16 @@ class HalosUpdate(object):
 
     def split_extent_for_max_elements(self, extent, max_elements=None):
         """
-        Partitions the specified extent into smaller extents with number
-        of elements no more than :samp:`{max_elements}`.
+        Returns :samp:`[{extent}]`, splitting a halo update into smaller updates
+        (of at most :samp:`{max_elements}` elements) is not implemented.
+        :meth:`initialise` calls it for each halo update.
 
-        :type extent: :obj:`mpi_array.distribution.CartLocaleExtent`
-        :param extent: The extent to be split.
+        :type extent: :obj:`HaloSingleExtentUpdate`
+        :param extent: The halo update.
         :type max_elements: :obj:`int`
-        :param max_elements: Each partition of the returned split has no more
-           than this many elements.
-        :rtype: :obj:`list` of :obj:`mpi_array.distribution.CartLocaleExtent`
-        :return: List of extents forming a partition of :samp:`{extent}`
-           with each extent having no more than :samp:`{max_element}` elements.
+        :param max_elements: Ignored.
+        :rtype: :obj:`list`
+        :return: The list :samp:`[{extent}]`.
         """
         return [extent, ]
 
@@ -1060,11 +1060,12 @@ class UpdatesForRedistribute(object):
         :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param src_extent: Source extent.
         :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
-        :param src_extent: The intersection of :samp:`{src_extent}`
+        :param intersection_extent: The intersection of :samp:`{src_extent}`
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
-        :rtype: :obj:`PairExtentUpdate`
-        :return: Object Defining the source sub-array and destination sub-array.
+        :rtype: :obj:`list`
+        :return: The :obj:`PairExtentUpdate` defining the source sub-array and
+           destination sub-array, in a :obj:`list`.
         """
         peu = \
             PairExtentUpdate(
@@ -1353,7 +1354,7 @@ class MpiUpdatesForRedistribute(UpdatesForRedistribute):
         :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param src_extent: Source extent.
         :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
-        :param src_extent: The intersection of :samp:`{src_extent}`
+        :param intersection_extent: The intersection of :samp:`{src_extent}`
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
         :rtype: :obj:`list`
@@ -1524,11 +1525,12 @@ class UpdatesForGet(object):
         :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param src_extent: Source extent.
         :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
-        :param src_extent: The intersection of :samp:`{src_extent}`
+        :param intersection_extent: The intersection of :samp:`{src_extent}`
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
-        :rtype: :obj:`PairExtentUpdate`
-        :return: Object Defining the source sub-array and destination sub-array.
+        :rtype: :obj:`list`
+        :return: The :obj:`PairExtentUpdate` defining the source sub-array and
+           destination sub-array, in a :obj:`list`.
         """
         peu = \
             PairExtentUpdate(
@@ -1675,11 +1677,12 @@ class MpiUpdatesForGet(UpdatesForGet):
         :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param src_extent: Source extent.
         :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
-        :param src_extent: The intersection of :samp:`{src_extent}`
+        :param intersection_extent: The intersection of :samp:`{src_extent}`
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
-        :rtype: :obj:`MpiPairExtentUpdate`
-        :return: Object Defining the source sub-array and destination sub-array.
+        :rtype: :obj:`list`
+        :return: The :obj:`MpiPairExtentUpdate` defining the source sub-array and
+           destination sub-array, in a :obj:`list`.
         """
         peu = \
             MpiPairExtentUpdate(
