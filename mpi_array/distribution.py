@@ -34,6 +34,7 @@ import array_split.split  # noqa: F401
 from array_split.split import convert_halo_to_array_form as _convert_halo_to_array_form
 
 from .indexing import IndexingExtent, HaloIndexingExtent
+from .utils import LruCache as _LruCache
 
 
 __author__ = "Shane J. Latham"
@@ -1119,7 +1120,8 @@ class BlockPartition(Distribution):
     Block partition of an array (shape) over locales.
     """
 
-    _split_cache = _collections.defaultdict(lambda: None)
+    #: The splits of globale extents (least recently used are removed).
+    _split_cache = _LruCache(max_size=256)
 
     def __init__(
         self,
@@ -1155,7 +1157,7 @@ class BlockPartition(Distribution):
         halo = _convert_halo_to_array_form(halo, ndim)
 
         key = (globale_extent.to_tuple(), tuple(self._dims), tuple(tuple(row) for row in halo))
-        splt = self._split_cache[key]
+        splt = self._split_cache.get(key)
         if splt is None:
             shape_splitter = \
                 _array_split.ShapeSplitter(

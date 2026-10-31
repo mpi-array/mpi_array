@@ -34,13 +34,13 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 
-from .comms import CartLocaleComms, LocaleComms
+from .comms import CartLocaleComms, LocaleComms, CommsCache
 from .comms import create_single_locale_distribution, create_locale_comms, create_distribution
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
 from .comms import check_locale_type, LT_NODE, LT_PROCESS
 from .comms import reshape_comms_distribution, shape_squeeze
 from .comms import agree_on_error, get_cannonical_dims
-from .utils import get_shared_mem_usage_percent_string
+from .utils import get_shared_mem_usage_percent_string, LruCache
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
 __author__ = "Shane J. Latham"
@@ -149,6 +149,66 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
         self.assertEqual(1, lc.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
+
+    def test_comms_cache(self):
+        """
+        Tests for :obj:`mpi_array.comms.CommsCache`: communicators and :samp:`None` match
+        by identity, other key elements by value. A hit is a dictionary look-up (the keys of
+        all entries used to be compared), and the debug message isn't made when debug
+        messages aren't logged.
+        """
+        cache = CommsCache()
+        comm = _mpi.COMM_WORLD
+        logger = LocaleComms().rank_logger
+
+        class Value(object):
+            rank_logger = logger
+
+        v0 = Value()
+        cache.add((comm, None, _np.array([2, 0])), v0)
+        self.assertTrue(cache.find((comm, None, [2, 0])) is v0)
+        self.assertTrue(cache.find((comm, None, (2, 0))) is v0)
+        self.assertTrue(cache.find((comm, comm, [2, 0])) is None)
+        self.assertTrue(cache.find((_mpi.COMM_SELF, None, [2, 0])) is None)
+        self.assertTrue(cache.find((comm, None, [2, 1])) is None)
+        self.assertTrue(cache.find((comm, None)) is None)
+        self.assertRaises(ValueError, cache.add, (comm, None, [2, 0]), Value())
+        self.assertEqual(1, len(cache.lookup))
+
+        create_key_equality_tuple = cache.create_key_equality_tuple
+
+        def raise_error(*args):
+            raise AssertionError("Made the debug message.")
+
+        level = logger.level
+        logger.setLevel(_logging.WARNING)
+        cache.create_key_equality_tuple = raise_error
+        try:
+            self.assertTrue(cache.find((comm, None, [2, 0])) is v0)
+        finally:
+            logger.setLevel(level)
+            cache.create_key_equality_tuple = create_key_equality_tuple
+        cache.clear()
+        self.assertTrue(cache.find((comm, None, [2, 0])) is None)
+        self.assertEqual(0, len(cache.lookup))
+
+    def test_lru_cache(self):
+        """
+        Tests for :obj:`mpi_array.utils.LruCache`.
+        """
+        cache = LruCache(max_size=2)
+        cache["a"] = 1
+        cache["b"] = 2
+        self.assertEqual(1, cache.get("a"))
+        cache["c"] = 3
+        self.assertEqual(2, len(cache))
+        self.assertTrue("b" not in cache)
+        self.assertEqual(None, cache.get("b"))
+        self.assertEqual(4, cache.get("b", 4))
+        self.assertEqual(1, cache.get("a"))
+        self.assertEqual(3, cache.get("c"))
+        cache.clear()
+        self.assertEqual(0, len(cache))
 
     def test_agree_on_error(self):
         """

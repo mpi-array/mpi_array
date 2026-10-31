@@ -71,6 +71,7 @@ from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
 from .utils import log_shared_memory_alloc as _log_shared_memory_alloc
 from .utils import log_memory_alloc as _log_memory_alloc
+from .utils import LruCache as _LruCache
 from . import logging as _logging
 
 
@@ -422,8 +423,8 @@ PartitionViewSlices.lndarray_view_slice_n.__doc__ =\
     the halo removed.
     """
 
-#: Cache for locale array partitioning
-_intra_partition_cache = _collections.defaultdict(lambda: None)
+#: Cache for locale array partitioning (least recently used are removed).
+_intra_partition_cache = _LruCache(max_size=1024)
 
 
 class LndarrayProxy(object):
@@ -594,7 +595,7 @@ class LndarrayProxy(object):
                 extent.to_tuple(),
                 tuple(tuple(row) for row in halo.tolist())
             )
-        partition_pair = _intra_partition_cache[key]
+        partition_pair = _intra_partition_cache.get(key)
 
         if partition_pair is None:
             ndim = extent.ndim

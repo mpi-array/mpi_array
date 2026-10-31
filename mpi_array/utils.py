@@ -15,9 +15,18 @@ Functions
    log_shared_memory_alloc - Generates logging message with amount of shared memory allocated.
    log_memory_alloc - Generates logging message with amount of memory allocated.
 
+Classes
+=======
+
+.. autosummary::
+   :toctree: generated/
+
+   LruCache - A least recently used cache.
+
 """
 from __future__ import absolute_import
 
+import collections as _collections
 import psutil as _psutil
 
 from .license import license as _license, copyright as _copyright, version as _version
@@ -45,6 +54,17 @@ def get_shared_mem_usage_percent_string(shm_file_name="/dev/shm"):
     return usage_percent
 
 
+class SharedMemUsagePercentString(object):
+
+    """
+    Its string is :func:`get_shared_mem_usage_percent_string`, only calculated when
+    a logging message which has it is formatted.
+    """
+
+    def __str__(self):
+        return get_shared_mem_usage_percent_string()
+
+
 def log_shared_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buffer=None):
     """
     Generates logging message which indicates amount of shared-memory allocated
@@ -54,7 +74,7 @@ def log_shared_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buff
     if pfx.find("BEG") >= 0:
         sfx = sfx + ".."
     logger_args = \
-        (pfx, num_rank_bytes, rank_shape, dtype, get_shared_mem_usage_percent_string())
+        (pfx, num_rank_bytes, rank_shape, dtype, SharedMemUsagePercentString())
     buffer_fmt = ""
     if buffer is not None:
         buffer_fmt = ", buffer=%s"
@@ -89,6 +109,70 @@ def log_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buffer=None
         "dtype=%s" + buffer_fmt + "%s",
         *logger_args
     )
+
+
+class LruCache(object):
+
+    """
+    A least recently used cache: a mapping of at most :attr:`max_size` entries, the least
+    recently used entry is removed when there are more. For values which are the same
+    on every process (the entries which are removed can then differ between processes).
+    """
+
+    def __init__(self, max_size=256):
+        """
+        Initialise.
+
+        :type max_size: :obj:`int`
+        :param max_size: The maximum number of entries.
+        """
+        self._max_size = max_size
+        self._entries = _collections.OrderedDict()
+
+    @property
+    def max_size(self):
+        """
+        The maximum number of entries.
+        """
+        return self._max_size
+
+    def __len__(self):
+        """
+        The number of entries.
+        """
+        return len(self._entries)
+
+    def __contains__(self, key):
+        """
+        Whether :samp:`{key}` has an entry.
+        """
+        return key in self._entries
+
+    def get(self, key, default=None):
+        """
+        Returns the value of :samp:`{key}` (and marks it as the most recently used), or
+        :samp:`{default}` if it has no entry.
+        """
+        value = self._entries.get(key, default)
+        if key in self._entries:
+            self._entries.move_to_end(key)
+        return value
+
+    def __setitem__(self, key, value):
+        """
+        Sets the value of :samp:`{key}`, removing the least recently used entries
+        when there are more than :attr:`max_size`.
+        """
+        self._entries[key] = value
+        self._entries.move_to_end(key)
+        while len(self._entries) > self._max_size:
+            self._entries.popitem(last=False)
+
+    def clear(self):
+        """
+        Removes all entries.
+        """
+        self._entries.clear()
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

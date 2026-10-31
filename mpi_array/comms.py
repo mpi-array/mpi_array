@@ -76,6 +76,7 @@ from . import logging as _logging
 from .distribution import BlockPartition, ClonedDistribution, SingleLocaleDistribution
 from .utils import log_shared_memory_alloc as _log_shared_memory_alloc
 from .utils import log_memory_alloc as _log_memory_alloc
+from .utils import LruCache as _LruCache
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -105,6 +106,7 @@ class CommsCache(object):
         Construct cache.
         """
         self._lookup = []
+        self._dict = dict()
         self._rank_logger = \
             _logging.get_rank_logger(str(__name__ + "." + self.__class__.__name__))
 
@@ -123,6 +125,26 @@ class CommsCache(object):
         Clears the cache.
         """
         self._lookup = []
+        self._dict = dict()
+
+    def create_hashable_key(self, key):
+        """
+        Returns a hashable key which is equal for keys whose elements are all equal
+        (see :meth:`create_key_equality_tuple`): :obj:`mpi4py.MPI.Comm` and :samp:`None`
+        elements are identified by object identity, others by their values.
+
+        :type key: :obj:`tuple`
+        :param key: A look-up key.
+        :rtype: :obj:`tuple`
+        :return: The hashable key.
+        """
+        return \
+            tuple(
+                ("id", id(k))
+                if (k is None) or isinstance(k, _mpi.Comm) else
+                ("value", tuple(_np.asanyarray(k).ravel().tolist()))
+                for k in key
+            )
 
     def create_key_equality_tuple(self, key0, key1):
         """
@@ -186,20 +208,15 @@ class CommsCache(object):
            or :samp:`None` if the key :samp:`{key}` is not found.
         """
         value = None
-        for i in range(len(self._lookup)):
-            current_key = self._lookup[i][0]
-            if (
-                (len(current_key) == len(key))
-                and
-                _np.all(self.create_key_equality_tuple(key, current_key))
-            ):
-                value = self._lookup[i][1]
+        entry = self._dict.get(self.create_hashable_key(key), None)
+        if entry is not None:
+            current_key, value = entry
+            if value.rank_logger.isEnabledFor(_logging.DEBUG):
                 value.rank_logger.debug(
                     "key:\n%s matched existing key:\n%s, value=\n%s\n%s",
                     key, current_key, value, self.create_key_equality_tuple(key, current_key)
                 )
-                break
-        if value is None:
+        else:
             self._rank_logger.debug("No match for:\n%s", (key,))
         return value
 
@@ -220,6 +237,7 @@ class CommsCache(object):
                 (key, existing_value)
             )
         self._lookup.append((key, value))
+        self._dict[self.create_hashable_key(key)] = (key, value)
 
 
 ThisLocaleInfo = _collections.namedtuple("ThisLocaleInfo", ["inter_locale_rank", "peer_rank"])
@@ -1070,6 +1088,10 @@ CartLocaleCommsInfo.__doc__ = \
     """
 
 
+#: The results of :func:`get_cannonical_dims` (least recently used are removed).
+_cannonical_dims_cache = _LruCache(max_size=256)
+
+
 def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
     """
     Returns the block partition per axis for :samp:`{num_locales}` number
@@ -1113,6 +1135,16 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
     if dims is None:
         dims = _np.zeros((ndims,), dtype="int64")
 
+    cache_key = \
+        (
+            int(num_locales),
+            tuple(int(d) for d in dims),
+            None if shape is None else tuple(int(s) for s in shape)
+        )
+    cached_dims = _cannonical_dims_cache.get(cache_key)
+    if cached_dims is not None:
+        return cached_dims.copy()
+
     shape_dims = None
     if (shape is not None) and (len(shape) > 0):
         try:
@@ -1135,6 +1167,7 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
                 dims,
                 num_locales
             )
+    _cannonical_dims_cache[cache_key] = dims.copy()
 
     return dims
 
