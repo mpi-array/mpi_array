@@ -178,7 +178,7 @@ class HaloUpdateBench(_Bench):
         """
         self.module = self.try_import_for_setup("mpi_array")
         comms = self.try_import_for_setup("mpi_array.comms")
-        dims = comms.get_cannonical_dims(_get_num_locales(locale_type), ndims=len(locale_shape))
+        dims = comms.get_canonical_dims(_get_num_locales(locale_type), ndims=len(locale_shape))
         shape = tuple(int(d) * s for d, s in zip(dims, locale_shape))
         self.ary = \
             self.module.empty(shape, dtype="float64", locale_type=locale_type, dims=dims, halo=halo)

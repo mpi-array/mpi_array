@@ -46,6 +46,7 @@ Functions
    :toctree: generated/
 
    agree_on_error - Processes agree on an error, so that they all raise.
+   get_canonical_dims - The number of blocks along each axis of a partition.
    flush_shared_memory_channels - Processes the messages between the processes of a node.
    get_shared_memory_comm - The communicator of the processes of a node.
 
@@ -1439,14 +1440,14 @@ CartLocaleCommsInfo.__doc__ = \
     """
 
 
-#: The results of :func:`get_cannonical_dims` (least recently used are removed).
-_cannonical_dims_cache = _LruCache(max_size=256)
+#: The results of :func:`get_canonical_dims` (least recently used are removed).
+_canonical_dims_cache = _LruCache(max_size=256)
 
 
-def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
+def get_canonical_dims(num_locales, ndims=None, dims=None, shape=None):
     """
-    Returns the block partition per axis for :samp:`{num_locales}` number
-    of total number of blocks.
+    Returns the number of blocks along each axis of a partition
+    into :samp:`{num_locales}` blocks.
 
     :type num_locales: :obj:`int`
     :param num_locales: Total number of blocks in the partition.
@@ -1462,16 +1463,16 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
        are at most the lengths of their axes (so that no block is empty), when such
        a partitioning exists.
     :rtype: :obj:`numpy.ndarray`
-    :return: An array of :obj:`int` such that the :samp:`numpy.product` of the
+    :return: An array of :obj:`int` such that the :samp:`numpy.prod` of the
        returned array is equal to :samp:`{num_locales}`.
 
     Example::
 
-       >>> get_cannonical_dims(16, ndims=2).tolist()
+       >>> get_canonical_dims(16, ndims=2).tolist()
        [4, 4]
-       >>> get_cannonical_dims(16, ndims=2, shape=(2, 1000)).tolist()
+       >>> get_canonical_dims(16, ndims=2, shape=(2, 1000)).tolist()
        [2, 8]
-       >>> get_cannonical_dims(4, ndims=2, shape=(1, 1)).tolist()
+       >>> get_canonical_dims(4, ndims=2, shape=(1, 1)).tolist()
        [2, 2]
     """
     if (ndims is None) and (dims is None):
@@ -1492,7 +1493,7 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
             tuple(int(d) for d in dims),
             None if shape is None else tuple(int(s) for s in shape)
         )
-    cached_dims = _cannonical_dims_cache.get(cache_key)
+    cached_dims = _canonical_dims_cache.get(cache_key)
     if cached_dims is not None:
         return cached_dims.copy()
 
@@ -1518,9 +1519,13 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
                 dims,
                 num_locales
             )
-    _cannonical_dims_cache[cache_key] = dims.copy()
+    _canonical_dims_cache[cache_key] = dims.copy()
 
     return dims
+
+
+#: The former (misspelt) name of :func:`get_canonical_dims`, deprecated.
+get_cannonical_dims = get_canonical_dims
 
 
 def create_cart_locale_comms_info(
@@ -1541,7 +1546,7 @@ def create_cart_locale_comms_info(
             intra_locale_comm=intra_locale_comm,
             inter_locale_comm=inter_locale_comm
         )
-    dims = get_cannonical_dims(num_locales=comms_info.num_locales, ndims=ndims, dims=dims)
+    dims = get_canonical_dims(num_locales=comms_info.num_locales, ndims=ndims, dims=dims)
     periods = [False] * len(dims)
     inter_locale_comm = comms_info.inter_locale_comm
     if (inter_locale_comm != _mpi.COMM_NULL) and (cart_comm is None):
@@ -2075,7 +2080,7 @@ def create_block_distribution(
         )
     if cart_comm is None:
         # The same on all processes (the shape and the number of locales are).
-        dims = get_cannonical_dims(locale_comms.num_locales, dims=dims, shape=shape)
+        dims = get_canonical_dims(locale_comms.num_locales, dims=dims, shape=shape)
     cart_locale_comms = \
         CartLocaleComms(
             dims=dims,

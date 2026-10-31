@@ -39,7 +39,7 @@ from .comms import create_single_locale_distribution, create_locale_comms, creat
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
 from .comms import check_locale_type, LT_NODE, LT_PROCESS
 from .comms import reshape_comms_distribution, shape_squeeze
-from .comms import agree_on_error, get_cannonical_dims
+from .comms import agree_on_error, get_canonical_dims, get_cannonical_dims
 from .utils import get_shared_mem_usage_percent_string, LruCache
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
@@ -505,26 +505,32 @@ class CreateDistributionTest(_unittest.TestCase):
             tuple(distrib.globale_extent.stop_n)
         )
 
-    def test_get_cannonical_dims_with_shape(self):
+    def test_get_canonical_dims_with_shape(self):
         """
-        Tests for :func:`mpi_array.comms.get_cannonical_dims` with the :samp:`shape` argument:
+        Tests for :func:`mpi_array.comms.get_canonical_dims` with the :samp:`shape` argument:
         the chosen numbers of blocks are at most the lengths of the axes, unless the shape
         is too small for the number of blocks.
         """
-        self.assertSequenceEqual([4, 4], get_cannonical_dims(16, ndims=2).tolist())
+        self.assertSequenceEqual([4, 4], get_canonical_dims(16, ndims=2).tolist())
         self.assertSequenceEqual(
             [2, 8],
-            get_cannonical_dims(16, ndims=2, shape=(2, 10 ** 6)).tolist()
+            get_canonical_dims(16, ndims=2, shape=(2, 10 ** 6)).tolist()
         )
-        self.assertSequenceEqual([1, 3], get_cannonical_dims(3, ndims=2, shape=(1, 9)).tolist())
+        self.assertSequenceEqual([1, 3], get_canonical_dims(3, ndims=2, shape=(1, 9)).tolist())
         self.assertSequenceEqual(
             [1, 2, 3],
-            get_cannonical_dims(6, dims=(0, 0, 3), shape=(1, 9, 9)).tolist()
+            get_canonical_dims(6, dims=(0, 0, 3), shape=(1, 9, 9)).tolist()
         )
         # Too small for the number of blocks, or the given numbers of blocks.
-        self.assertSequenceEqual([2, 2], get_cannonical_dims(4, ndims=2, shape=(1, 1)).tolist())
-        self.assertSequenceEqual([4, 1], get_cannonical_dims(4, dims=(0, 1), shape=(2, 5)).tolist())
-        self.assertSequenceEqual([2, 2], get_cannonical_dims(4, ndims=2, shape=(0, 0)).tolist())
+        self.assertSequenceEqual([2, 2], get_canonical_dims(4, ndims=2, shape=(1, 1)).tolist())
+        self.assertSequenceEqual([4, 1], get_canonical_dims(4, dims=(0, 1), shape=(2, 5)).tolist())
+        self.assertSequenceEqual([2, 2], get_canonical_dims(4, ndims=2, shape=(0, 0)).tolist())
+
+    def test_get_cannonical_dims_is_get_canonical_dims(self):
+        """
+        The former name :func:`mpi_array.comms.get_cannonical_dims` still works.
+        """
+        self.assertIs(get_canonical_dims, get_cannonical_dims)
 
     def test_create_block_distribution_without_empty_tiles(self):
         """

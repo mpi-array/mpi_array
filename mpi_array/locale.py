@@ -66,7 +66,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from .comms import create_distribution, get_win_memory
 from .comms import deferred_frees as _deferred_frees
 from .comms import WindowFree as _WindowFree
-from .comms import get_cannonical_dims as _get_cannonical_dims
+from .comms import get_canonical_dims as _get_canonical_dims
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
@@ -626,7 +626,7 @@ class LndarrayProxy(object):
 
             if ndim > 0:
                 intra_locale_dims = \
-                    _get_cannonical_dims(
+                    _get_canonical_dims(
                         intra_locale_size,
                         dims=intra_locale_dims,
                         shape=extent.shape_n
