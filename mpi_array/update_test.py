@@ -37,6 +37,7 @@ from .distribution import CartLocaleExtent, GlobaleExtent, BlockPartition
 from .distribution import ClonedDistribution, LocaleExtent, Distribution
 from .update import MpiHaloSingleExtentUpdate, HalosUpdate
 from .update import MpiPairExtentUpdate, UpdatesForRedistribute, UpdatesForGet
+from .update import RmaUpdateExecutor
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -335,6 +336,55 @@ class HalosUpdateTest(_unittest.TestCase):
                                 update.update_extent,
                                 slab.calc_intersection(update.update_extent)
                             )
+
+
+class RmaUpdateExecutorTest(_unittest.TestCase):
+
+    """
+    Tests for :obj:`mpi_array.update.RmaUpdateExecutor`.
+    """
+
+    def test_order_updates(self):
+        """
+        :meth:`mpi_array.update.RmaUpdateExecutor.order_updates` groups the updates by
+        target rank, the targets in a random order which depends on the rank of
+        the process (:samp:`win_rank`), without getting the group of the window
+        (:samp:`MPI_Win_get_group`).
+        """
+        class Win(object):
+
+            @property
+            def group(self):
+                raise AssertionError("Got the group of the window.")
+
+        class Extent(object):
+
+            def __init__(self, peer_rank):
+                self.peer_rank = peer_rank
+
+        class Update(object):
+
+            def __init__(self, peer_rank):
+                self.src_extent = Extent(peer_rank)
+
+        updates = [Update(r) for r in (0, 3, 1, 3, 2, 5)]
+        orders = []
+        for win_rank in range(8):
+            executor = RmaUpdateExecutor(Win(), None, "peer_rank", win_rank=win_rank)
+            ordered = executor.order_updates(updates)
+            target_ranks = [target_rank for target_rank, target_updates in ordered]
+            self.assertSequenceEqual([0, 1, 2, 3, 5], sorted(target_ranks))
+            for target_rank, target_updates in ordered:
+                self.assertSequenceEqual(
+                    [u for u in updates if u.src_extent.peer_rank == target_rank],
+                    target_updates
+                )
+            self.assertSequenceEqual(
+                target_ranks,
+                [t for t, u in executor.order_updates(updates)]
+            )
+            orders.append(tuple(target_ranks))
+        self.assertTrue(len(set(orders)) > 1)
 
 
 class UpdatesForRedistributeTest(_unittest.TestCase):

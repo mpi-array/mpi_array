@@ -564,19 +564,6 @@ class RmaRedistributeUpdater(object):
         )
         return can_use_existing_src_peer_comm
 
-    def wait_all(self, req_list):
-        """
-        """
-        self._dst.rank_logger.debug(
-            "BEG: Waiting for outstanding rget requests, len(req_list)=%s...",
-            len(req_list)
-        )
-        _mpi.Request.Waitall(req_list)
-        self._dst.rank_logger.debug(
-            "END: Waiting for outstanding rget requests, len(req_list)=%s.",
-            len(req_list)
-        )
-
     def do_locale_cpy2_update(self):
         """
         Performs direct copy updates.
@@ -642,7 +629,8 @@ class RmaRedistributeUpdater(object):
                     inter_win=inter_win,
                     dst_lndarray=self._dst.lndarray_proxy.lndarray,
                     src_inter_win_rank_attr="peer_rank",
-                    rank_logger=self._dst.rank_logger
+                    rank_logger=self._dst.rank_logger,
+                    win_rank=self._src.locale_comms.peer_comm.rank
                 )
 
             # Fetch remote data.
@@ -659,10 +647,6 @@ class RmaRedistributeUpdater(object):
                 (can_use_existing_src_peer_comm,)
             )
         self._dst.locale_comms.intra_locale_comm.barrier()
-
-    def do_locale_update(self):
-        self.do_locale_rma_update()
-        self.do_locale_cpy2_update()
 
     def do_update(self):
         """
@@ -1195,7 +1179,8 @@ class gndarray(_NDArrayOperatorsMixin):
                         inter_win=self.rma_window_buffer.inter_locale_win,
                         dst_lndarray=locale_ary,
                         src_inter_win_rank_attr="inter_locale_rank",
-                        rank_logger=self.rank_logger
+                        rank_logger=self.rank_logger,
+                        win_rank=self.locale_comms.inter_locale_comm.rank
                     )
                 # Perform the updates, copy locale array data to locale_ary first.
                 updates = update_calculator._dst_cpy2_updates[dst_extent.inter_locale_rank]
@@ -1262,7 +1247,8 @@ class gndarray(_NDArrayOperatorsMixin):
                     inter_win=self.rma_window_buffer.peer_win,
                     dst_lndarray=locale_ary,
                     src_inter_win_rank_attr="peer_rank",
-                    rank_logger=self.rank_logger
+                    rank_logger=self.rank_logger,
+                    win_rank=self.locale_comms.peer_comm.rank
                 )
             # Perform the updates, copy locale array data to locale_ary first.
             updates = update_calculator._dst_cpy2_updates[dst_extent.inter_locale_rank]

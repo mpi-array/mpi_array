@@ -115,8 +115,8 @@ def pair_extent_update_copyto(peu, dst_array, src_array, casting):
     :type casting: :obj:`str`
     :param casting: Indicates casting regime, see :func:`numpy.casting`.
     """
-    src_slice = peu.src_extent.globale_to_locale_extent_h(peu.src_update_extent).to_slice()
-    dst_slice = peu.dst_extent.globale_to_locale_extent_h(peu.dst_update_extent).to_slice()
+    src_slice = peu.src_extent.globale_to_locale_slice_h(peu.src_update_extent.to_slice())
+    dst_slice = peu.dst_extent.globale_to_locale_slice_h(peu.dst_update_extent.to_slice())
     _np.copyto(dst_array[dst_slice], src_array[src_slice], casting=casting)
 
 
@@ -549,7 +549,7 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         """
         """
         origin_dst_buffer_slice = \
-            self._dst.locale_extent.globale_to_locale_extent_h(self._dst.region_extent).to_slice()
+            self._dst.locale_extent.globale_to_locale_slice_h(self._dst.region_extent.to_slice())
         _np.copyto(
             self._dst_buffer[origin_dst_buffer_slice],
             self._buffer,
@@ -1540,16 +1540,33 @@ class RmaUpdateExecutor(object):
         dst_lndarray,
         src_inter_win_rank_attr,
         rank_logger=None,
-        casting="same_kind"
+        casting="same_kind",
+        win_rank=0
     ):
         """
+        Initialise.
+
+        :type inter_win: :obj:`mpi4py.MPI.Win`
+        :param inter_win: The window of the source arrays, :attr:`mpi4py.MPI.WIN_NULL`
+           (or :samp:`None`) on processes which don't fetch.
+        :type dst_lndarray: :obj:`numpy.ndarray`
+        :param dst_lndarray: The destination array.
+        :type src_inter_win_rank_attr: :obj:`str`
+        :param src_inter_win_rank_attr: The attribute of the source extents which is
+           the target rank in :samp:`{inter_win}`.
+        :type rank_logger: :obj:`logging.Logger`
+        :param rank_logger: Logger for messages.
+        :type casting: :obj:`str`
+        :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
+        :type win_rank: :obj:`int`
+        :param win_rank: The rank of this process in the group of :samp:`{inter_win}`,
+           see :meth:`order_updates`.
         """
         object.__init__(self)
         self._dst_lndarray = dst_lndarray
         self._casting = casting
         self._inter_win = inter_win
-        self._num_requests_per_group = 32
-        self._random_state = None
+        self._win_rank = win_rank
         self._rank_logger = rank_logger
         self._src_inter_win_rank_attr = src_inter_win_rank_attr
 
@@ -1591,27 +1608,28 @@ class RmaUpdateExecutor(object):
         """
         self._rank_logger = logger
 
-    @property
-    def random_state(self):
+    def order_updates(self, updates):
         """
-        A :obj:`numpy.random.RandomState` instance, used to permute target
-        rank ordering to alleviate swamping single rank with *get* requests
-        from multiple source ranks.
-        """
-        if (
-            (self._random_state is None)
-            and
-            (self._inter_win is not None)
-            and
-            (self._inter_win != _mpi.WIN_NULL)
-        ):
-            seed_str = str(2 ** 31)[1:]
-            rank_str = str(self._inter_win.group.rank + 1)
-            seed_str = rank_str + seed_str[len(rank_str):]
-            seed_str = seed_str[0:-len(rank_str)] + rank_str[::-1]
-            self._random_state = _np.random.RandomState(seed=int(seed_str))
+        Returns the updates of :samp:`{updates}` grouped by target rank (of :attr:`inter_win`),
+        the targets in a random order which depends on the rank of this process
+        (the :samp:`win_rank` argument of :meth:`__init__`), so that the processes don't
+        all fetch from the same targets at the same time.
 
-        return self._random_state
+        :type updates: sequence of :obj:`MpiPairExtentUpdate`
+        :param updates: The updates.
+        :rtype: :obj:`list`
+        :return: The :samp:`(target_rank, target_updates)` pairs, :samp:`target_updates` is
+           the :obj:`list` of the updates from the target.
+        """
+        update_dict = _collections.defaultdict(list)
+        for single_update in updates:
+            update_dict[int(self.get_src_win_rank(single_update.src_extent))].append(
+                single_update
+            )
+        target_ranks = sorted(update_dict.keys())
+        order = _np.random.default_rng(self._win_rank).permutation(len(target_ranks))
+
+        return [(target_ranks[i], update_dict[target_ranks[i]]) for i in order]
 
     def do_direct_cpy2_update(self, updates, src_lndarray):
         """
@@ -1629,64 +1647,38 @@ class RmaUpdateExecutor(object):
     def do_locale_rma_update(self, updates):
         """
         Performs RMA to get elements from remote (source) locales to
-        update the (destination) locale extent array.
+        update the (destination) locale extent array. Each target (in the order of
+        :meth:`order_updates`) has its own passive target epoch (shared lock), its
+        elements are fetched with :meth:`mpi4py.MPI.Win.Get` and the unlock waits for them.
+        One epoch for all the targets (:meth:`mpi4py.MPI.Win.Lock_all`, with fetches from
+        several targets in flight) intermittently crashed Open MPI 5.0 (one-sided
+        communication over the shared memory transport) in stress tests.
 
-        :type updates: sequence of :obj:`PairExtentUpdate`
+        :type updates: sequence of :obj:`MpiPairExtentUpdate`
         :param updates: Sequence of destination and source extents.
         """
         if (
             (self._inter_win is not None)
             and
             (self._inter_win != _mpi.WIN_NULL)
+            and
+            (len(updates) > 0)
         ):
-            update_dict = _collections.defaultdict(list)
-            for single_update in updates:
-                update_dict[self.get_src_win_rank(single_update.src_extent)].append(
-                    single_update
-                )
-            src_win_ranks = self.random_state.permutation(tuple(update_dict.keys()))
-
-            src_win_ranks_per_group = self._num_requests_per_group
-            if len(src_win_ranks) > src_win_ranks_per_group:
-                src_win_rank_sub_groups = \
-                    _np.array_split(
-                        src_win_ranks,
-                        (len(src_win_ranks) - 1) // src_win_ranks_per_group + 1
-                    )
-            else:
-                src_win_rank_sub_groups = (src_win_ranks,)
-            group_idx = 1
-            for src_win_ranks in src_win_rank_sub_groups:
-                self.rank_logger.debug(
-                    "BEG: Getting updates from src_win_ranks group %4d of %4d ranks: %s",
-                    group_idx,
-                    len(src_win_rank_sub_groups),
-                    src_win_ranks
-                )
-                for src_win_rank in src_win_ranks:
-                    self._inter_win.Lock(src_win_rank, _mpi.LOCK_SHARED)
-                    for single_update in update_dict[src_win_rank]:
+            for target_rank, target_updates in self.order_updates(updates):
+                self._inter_win.Lock(target_rank, _mpi.LOCK_SHARED)
+                try:
+                    for single_update in target_updates:
                         self.rank_logger.debug(
-                            "Getting update:\n%s\n%s",
+                            "Getting update from target rank %s:\n%s\n%s",
+                            target_rank,
                             single_update._header_str,
                             single_update
                         )
-                        single_update.do_get(
-                            self._inter_win,
-                            src_win_rank,
-                            self._dst_lndarray
-                        )
-                    self._inter_win.Unlock(src_win_rank)
-                    for single_update in update_dict[src_win_rank]:
-                        single_update.conclude()
-
-                self.rank_logger.debug(
-                    "END: Getting updates from src_win_ranks group %4d of %4d ranks: %s",
-                    group_idx,
-                    len(src_win_rank_sub_groups),
-                    src_win_ranks
-                )
-                group_idx += 1
+                        single_update.do_get(self._inter_win, target_rank, self._dst_lndarray)
+                finally:
+                    self._inter_win.Unlock(target_rank)
+                for single_update in target_updates:
+                    single_update.conclude()
 
 
 __all__ = [s for s in dir() if not s.startswith('_')]

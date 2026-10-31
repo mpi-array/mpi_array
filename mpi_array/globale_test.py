@@ -1433,6 +1433,87 @@ class GndarrayTest(_unittest.TestCase):
                     )
                 )
 
+    def test_copyto_fetches_from_each_target_in_turn(self):
+        """
+        :func:`mpi_array.globale.copyto` fetches the elements of each remote source locale
+        in a passive target epoch of its own (a shared lock, :samp:`Get` and the unlock),
+        without getting the group of the window.
+        """
+        class RecordingWin(object):
+
+            def __init__(self, win):
+                self.win = win
+                self.calls = []
+
+            def __getattr__(self, name):
+                attr = getattr(self.win, name)
+                if callable(attr):
+                    def recorded(*args, **kwargs):
+                        target_index = 1 if name in ("Get", "Rget") else 0
+                        self.calls.append((name,) + tuple(args[target_index:target_index + 1]))
+                        return attr(*args, **kwargs)
+                    return recorded
+                self.calls.append((name,))
+                return attr
+
+        executor_type = _globale._RmaUpdateExecutor
+        wins = []
+
+        class RecordingExecutor(executor_type):
+
+            def __init__(self, inter_win, *args, **kwargs):
+                if (inter_win is not None) and (inter_win != _mpi.WIN_NULL):
+                    inter_win = RecordingWin(inter_win)
+                    wins.append(inter_win)
+                executor_type.__init__(self, inter_win, *args, **kwargs)
+
+        size = _mpi.COMM_WORLD.size
+        shape = (4 * size, 4 * size)
+        for dtype in ("float64", "int32"):
+            with \
+                    _globale_creation.zeros(shape, locale_type=LT_PROCESS, dims=(0, 1)) as dst, \
+                    _globale_creation.empty(
+                        shape,
+                        dtype=dtype,
+                        locale_type=LT_PROCESS,
+                        dims=(1, 0)
+                    ) as src:
+                src.rank_view_n[...] = src.this_locale.inter_locale_rank + 1
+                del wins[:]
+                _globale._RmaUpdateExecutor = RecordingExecutor
+                try:
+                    _globale.copyto(dst, src)
+                finally:
+                    _globale._RmaUpdateExecutor = executor_type
+                expected = _np.zeros(shape)
+                for extent in src.distribution.locale_extents:
+                    expected[extent.to_slice_n()] = extent.inter_locale_rank + 1
+                is_ok = \
+                    _np.all(
+                        dst.view_n == expected[dst.lndarray_proxy.locale_extent.to_slice_n()]
+                    )
+                calls = sum((win.calls for win in wins), [])
+                # Every process fetches from each of the other processes (locales), in turn.
+                targets = [call[1] for call in calls[0::3]]
+                expected_calls = \
+                    sum(
+                        (
+                            [("Lock", target), ("Get", target), ("Unlock", target)]
+                            for target in targets
+                        ),
+                        []
+                    )
+                rank = dst.locale_comms.peer_comm.rank
+                is_ok = \
+                    is_ok \
+                    and \
+                    (calls == expected_calls) \
+                    and \
+                    (sorted(targets) == [r for r in range(size) if r != rank])
+                self.assertTrue(
+                    dst.locale_comms.peer_comm.allreduce(bool(is_ok), op=_mpi.LAND)
+                )
+
     def test_copyto_destination_not_in_source(self):
         """
         :func:`mpi_array.globale.copyto` to an array with elements which are not in
