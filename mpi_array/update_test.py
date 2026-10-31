@@ -38,6 +38,7 @@ from .distribution import ClonedDistribution, LocaleExtent, Distribution
 from .update import MpiHaloSingleExtentUpdate, HalosUpdate
 from .update import MpiPairExtentUpdate, UpdatesForRedistribute, UpdatesForGet
 from .update import RmaUpdateExecutor
+from .update import split_region
 
 __author__ = "Shane J. Latham"
 __license__ = _license()
@@ -385,6 +386,45 @@ class RmaUpdateExecutorTest(_unittest.TestCase):
             )
             orders.append(tuple(target_ranks))
         self.assertTrue(len(set(orders)) > 1)
+
+
+class SplitRegionTest(_unittest.TestCase):
+
+    """
+    Tests for :func:`mpi_array.update.split_region`.
+    """
+
+    def test_split_region(self):
+        """
+        Tests for :func:`mpi_array.update.split_region`.
+        """
+        def describe(pieces):
+            return \
+                [
+                    None if p is None else (tuple(p.start.tolist()), tuple(p.stop.tolist()))
+                    for p in pieces
+                ]
+
+        region = IndexingExtent(start=(2, 1, 0), stop=(9, 5, 3))
+        self.assertSequenceEqual([((2, 1, 0), (9, 5, 3))], describe(split_region(region, 1)))
+        self.assertSequenceEqual(
+            [((2, 1, 0), (5, 5, 3)), ((5, 1, 0), (9, 5, 3))],
+            describe(split_region(region, 2))
+        )
+        # The first axis with at least as many elements as pieces.
+        region = IndexingExtent(start=(0, 0), stop=(2, 9))
+        self.assertSequenceEqual(
+            [((0, 0), (2, 3)), ((0, 3), (2, 6)), ((0, 6), (2, 9))],
+            describe(split_region(region, 3))
+        )
+        # The longest axis, with empty pieces, when no axis is long enough.
+        region = IndexingExtent(start=(0, 4), stop=(1, 6))
+        self.assertSequenceEqual(
+            [None, ((0, 4), (1, 5)), None, ((0, 5), (1, 6))],
+            describe(split_region(region, 4))
+        )
+        region = IndexingExtent(start=(), stop=())
+        self.assertSequenceEqual([((), ()), None], describe(split_region(region, 2)))
 
 
 class UpdatesForRedistributeTest(_unittest.TestCase):

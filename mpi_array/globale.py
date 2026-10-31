@@ -455,7 +455,8 @@ class RmaRedistributeUpdater(object):
     (:meth:`do_update`): the elements of source locales which share processes
     with the destination locale are copied directly, the others are fetched from the
     remote source locales using one-sided RMA. The updates are calculated for the
-    destination locale of this process only (:attr:`updates`).
+    destination locale of this process only, and the processes of the locale share
+    them (:attr:`updates`).
     """
 
     def __init__(self, dst, src, casting="same_kind"):
@@ -476,17 +477,31 @@ class RmaRedistributeUpdater(object):
 
     def calc_updates(self):
         """
-        Calculates the updates of the destination locale of this process.
+        Calculates the updates of this process, its share of the updates of its destination
+        locale (see :meth:`mpi_array.update.MpiUpdatesForRedistribute.create_process_updates`).
 
-        :rtype: :obj:`mpi_array.update.MpiUpdatesForRedistribute`
+        :rtype: :obj:`mpi_array.update.ProcessUpdates`
         :return: The updates.
         :raises ValueError: If elements of the destination locale are not in the source
-           distribution (on the processes of that locale only).
+           distribution (on the processes of that locale only), or if processes of the
+           destination array are not processes of the source array.
         """
         dst_group = self._dst.locale_comms.peer_comm.group
         src_group = self._src.locale_comms.peer_comm.group
         try:
-            updates = \
+            if _np.any(
+                _np.array(
+                    _mpi.Group.Translate_ranks(dst_group, range(dst_group.size), src_group)
+                )
+                ==
+                _mpi.UNDEFINED
+            ):
+                raise ValueError(
+                    "Got a destination array with processes which are not processes of the"
+                    +
+                    " source array."
+                )
+            locale_updates = \
                 _MpiUpdatesForRedistribute(
                     self._dst.distribution,
                     self._src.distribution,
@@ -501,14 +516,21 @@ class RmaRedistributeUpdater(object):
         finally:
             dst_group.Free()
             src_group.Free()
-        return updates
+        intra_locale_comm = self._dst.locale_comms.intra_locale_comm
+        return \
+            locale_updates.create_process_updates(
+                intra_locale_rank=intra_locale_comm.rank,
+                intra_locale_size=intra_locale_comm.size,
+                src_inter_locale_rank=self._src.this_locale.inter_locale_rank,
+                src_peer_rank=self._src.locale_comms.peer_comm.rank
+            )
 
     @property
     def updates(self):
         """
-        The :obj:`mpi_array.update.MpiUpdatesForRedistribute` updates of the destination
-        locale of this process, calculated (:meth:`calc_updates`) when first used, unless
-        they are in the cache (:obj:`RedistributeUpdatesCache`).
+        The :obj:`mpi_array.update.ProcessUpdates` updates of this process, calculated
+        (:meth:`calc_updates`) when first used, unless they are in the cache
+        (:obj:`RedistributeUpdatesCache`).
         """
         if self._updates is None:
             self._updates = \
@@ -527,126 +549,34 @@ class RmaRedistributeUpdater(object):
                 )
         return self._updates
 
-    def calc_can_use_existing_src_peer_comm(self):
-        """
-        Returns :samp:`True` if :samp:`self._src.locale_comms.peer_comm`
-        can be used to redistribute to the distribution of the :samp:`self._dst` array.
-
-        :rtype: :obj:`bool`
-        :return: :samp:`True` if :samp:`self._src.locale_comms.peer_comm` is a super-set
-           of the processes of :samp:`self._dst.locale_comms.peer_comm`
-        """
-        can_use_existing_src_peer_comm = self._src.locale_comms.peer_comm is not None
-        if self._dst.locale_comms.have_valid_inter_locale_comm:
-            if self._src.locale_comms.peer_comm != _mpi.COMM_NULL:
-                can_use_existing_src_peer_comm = \
-                    (
-                        (
-                            _mpi.Group.Intersection(
-                                self._dst.locale_comms.inter_locale_comm.group,
-                                self._src.locale_comms.peer_comm.group
-                            ).size
-                            ==
-                            self._dst.locale_comms.inter_locale_comm.group.size
-                        )
-                    )
-        self._dst.rank_logger.debug(
-            "BEG: self._dst_cad.locale_comms.intra_locale_comm.allreduce...")
-        can_use_existing_src_peer_comm = \
-            self._dst.locale_comms.intra_locale_comm.allreduce(
-                can_use_existing_src_peer_comm,
-                _mpi.BAND
-            )
-        self._dst.rank_logger.debug("END: self._dst_cad.locale_comms.intra_locale_comm.allreduce.")
-        self._dst.rank_logger.debug(
-            "can_use_existing_src_peer_comm = %s",
-            can_use_existing_src_peer_comm
-        )
-        return can_use_existing_src_peer_comm
-
     def do_locale_cpy2_update(self):
         """
-        Performs direct copy updates.
+        Performs the direct copy updates of this process.
         """
-        updates = self.updates.dst_cpy2_updates[self._dst.this_locale.inter_locale_rank]
-        my_dst_peer_rank = self._dst.locale_comms.peer_comm.rank
-        my_src_peer_rank = self._src.locale_comms.peer_comm.rank
         src_lndarray = self._src.lndarray_proxy.lndarray
         dst_lndarray = self._dst.lndarray_proxy.lndarray
-        for update in updates:
-            src_translated_peer_ranks = \
-                self.updates.src_translated_peer_ranks[update.src_extent.inter_locale_rank]
-            dst_translated_peer_ranks = \
-                self.updates.dst_translated_peer_ranks[update.dst_extent.inter_locale_rank]
-            if (
-                (
-                    (my_src_peer_rank == update.src_extent.peer_rank)
-                    and
-                    (update.src_extent.peer_rank in dst_translated_peer_ranks)
-                )
-                or
-                (
-                    (my_dst_peer_rank == update.dst_extent.peer_rank)
-                    and
-                    (update.dst_extent.peer_rank in src_translated_peer_ranks)
-                )
-            ):
-                self._dst.rank_logger.debug(
-                    "Copying update: mdpr=%s, mspr=%s\nsrc_t_ranks=%s\ndst_t_ranks=%s\n%s\n%s",
-                    my_dst_peer_rank,
-                    my_src_peer_rank,
-                    src_translated_peer_ranks,
-                    dst_translated_peer_ranks,
-                    update._header_str,
-                    update
-                )
-                update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
+        for update in self.updates.cpy2_updates:
+            self._dst.rank_logger.debug("Copying update:\n%s\n%s", update._header_str, update)
+            update.copyto(dst_lndarray, src_lndarray, casting=self._casting)
 
     def do_locale_rma_update(self):
         """
-        Performs RMA to get elements from remote locales to
-        update the locale extent array.
+        Performs RMA to get the elements of the updates of this process from remote
+        locales (all processes of a locale fetch a share of its elements, into the locale
+        array in shared memory). Collective over the :samp:`peer_comm` of the source array
+        when its window is created.
         """
-        # Created on all processes (collective), used by the inter-locale processes.
+        # Created on all processes (collective).
         peer_win = self._src.rma_window_buffer.peer_win
-        can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
-        self._dst.rank_logger.debug(
-            "%s.%s: "
-            +
-            "can_use_existing_src_peer_comm=%s",
-            self.__class__.__name__,
-            "do_locale_rma_update",
-            can_use_existing_src_peer_comm
-        )
-
-        if can_use_existing_src_peer_comm:
-            inter_win = _mpi.WIN_NULL
-            if self._dst.locale_comms.have_valid_inter_locale_comm:
-                inter_win = peer_win
-
-            update_executor = \
-                _RmaUpdateExecutor(
-                    inter_win=inter_win,
-                    dst_lndarray=self._dst.lndarray_proxy.lndarray,
-                    src_inter_win_rank_attr="peer_rank",
-                    rank_logger=self._dst.rank_logger,
-                    win_rank=self._src.locale_comms.peer_comm.rank
-                )
-
-            # Fetch remote data.
-            updates = self.updates.dst_rget_updates[self._dst.this_locale.inter_locale_rank]
-            update_executor.do_locale_rma_update(updates)
-        else:
-            raise RuntimeError(
-                (
-                    "can_use_existing_src_peer_comm=%s: "
-                    +
-                    "incompatible dst inter_locale_comma and src peer_comm."
-                )
-                %
-                (can_use_existing_src_peer_comm,)
+        update_executor = \
+            _RmaUpdateExecutor(
+                inter_win=peer_win,
+                dst_lndarray=self._dst.lndarray_proxy.lndarray,
+                src_inter_win_rank_attr="peer_rank",
+                rank_logger=self._dst.rank_logger,
+                win_rank=self._src.locale_comms.peer_comm.rank
             )
-        self._dst.locale_comms.intra_locale_comm.barrier()
+        update_executor.do_locale_rma_update(self.updates.rget_updates)
 
     def do_update(self):
         """
@@ -658,7 +588,8 @@ class RmaRedistributeUpdater(object):
         they don't need a barrier between them.
 
         :raises ValueError: (on all processes) If elements of the destination are not
-           in the source distribution. Each process calculates the updates of its locale
+           in the source distribution, or if processes of the destination array are not
+           processes of the source array. Each process calculates the updates of its locale
            only, the processes agree on the error in the first barrier.
         """
         error = None

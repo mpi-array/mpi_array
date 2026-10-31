@@ -22,6 +22,8 @@ Classes and Functions
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
    MpiUpdatesForRedistribute - Extends :obj:`UpdatesForRedistribute` with MPI data types.
+   ProcessUpdates - The updates of a process for a copy between arrays.
+   split_region - Splits a region into pieces along an axis.
    RmaUpdateExecutor - Execute updates using one-sided RMA fetch.
 """
 from __future__ import absolute_import
@@ -32,7 +34,7 @@ import copy as _copy
 import numpy as _np
 
 from .license import license as _license, copyright as _copyright, version as _version
-from .indexing import HaloIndexingExtent
+from .indexing import HaloIndexingExtent, IndexingExtent
 from .indexing import calc_intersection_split as _calc_intersection_split
 from . import types as _types
 
@@ -144,6 +146,58 @@ def raise_not_in_source_distribution(dst_extents, src_distrib):
             )
         )
     )
+
+
+def split_region(region, num_pieces):
+    """
+    Splits :samp:`{region}` into :samp:`{num_pieces}` regions along one axis: the first axis
+    with at least :samp:`{num_pieces}` elements (the longest axis if none has). For C order
+    arrays the pieces of a region which spans the trailing axes are contiguous.
+
+    :type region: :obj:`mpi_array.indexing.IndexingExtent`
+    :param region: The region to split.
+    :type num_pieces: :obj:`int`
+    :param num_pieces: The number of pieces.
+    :rtype: :obj:`list`
+    :return: The :samp:`{num_pieces}` pieces, :obj:`mpi_array.indexing.IndexingExtent`
+       objects, :samp:`None` for the empty pieces.
+
+    Example::
+
+       >>> from mpi_array.indexing import IndexingExtent
+       >>> split_region(IndexingExtent(start=(0, 0), stop=(2, 9)), 3)
+       [IndexingExtent(start=(0, 0), stop=(2, 3)), IndexingExtent(start=(0, 3), stop=(2, 6)), \
+IndexingExtent(start=(0, 6), stop=(2, 9))]
+    """
+    shape = _np.asarray(region.shape)
+    if (num_pieces <= 1) or (len(shape) == 0):
+        return [region, ] + [None, ] * (num_pieces - 1)
+    long_axes = _np.flatnonzero(shape >= num_pieces)
+    axis = long_axes[0] if len(long_axes) > 0 else int(_np.argmax(shape))
+    bounds = region.start[axis] + (shape[axis] * _np.arange(num_pieces + 1)) // num_pieces
+    pieces = []
+    for i in range(num_pieces):
+        piece = None
+        if bounds[i] < bounds[i + 1]:
+            start = _np.array(region.start, copy=True)
+            stop = _np.array(region.stop, copy=True)
+            start[axis] = bounds[i]
+            stop[axis] = bounds[i + 1]
+            piece = IndexingExtent(start=start, stop=stop)
+        pieces.append(piece)
+    return pieces
+
+
+ProcessUpdates = _collections.namedtuple("ProcessUpdates", ["cpy2_updates", "rget_updates"])
+ProcessUpdates.__doc__ = \
+    """
+    The updates of a process for a copy between arrays (its share of the updates of its
+    locale, see :meth:`MpiUpdatesForRedistribute.create_process_updates`).
+    """
+ProcessUpdates.cpy2_updates.__doc__ = \
+    "The :obj:`list` of updates which the process copies directly from the source locale array."
+ProcessUpdates.rget_updates.__doc__ = \
+    "The :obj:`list` of updates which the process fetches from remote source locales."
 
 
 class PairExtentUpdate(ExtentUpdate):
@@ -962,6 +1016,14 @@ class UpdatesForRedistribute(object):
         return self._dst_rget_updates
 
     @property
+    def src_peer_ranks(self):
+        """
+        The (sorted) peer ranks of each source locale (:samp:`None` without
+        a :samp:`peer_rank_translator`).
+        """
+        return self._src_peer_ranks
+
+    @property
     def dst_translated_peer_ranks(self):
         """
         The (sorted) peer ranks of each destination locale, translated to the ranks of
@@ -1222,7 +1284,8 @@ class MpiUpdatesForRedistribute(UpdatesForRedistribute):
     """
     Extends :obj:`UpdatesForRedistribute` by over-riding :meth:`create_pair_extent_update`
     to generate :obj:`MpiPairExtentUpdate` objects (:obj:`MpiPairExtentUpdateDifferentDtypes`
-    objects when the element types differ) with their MPI data types. The updates don't
+    objects when the element types differ). The updates of a process
+    (:meth:`create_process_updates`) have their MPI data types. The updates don't
     refer to arrays, they can be used to copy between any arrays of the distributions,
     element types and orders.
     """
@@ -1289,7 +1352,8 @@ class MpiUpdatesForRedistribute(UpdatesForRedistribute):
            and :samp:`{dst_extent}` which defines the region of array elements which
            are to be transferred from source to destination.
         :rtype: :obj:`list`
-        :return: The :obj:`MpiPairExtentUpdate` defining the source and destination sub-arrays.
+        :return: The :obj:`MpiPairExtentUpdate` defining the source and destination sub-arrays
+           (without MPI data types).
         """
         update = \
             self._pair_extent_update_type(
@@ -1298,15 +1362,120 @@ class MpiUpdatesForRedistribute(UpdatesForRedistribute):
                 intersection_extent,
                 intersection_extent
             )
-        update.initialise_data_types(
-            dst_dtype=self._dst_dtype,
-            src_dtype=self._src_dtype,
-            dst_order=self._dst_order,
-            src_order=self._src_order
-        )
         update.casting = self._casting
 
         return [update, ]
+
+    #: Regions are split into pieces of at least this many bytes (smaller regions aren't
+    #: split): many small fetches (or copies) cost more than a few larger ones.
+    min_piece_nbytes = 64 * 1024
+
+    def deal_pieces(self, updates, num_processes, process_index):
+        """
+        Returns the pieces of :samp:`{updates}` of a process, when the pieces are dealt to
+        :samp:`{num_processes}` processes in turn: each region is split
+        (:func:`split_region`) into as many pieces of at least :attr:`min_piece_nbytes`
+        bytes as it has (at most :samp:`{num_processes}`), so the small updates are dealt
+        whole to different processes. All processes deal the same pieces in the same order.
+
+        :type updates: sequence of :obj:`MpiPairExtentUpdate`
+        :param updates: The updates.
+        :type num_processes: :obj:`int`
+        :param num_processes: The number of processes which share the updates.
+        :type process_index: :obj:`int`
+        :param process_index: The index of this process, :samp:`0 <= {process_index}
+           < {num_processes}`.
+        :rtype: :obj:`list`
+        :return: The updates of the pieces of this process.
+        """
+        itemsize = max(self._dst_dtype.itemsize, self._src_dtype.itemsize)
+        pieces = []
+        num_dealt = 0
+        for update in updates:
+            nbytes = int(_np.prod(update.dst_update_extent.shape)) * itemsize
+            num_pieces = int(max(1, min(num_processes, nbytes // self.min_piece_nbytes)))
+            piece_index = (process_index - num_dealt) % num_processes
+            if piece_index < num_pieces:
+                if num_pieces == 1:
+                    pieces.append(update)
+                else:
+                    region = split_region(update.dst_update_extent, num_pieces)[piece_index]
+                    if region is not None:
+                        pieces.append(
+                            self.create_pair_extent_update(
+                                update.dst_extent,
+                                update.src_extent,
+                                region
+                            )[0]
+                        )
+            num_dealt += num_pieces
+        return pieces
+
+    def create_process_updates(
+        self,
+        intra_locale_rank,
+        intra_locale_size,
+        src_inter_locale_rank,
+        src_peer_rank
+    ):
+        """
+        Returns the updates of a process of the destination locale
+        (:samp:`dst_inter_locale_rank`), its share of the updates of the locale
+        (see :meth:`deal_pieces`):
+
+        - the processes of the locale share the fetched regions (with MPI data types),
+          they all write to the (shared memory) locale array;
+        - the processes of both the destination locale and a source locale share the
+          regions copied directly from that source locale (its locale array is the source
+          locale array of these processes).
+
+        :type intra_locale_rank: :obj:`int`
+        :param intra_locale_rank: The rank of the process in the destination locale.
+        :type intra_locale_size: :obj:`int`
+        :param intra_locale_size: The number of processes of the destination locale.
+        :type src_inter_locale_rank: :obj:`int`
+        :param src_inter_locale_rank: The rank of the source locale of the process.
+        :type src_peer_rank: :obj:`int`
+        :param src_peer_rank: The rank of the process in the peer communicator of the source.
+        :rtype: :obj:`ProcessUpdates`
+        :return: The updates of the process.
+        """
+        dst_inter_locale_rank = self._dst_inter_locale_rank
+        rget_updates = \
+            self.deal_pieces(
+                self._dst_rget_updates[dst_inter_locale_rank],
+                intra_locale_size,
+                intra_locale_rank
+            )
+        for update in rget_updates:
+            update.initialise_data_types(
+                dst_dtype=self._dst_dtype,
+                src_dtype=self._src_dtype,
+                dst_order=self._dst_order,
+                src_order=self._src_order
+            )
+
+        cpy2_updates = []
+        if self._dst_translated_peer_ranks is not None:
+            shared_peer_ranks = \
+                _np.intersect1d(
+                    self._dst_translated_peer_ranks[dst_inter_locale_rank],
+                    self._src_peer_ranks[src_inter_locale_rank]
+                )
+            index = _np.flatnonzero(shared_peer_ranks == src_peer_rank)
+            if len(index) > 0:
+                cpy2_updates = \
+                    self.deal_pieces(
+                        [
+                            update
+                            for update in self._dst_cpy2_updates[dst_inter_locale_rank]
+                            if update.src_extent.inter_locale_rank == src_inter_locale_rank
+                        ],
+                        len(shared_peer_ranks),
+                        int(index[0])
+                    )
+
+        return ProcessUpdates(cpy2_updates=cpy2_updates, rget_updates=rget_updates)
 
 
 class UpdatesForGet(object):

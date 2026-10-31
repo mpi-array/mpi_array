@@ -1514,6 +1514,78 @@ class GndarrayTest(_unittest.TestCase):
                     dst.locale_comms.peer_comm.allreduce(bool(is_ok), op=_mpi.LAND)
                 )
 
+    def test_copyto_shares_work_within_locales(self):
+        """
+        The processes of a locale share the work of :func:`mpi_array.globale.copyto`:
+        the regions fetched from the remote locales, and the regions copied from the source
+        locale they are processes of, are split into pieces of at least 64 KiB, which are dealt
+        to the processes in turn (small regions are not split). One process of each locale
+        did all of it.
+        """
+        world = _mpi.COMM_WORLD
+        # Locales of two processes (one for the last locale of an odd number of processes).
+        intra_locale_comm = world.Split(world.rank // 2, world.rank)
+        num_locales = (world.size + 1) // 2
+        kwargs = dict(peer_comm=world, intra_locale_comm=intra_locale_comm)
+        # Each locale gets a region from each source locale: 256 x 256 elements (512 KiB,
+        # split), or 8 x 8 elements (not split).
+        for n, is_split in ((256, True), (8, False)):
+            shape = (n * num_locales, n * num_locales)
+            for dtype in ("float64", "int32"):
+                with \
+                        _globale_creation.zeros(shape, dims=(0, 1), **kwargs) as dst, \
+                        _globale_creation.empty(shape, dtype=dtype, dims=(1, 0), **kwargs) as src:
+                    if src.rank_view_n.size > 0:
+                        src.rank_view_n[...] = src.this_locale.inter_locale_rank + 1
+                    updater = dst.calculate_copyfrom_updates(src)
+                    updates = updater.updates
+                    updater.do_update()
+
+                    # The expected elements of this locale (not of the globale array, which
+                    # grows with the square of the number of locales).
+                    locale_extent = dst.lndarray_proxy.locale_extent
+                    start, stop = locale_extent.start_n, locale_extent.stop_n
+                    expected = _np.zeros(tuple(stop - start))
+                    for extent in src.distribution.locale_extents:
+                        lo = _np.maximum(extent.start_n, start)
+                        hi = _np.minimum(extent.stop_n, stop)
+                        if _np.all(hi > lo):
+                            expected[tuple(slice(a, b) for a, b in zip(lo - start, hi - start))] = \
+                                extent.inter_locale_rank + 1
+                    is_ok = _np.all(dst.view_n == expected)
+
+                    def num_elements(updates):
+                        return sum(int(_np.prod(u.dst_update_extent.shape)) for u in updates)
+
+                    counts = \
+                        intra_locale_comm.allgather(
+                            (
+                                num_elements(updates.cpy2_updates),
+                                num_elements(updates.rget_updates),
+                                len(updates.cpy2_updates),
+                                len(updates.rget_updates)
+                            )
+                        )
+                    is_ok = \
+                        is_ok \
+                        and \
+                        (sum(c[0] + c[1] for c in counts) == locale_extent.size_n)
+                    if is_split:
+                        for count in counts:
+                            is_ok = is_ok and (count[0] > 0)
+                            if dst.num_locales > 1:
+                                is_ok = is_ok and (count[1] > 0)
+                    else:
+                        # The regions are dealt whole, one from each source locale.
+                        is_ok = \
+                            is_ok \
+                            and \
+                            (sum(c[2] for c in counts) == 1) \
+                            and \
+                            (sum(c[3] for c in counts) == (dst.num_locales - 1))
+                    self.assertTrue(world.allreduce(bool(is_ok), op=_mpi.LAND))
+        intra_locale_comm.Free()
+
     def test_copyto_destination_not_in_source(self):
         """
         :func:`mpi_array.globale.copyto` to an array with elements which are not in
