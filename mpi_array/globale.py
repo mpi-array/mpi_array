@@ -42,7 +42,6 @@ from .update import MpiUpdatesForGet as _MpiUpdatesForGet
 from .update import MpiHalosUpdate as _MpiHalosUpdate
 from .update import RmaUpdateExecutor as _RmaUpdateExecutor
 from .locale import win_lndarray as _win_lndarray
-from .comms import can_free_in_del as _can_free_in_del
 from .comms import agree_on_error as _agree_on_error
 from .distribution import LocaleExtent as _LocaleExtent
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
@@ -714,13 +713,14 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def __del__(self):
         """
-        Best-effort :meth:`free`: skipped when mpi4py is going to abort the MPI job
-        (see :func:`mpi_array.comms.can_free_in_del`). Freeing is collective, so it
-        is safer to free explicitly (:meth:`free` or a :samp:`with` statement) than to
-        rely on garbage collection happening at the same point on all processes.
+        Garbage collection defers the (collective) free of the MPI windows to a point which
+        all processes reach (:meth:`mpi_array.comms.RmaWindowBuffer.defer_free`), it can
+        happen at different points on different processes. Free explicitly (:meth:`free`
+        or a :samp:`with` statement) to release the memory at once.
         """
-        if _can_free_in_del():
-            self.free()
+        rma_window_buffer = getattr(self, "_rma_window_buffer", None)
+        if rma_window_buffer is not None:
+            rma_window_buffer.defer_free()
 
     def __enter__(self):
         """
@@ -733,7 +733,8 @@ class gndarray(_NDArrayOperatorsMixin):
         For use with :samp:`with` contexts. Calls :meth:`free` (collective), except
         when an exception is propagating: the other processes may never reach the
         collective free, so it is skipped and the exception propagates without waiting.
-        The array is then freed by an explicit :meth:`free`, or by :meth:`__del__`.
+        The array is then freed by an explicit :meth:`free`, or after it is garbage
+        collected (see :meth:`__del__`).
         """
         if type is None:
             self.free()
@@ -823,13 +824,12 @@ class gndarray(_NDArrayOperatorsMixin):
     def view_n(self):
         """
         View of the locale array without the halo. Views, and the arrays (of their type)
-        made from them, keep this array alive (its memory is not freed by garbage collection
-        while they exist). Views are invalid after an explicit :meth:`free`. Garbage
-        collection frees collectively: if views, or :obj:`numpy.ndarray` objects made from
-        them, are released at different points on different processes, free this array
-        explicitly (:meth:`free` or a :samp:`with` statement). For example
-        :samp:`numpy.ascontiguousarray({view})` makes a view or a copy depending on the
-        layout of the tile of a process.
+        made from them, keep this array alive (its memory is not freed after garbage
+        collection while they exist). Views are invalid after an explicit :meth:`free`.
+        Views can be released at different points on different processes (e.g.
+        :samp:`numpy.ascontiguousarray({view})` makes a view or a copy depending on the layout
+        of the tile of a process): the memory is freed when all processes have released
+        the array (see :obj:`mpi_array.comms.DeferredFrees`).
         """
         return self._lndarray_proxy.view_n
 
@@ -1057,8 +1057,10 @@ class gndarray(_NDArrayOperatorsMixin):
         communicator) when it is no longer needed. Raises :obj:`ValueError` if
         the region is not within the array.
 
-        Either result keeps this array alive (its memory isn't freed by garbage collection
-        while the result exists).
+        Either result keeps this array alive (its memory isn't freed after garbage
+        collection while the result exists). A fetched result which is garbage collected
+        is freed when all the processes of the locale have released it
+        (see :obj:`mpi_array.comms.DeferredFrees`).
 
         Synchronisation is the caller's responsibility (the :obj:`numpy.ufunc`
         implementation in :mod:`mpi_array.globale_ufunc` does this):

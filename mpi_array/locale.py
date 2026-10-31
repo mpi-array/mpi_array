@@ -64,7 +64,8 @@ import collections as _collections
 
 from .license import license as _license, copyright as _copyright, version as _version
 from .comms import create_distribution, get_win_memory
-from .comms import can_free_in_del as _can_free_in_del
+from .comms import deferred_frees as _deferred_frees
+from .comms import WindowFree as _WindowFree
 from .comms import get_cannonical_dims as _get_cannonical_dims
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
@@ -119,6 +120,8 @@ class win_lndarray(_np.ndarray):
     _win = None
     #: Only the array which allocated the window frees it, not views or derived arrays.
     _owns_win = False
+    #: The :obj:`mpi_array.comms.WindowFree` of the window this array allocated.
+    _win_free = None
     #: The :obj:`mpi_array.globale.gndarray` whose :samp:`locale_get` (or :samp:`peer_rank_get`)
     #: fetched the elements of this array. It is kept alive like by the views of its
     #: memory which these methods return on the processes where the region is local,
@@ -171,6 +174,9 @@ class win_lndarray(_np.ndarray):
             )
         win = None
         if buffer is None:
+            # All the processes of comm allocate (an array of the same shape), they free
+            # the windows which all of them have deferred.
+            _deferred_frees.note_allocation(comm, int(_np.prod(shape)) * dtype.itemsize)
             num_rank_bytes = 0
             rank_shape = shape
             if comm.rank == root_rank:
@@ -222,6 +228,8 @@ class win_lndarray(_np.ndarray):
         self._comm = comm
         self._win = win
         self._owns_win = win is not None
+        if win is not None:
+            self._win_free = _WindowFree(win, comm)
 
         return self
 
@@ -269,8 +277,19 @@ class win_lndarray(_np.ndarray):
         window has already been freed, or if the array was created from a :samp:`buffer`.
         The array, and any views of it, must not be accessed after the window is freed.
         """
-        if self._owns_win and (self._win != _mpi.WIN_NULL):
-            self._win.Free()
+        if self._owns_win and (self._win_free is not None):
+            self._win_free.free()
+
+    def __del__(self):
+        """
+        Defers the (collective) free of the window of the array which allocated it to
+        a point which all the processes of :attr:`comm` reach
+        (see :obj:`mpi_array.comms.DeferredFrees`): garbage collection can happen at
+        different points on different processes. Free explicitly (:meth:`free` or
+        a :samp:`with` statement) to release the memory at once.
+        """
+        if self._owns_win and (self._win_free is not None):
+            self._win_free.defer()
 
     def __enter__(self):
         """
@@ -482,7 +501,7 @@ class LndarrayProxy(object):
         self = object.__new__(cls)
 
         # initialise these members before potential exceptions
-        # because they are referenced in self.free (via self.__del__).
+        # because they are referenced in self.free.
         self._lndarray = None
         self.rma_window_buffer = None
         self._memory_owner_ref = None
@@ -551,13 +570,13 @@ class LndarrayProxy(object):
 
     def __del__(self):
         """
-        Best-effort :meth:`free`: skipped when mpi4py is going to abort the MPI job
-        (see :func:`mpi_array.comms.can_free_in_del`). Freeing can be collective, so it
-        is safer to free explicitly (:meth:`free` or a :samp:`with` statement) than to
-        rely on garbage collection happening at the same point on all processes.
+        Garbage collection defers the (collective) free of the MPI windows of the array,
+        when it has its own (:meth:`mpi_array.comms.RmaWindowBuffer.defer_free`), to a point
+        which all processes reach: it can happen at different points on different processes.
         """
-        if _can_free_in_del():
-            self.free()
+        rma_window_buffer = getattr(self, "rma_window_buffer", None)
+        if rma_window_buffer is not None:
+            rma_window_buffer.defer_free()
 
     def __enter__(self):
         """
@@ -686,7 +705,7 @@ class LndarrayProxy(object):
         to :meth:`set_memory_owner`, otherwise this proxy when it has
         an :attr:`rma_window_buffer` (:samp:`None` when there is no owner).
         The views of the array (e.g. :attr:`view_n`), and the arrays of
-        type :obj:`lndarray` made from them, keep it alive: its memory is not freed by
+        type :obj:`lndarray` made from them, keep it alive: its memory is not freed after
         garbage collection while they exist. Views are invalid after an explicit
         :meth:`free` of the owner.
         """
@@ -1008,6 +1027,13 @@ def empty(
             tuple(len(peer_ranks_per_locale[i]) for i in range(len(peer_ranks_per_locale)))
         )
 
+    # All the processes of peer_comm create the array, they free the windows which all
+    # of them have deferred (see mpi_array.comms.DeferredFrees). The number of bytes of
+    # the largest locale array is the same on all processes.
+    _deferred_frees.note_allocation(
+        comms_and_distrib.locale_comms.peer_comm,
+        comms_and_distrib.distribution.max_locale_size_h * _np.dtype(dtype).itemsize
+    )
     rma_window_buffer = \
         comms_and_distrib.locale_comms.alloc_locale_buffer(
             shape=locale_extent.shape_h,

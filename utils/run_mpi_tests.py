@@ -64,6 +64,8 @@ _EXIT_SCENARIOS = \
         ("raise_on_all_ranks", ("mpi4py", "python"), False),
         ("raise_on_one_rank", ("mpi4py",), False),
         ("raise_on_one_rank_in_with", ("mpi4py",), False),
+        ("raise_on_one_rank_with_temporary", ("mpi4py",), False),
+        ("normal_exit_with_deferred_frees", ("mpi4py", "python"), True),
     )
 
 

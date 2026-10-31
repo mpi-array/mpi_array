@@ -479,29 +479,121 @@ class GndarrayTest(_unittest.TestCase):
         self.assertTrue(gary.rma_window_buffer is None)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.peer_win)
 
-    def test_del_skips_free_when_aborting(self):
+    def test_garbage_collection_defers_free(self):
         """
-        Garbage collection (:meth:`mpi_array.globale.gndarray.__del__`) frees the array,
-        except when mpi4py is going to abort the job (:func:`mpi_array.comms.can_free_in_del`).
-        At exit, a process with an unhandled exception used to wait in the collective
-        free for the other processes, so :samp:`python -m mpi4py` couldn't abort the job.
-        The end of a program is tested by :mod:`mpi_array.exit_scenarios`.
+        Garbage collection of a gndarray doesn't free its windows (collective MPI calls):
+        they are freed when the processes agree, after all of them have released it
+        (:obj:`mpi_array.comms.DeferredFrees`), with a single process at once. They agree
+        when they create arrays, every few arrays. The windows used to be freed collectively
+        when the array was garbage collected, so a process which released it on its own (e.g.
+        a temporary while an exception propagates on that process) waited for the others in
+        the free, the job hung.
         """
-        self.assertTrue(_comms.can_free_in_del())
-        gary = _globale_creation.zeros((10 * _mpi.COMM_WORLD.size,), dtype="int32")
+        world = _mpi.COMM_WORLD
+        shape = (10 * world.size,)
+        deferred_frees = _comms.deferred_frees
+        deferred_frees.free_agreed(world)
+        gary = _globale_creation.zeros(shape, dtype="int32")
+        gary.initialise_windows()
         rma_window_buffer = gary.rma_window_buffer
-        orig_can_free_in_del = _globale._can_free_in_del
-        _globale._can_free_in_del = lambda: False
-        try:
-            gary.__del__()
-        finally:
-            _globale._can_free_in_del = orig_can_free_in_del
-        self.assertTrue(gary.rma_window_buffer is rma_window_buffer)
-        self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+        ref = _weakref.ref(gary)
+        is_ok = True
+        if world.rank == 0:
+            del gary
+            is_ok = is_ok and (ref() is None)
+        if world.size > 1:
+            is_ok = is_ok and (rma_window_buffer.intra_locale_win != _mpi.WIN_NULL)
+            deferred_frees.free_agreed(world)
+            # The other processes hold the array.
+            is_ok = is_ok and (rma_window_buffer.intra_locale_win != _mpi.WIN_NULL)
+            if world.rank == 0:
+                is_ok = is_ok and (deferred_frees.num_deferred(world) == 1)
+        if world.rank != 0:
+            del gary
+        # The processes agree when they create arrays.
+        for i in range(deferred_frees.max_allocations):
+            with _globale_creation.zeros(shape) as other:
+                other.fill(1)
+        is_ok = \
+            is_ok \
+            and \
+            (ref() is None) \
+            and \
+            (rma_window_buffer.intra_locale_win == _mpi.WIN_NULL) \
+            and \
+            (rma_window_buffer.peer_win == _mpi.WIN_NULL) \
+            and \
+            (deferred_frees.num_deferred(world) == 0)
+        self.assertTrue(world.allreduce(bool(is_ok), op=_mpi.LAND))
 
-        gary.__del__()
-        self.assertTrue(gary.rma_window_buffer is None)
-        self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+    def test_fetched_region_free_deferred(self):
+        """
+        Garbage collection of a region fetched by :meth:`mpi_array.globale.gndarray.locale_get`
+        (a :obj:`mpi_array.locale.win_lndarray` in the memory of a window of the processes of
+        the locale) defers the free of its window: it is freed when the processes of the
+        locale allocate after all of them have released it. It used to stay allocated
+        until MPI was finalized.
+        """
+        world = _mpi.COMM_WORLD
+        # Locales of two processes (one for the last locale of an odd number of processes).
+        intra_locale_comm = world.Split(world.rank // 2, world.rank)
+        shape = (10 * world.size,)
+
+        def fetch(gary):
+            gary.inter_locale_barrier()
+            fetched = gary.locale_get(start=(0,), stop=shape)
+            gary.inter_locale_barrier()
+            gary.intra_locale_barrier()
+            return fetched
+
+        def free(fetched):
+            if isinstance(fetched, _locale.win_lndarray):
+                fetched.free()
+
+        with \
+                _globale_creation.ones(
+                    shape,
+                    peer_comm=world,
+                    intra_locale_comm=intra_locale_comm
+                ) as gary:
+            gary.initialise_windows()
+            fetched = fetch(gary)
+            is_ok = bool(_np.all(fetched == 1))
+            win = fetched.win if isinstance(fetched, _locale.win_lndarray) else None
+            if intra_locale_comm.rank == 0:
+                del fetched
+            free(fetch(gary))
+            _comms.deferred_frees.free_agreed(intra_locale_comm)
+            if (win is not None) and (intra_locale_comm.size > 1):
+                # The other process of the locale holds it.
+                is_ok = is_ok and (win != _mpi.WIN_NULL)
+            if intra_locale_comm.rank != 0:
+                del fetched
+            # The processes of the locale agree when they fetch.
+            for i in range(_comms.deferred_frees.max_allocations):
+                free(fetch(gary))
+            is_ok = is_ok and ((win is None) or (win == _mpi.WIN_NULL))
+            self.assertTrue(world.allreduce(bool(is_ok), op=_mpi.LAND))
+        intra_locale_comm.Free()
+
+    def test_temporaries_dont_accumulate(self):
+        """
+        The frees of temporaries are deferred (see :obj:`mpi_array.comms.DeferredFrees`),
+        they are freed when the processes create arrays, every few arrays: the number of
+        deferred arrays is bounded in a loop which creates temporaries in each iteration.
+        """
+        world = _mpi.COMM_WORLD
+        deferred_frees = _comms.deferred_frees
+        with _globale_creation.ones((100 * world.size,)) as gary:
+            for i in range(5 * deferred_frees.max_allocations):
+                result = (gary + 1) * 2
+            # At most one temporary was released for each allocation since the processes
+            # last agreed (checked before the comparison below creates another one).
+            self.assertTrue(deferred_frees.num_deferred(world) <= deferred_frees.max_allocations)
+            self.assertTrue((result == 4).all())
+            del result
+            deferred_frees.free_agreed(world)
+            self.assertEqual(0, deferred_frees.num_deferred(world))
 
     def test_update(self):
         """
@@ -904,8 +996,10 @@ class GndarrayTest(_unittest.TestCase):
                     del view
                     self.assertTrue(tmp_gary_ref() is not None)
                     del sub_view
-                    # The last view is released, the array is freed (no reference cycle).
+                    # The last view is released, the array is garbage collected (no reference
+                    # cycle), and its windows are freed when all processes have released it.
                     self.assertTrue(tmp_gary_ref() is None)
+                    _comms.deferred_frees.free_agreed(peer_comm)
                     self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
                 # Copies of the array type keep the array alive too (whether NumPy

@@ -20,6 +20,8 @@ Classes
    CommsAndDistribution - Tuple with :obj:`LocaleComms` and :obj:`Distribution`.
    ThisLocaleInfo - The inter_locale_comm inter_locale_rank and corresponding peer_comm peer_rank.
    RmaWindowBuffer - Container for locale array buffer and associated RMA windows.
+   DeferredFrees - Frees MPI windows at points which all processes reach.
+   WindowFree - Frees an MPI window, deferred when its owner is garbage collected.
 
 Factory Functions
 =================
@@ -65,6 +67,7 @@ from __future__ import absolute_import
 from .license import license as _license, copyright as _copyright, version as _version
 
 import atexit as _atexit
+import weakref as _weakref
 import sys as _sys
 import mpi4py.MPI as _mpi
 import numpy as _np
@@ -287,6 +290,30 @@ class RmaWindowBuffer(object):
         self._inter_locale_comm = inter_locale_comm
         self._root_logger = root_logger
         self._rank_logger = rank_logger
+        self._registration = None
+        if peer_comm is not None:
+            self._registration = deferred_frees.register(self, peer_comm)
+
+    def defer_free(self):
+        """
+        Defers the (collective) free of the windows to a point which all the processes
+        of :attr:`peer_comm` reach (see :obj:`DeferredFrees`), unless they are freed:
+        called when the owner of the buffer is garbage collected, which can happen at
+        different points on different processes. No MPI calls, except that the windows
+        of a single process are freed at once.
+        """
+        if getattr(self, "_registration", None) is not None:
+            if self._peer_comm.size == 1:
+                if can_free_in_del():
+                    self.free()
+            else:
+                deferred_frees.defer(self, self._registration)
+
+    def __del__(self):
+        """
+        Defers the free of the windows (:meth:`defer_free`).
+        """
+        self.defer_free()
 
     @property
     def root_logger(self):
@@ -500,8 +527,11 @@ class RmaWindowBuffer(object):
 
     def free(self):
         """
-        Free MPI windows and associated buffer memory.
+        Free MPI windows and associated buffer memory (collective).
         """
+        if self._registration is not None:
+            deferred_frees.unregister(self._registration)
+            self._registration = None
         if (self._inter_locale_win != _mpi.WIN_NULL) and (self._inter_locale_win is not None):
             self._inter_locale_win.Free()
             self._inter_locale_win = _mpi.WIN_NULL
@@ -739,8 +769,8 @@ _mpi4py_aborts = False
 
 def _check_mpi4py_abort():
     """
-    An :mod:`atexit` function, it runs before the interpreter shuts down and before
-    mpi4py finalizes (or aborts) MPI. Records whether mpi4py is going to abort the
+    Called at exit (by an :mod:`atexit` function, before the interpreter shuts down and
+    before mpi4py finalizes, or aborts, MPI). Records whether mpi4py is going to abort the
     MPI job: the program was launched with :samp:`python -m mpi4py` and it is exiting
     because of an unhandled exception.
     """
@@ -755,26 +785,240 @@ def _check_mpi4py_abort():
     _mpi4py_aborts = unhandled_exception and launched_with_mpi4py
 
 
-_atexit.register(_check_mpi4py_abort)
-
-
 def can_free_in_del():
     """
-    Returns :samp:`False` if a :samp:`__del__` method must not start a collective
-    free (e.g. :meth:`mpi4py.MPI.Win.Free`): MPI is finalized, or mpi4py is going to
-    abort the MPI job (launched with :samp:`python -m mpi4py`, and exiting because of
-    an unhandled exception). The other processes may never make the collective call,
+    Returns :samp:`False` if MPI windows must not be freed: MPI is finalized, or mpi4py is
+    going to abort the MPI job (launched with :samp:`python -m mpi4py`, and exiting because
+    of an unhandled exception). The other processes may never make the collective call,
     and waiting for them would stop the abort.
 
-    In other cases the arrays which are still allocated are freed (by :samp:`__del__`)
-    while the interpreter shuts down. They must not be left to :func:`mpi4py.MPI.Finalize`:
+    In other cases the windows which are still allocated at exit are freed
+    (see :obj:`DeferredFrees`), they must not be left to :func:`mpi4py.MPI.Finalize`:
     MPI implementations (e.g. Open MPI 5) can free the windows in a different order on
     different processes, which deadlocks.
 
     :rtype: :obj:`bool`
-    :return: :samp:`True` if a :samp:`__del__` method can free collectively.
+    :return: :samp:`True` if windows can be freed.
     """
     return (not _mpi4py_aborts) and (not _mpi.Is_finalized())
+
+
+class DeferredFrees(object):
+
+    """
+    Frees MPI windows at points which all the processes of their communicator reach,
+    not when the objects which own them are garbage collected. Freeing a window is
+    collective, and garbage collection can happen at different points on different
+    processes: while an exception propagates on one process only, for objects in reference
+    cycles, or for arrays kept alive by views on some processes only.
+
+    The objects which own windows (an object with a :samp:`free` method which frees them,
+    collective over the processes of a communicator) are registered when they are
+    created (:meth:`register`). The processes of the communicator create them in the same
+    order, so they have the same sequence number on all of them. When an object is garbage
+    collected, it is deferred (:meth:`defer`, no MPI calls). When windows are created over
+    the communicator (:meth:`note_allocation`), every :attr:`max_allocations` allocations
+    or after :attr:`max_bytes` bytes, its processes free the objects which are deferred on
+    all of them, in creation order (:meth:`free_agreed`, collective). At exit, the
+    registered objects which haven't been freed, deferred or not, are freed in creation
+    order (:meth:`free_all`), unless mpi4py is going to abort the MPI job
+    (see :func:`can_free_in_del`).
+    """
+
+    def __init__(self, max_allocations=32, max_bytes=64 * 2 ** 20):
+        """
+        Initialise.
+
+        :type max_allocations: :obj:`int`
+        :param max_allocations: The processes agree on the frees at least every this many
+           allocations over a communicator. An agreement synchronises the processes, the
+           deferred windows stay allocated until then.
+        :type max_bytes: :obj:`int`
+        :param max_bytes: The processes agree on the frees when this many bytes (per process)
+           have been allocated over a communicator since they last agreed.
+        """
+        self.max_allocations = max_allocations
+        self.max_bytes = max_bytes
+        #: The number of allocations and bytes over each communicator since the last agreement.
+        self._allocations = dict()
+        #: The communicators of the registered objects, by :samp:`id`.
+        self._comms = dict()
+        #: The next sequence number for each communicator.
+        self._next_seqs = dict()
+        #: The deferred objects of each communicator, by sequence number.
+        self._deferred = dict()
+        #: :samp:`(weakref, comm id, seq)` of the registered objects, in creation order.
+        self._registered = _collections.OrderedDict()
+        self._next_global_seq = 0
+
+    def register(self, obj, comm):
+        """
+        Registers :samp:`{obj}`, whose windows are freed collectively over the processes
+        of :samp:`{comm}` (all processes of the communicator call this in the same order).
+
+        :type obj: :obj:`object`
+        :param obj: The object, its :samp:`free` method frees its windows and
+           calls :meth:`unregister`.
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: The communicator whose processes agree on freeing the object.
+        :rtype: :obj:`tuple`
+        :return: The identifier of the registration (for :meth:`defer` and :meth:`unregister`).
+        """
+        key = id(comm)
+        self._comms[key] = comm
+        seq = self._next_seqs.get(key, 0)
+        self._next_seqs[key] = seq + 1
+        global_seq = self._next_global_seq
+        self._next_global_seq += 1
+        self._registered[global_seq] = (_weakref.ref(obj), key, seq)
+        return (key, seq, global_seq)
+
+    def unregister(self, registration):
+        """
+        Forgets the object of :samp:`{registration}` (called when its windows are freed).
+        """
+        key, seq, global_seq = registration
+        self._registered.pop(global_seq, None)
+        deferred = self._deferred.get(key, None)
+        if deferred is not None:
+            deferred.pop(seq, None)
+
+    def defer(self, obj, registration):
+        """
+        Defers freeing the windows of :samp:`{obj}`, which is being garbage collected
+        (no MPI calls). It is kept until it is freed.
+        """
+        key, seq, global_seq = registration
+        self._deferred.setdefault(key, dict())[seq] = obj
+
+    def num_deferred(self, comm=None):
+        """
+        Returns the number of deferred objects (of :samp:`{comm}`, if given).
+        """
+        if comm is not None:
+            return len(self._deferred.get(id(comm), ()))
+        return sum(len(deferred) for deferred in self._deferred.values())
+
+    def note_allocation(self, comm, nbytes):
+        """
+        Called when all the processes of :samp:`{comm}` allocate windows, :samp:`{nbytes}`
+        (the same on all of them) bytes per process. Every :attr:`max_allocations`
+        allocations, or when :attr:`max_bytes` bytes have been allocated since the processes
+        last agreed, they free the objects which all of them have deferred
+        (:meth:`free_agreed`, collective). The counts are the same on all processes,
+        so they agree at the same allocations: an agreement synchronises the processes.
+
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: The communicator of the allocation.
+        :type nbytes: :obj:`int`
+        :param nbytes: The number of bytes, the same on all processes of :samp:`{comm}`.
+        """
+        if comm.size > 1:
+            key = id(comm)
+            self._comms[key] = comm
+            count, total = self._allocations.get(key, (0, 0))
+            count += 1
+            total += nbytes
+            if (count >= self.max_allocations) or (total >= self.max_bytes):
+                self._allocations[key] = (0, 0)
+                self.free_agreed(comm)
+            else:
+                self._allocations[key] = (count, total)
+
+    def free_agreed(self, comm):
+        """
+        Collective over :samp:`{comm}`. Frees the objects of :samp:`{comm}` which are deferred
+        on all of its processes, in creation order.
+        """
+        deferred = self._deferred.get(id(comm), dict())
+        if comm.size > 1:
+            agreed_seqs = comm.allreduce(set(deferred.keys()), op=_mpi.BAND)
+        else:
+            agreed_seqs = set(deferred.keys())
+        for seq in sorted(agreed_seqs):
+            obj = deferred.get(seq, None)
+            if obj is not None:
+                obj.free()
+
+    def free_all(self):
+        """
+        Frees all the registered objects, deferred or not, in creation order. Called at
+        exit (on all processes).
+        """
+        for global_seq in list(self._registered.keys()):
+            entry = self._registered.get(global_seq, None)
+            if entry is not None:
+                ref, key, seq = entry
+                obj = self._deferred.get(key, dict()).get(seq, None)
+                if obj is None:
+                    obj = ref()
+                if obj is not None:
+                    obj.free()
+                else:
+                    self._registered.pop(global_seq, None)
+
+
+#: The windows whose free is deferred (see :obj:`DeferredFrees`).
+deferred_frees = DeferredFrees()
+
+
+def _at_exit():
+    """
+    An :mod:`atexit` function, it runs before the interpreter shuts down and before
+    mpi4py finalizes (or aborts) MPI. Records whether mpi4py is going to abort the job
+    (:func:`_check_mpi4py_abort`), otherwise frees the windows which are still allocated,
+    in creation order (:meth:`DeferredFrees.free_all`).
+    """
+    _check_mpi4py_abort()
+    if can_free_in_del():
+        deferred_frees.free_all()
+
+
+_atexit.register(_at_exit)
+
+
+class WindowFree(object):
+
+    """
+    Frees an MPI window (collective over the processes of its communicator), registered
+    with :obj:`DeferredFrees` so that it isn't freed when its owner is garbage collected.
+    """
+
+    def __init__(self, win, comm):
+        """
+        Initialise.
+
+        :type win: :obj:`mpi4py.MPI.Win`
+        :param win: The window.
+        :type comm: :obj:`mpi4py.MPI.Comm`
+        :param comm: The communicator of the window.
+        """
+        self._win = win
+        self._comm = comm
+        self._registration = deferred_frees.register(self, comm)
+
+    def free(self):
+        """
+        Frees the window (collective), unless it has been freed.
+        """
+        if self._registration is not None:
+            deferred_frees.unregister(self._registration)
+            self._registration = None
+            if (self._win is not None) and (self._win != _mpi.WIN_NULL):
+                self._win.Free()
+            self._win = None
+
+    def defer(self):
+        """
+        Called when the owner of the window is garbage collected: defers the free
+        (see :obj:`DeferredFrees`), a window of a single process is freed at once.
+        """
+        if self._registration is not None:
+            if self._comm.size == 1:
+                if can_free_in_del():
+                    self.free()
+            else:
+                deferred_frees.defer(self, self._registration)
 
 
 def agree_on_error(comm, error):

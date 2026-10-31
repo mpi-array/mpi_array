@@ -34,6 +34,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 from .comms import create_distribution, LT_PROCESS, LT_NODE
+from .comms import deferred_frees as _deferred_frees
 from .distribution import IndexingExtent, LocaleExtent
 from .distribution import GlobaleExtent
 
@@ -629,6 +630,8 @@ class LndarrayProxyTest(_unittest.TestCase):
         self.assertTrue(cand.locale_comms.peer_comm.allreduce(is_ok, op=_mpi.LAND))
         del view
         self.assertTrue(lary_ref() is None)
+        # Freed when all processes have released it.
+        _deferred_frees.free_agreed(cand.locale_comms.peer_comm)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
     def test_exit_with_exception_skips_free(self):
@@ -648,26 +651,24 @@ class LndarrayProxyTest(_unittest.TestCase):
         self.assertTrue(lary.rma_window_buffer is None)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
-    def test_del_skips_free_when_aborting(self):
+    def test_garbage_collection_defers_free(self):
         """
-        Garbage collection (:meth:`mpi_array.locale.LndarrayProxy.__del__`) frees the
-        window memory, except when mpi4py is going to abort the job
-        (:func:`mpi_array.comms.can_free_in_del`).
+        Garbage collection of a locale array which has its own windows doesn't free them
+        (collective MPI calls): they are freed when the processes allocate after all of them
+        have released it (:obj:`mpi_array.comms.DeferredFrees`), with a single process at
+        once. They agree when they allocate, every few allocations. They used to be freed
+        collectively when it was garbage collected.
         """
-        cand = create_distribution(shape=(10 * _mpi.COMM_WORLD.size,))
+        world = _mpi.COMM_WORLD
+        cand = create_distribution(shape=(10 * world.size,))
         lary = _locale.zeros(comms_and_distrib=cand, dtype="int64")
         rma_window_buffer = lary.rma_window_buffer
-        orig_can_free_in_del = _locale._can_free_in_del
-        _locale._can_free_in_del = lambda: False
-        try:
-            lary.__del__()
-        finally:
-            _locale._can_free_in_del = orig_can_free_in_del
-        self.assertTrue(lary.rma_window_buffer is rma_window_buffer)
-        self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
-
-        lary.__del__()
-        self.assertTrue(lary.rma_window_buffer is None)
+        del lary
+        if world.size > 1:
+            self.assertNotEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
+        for i in range(_deferred_frees.max_allocations):
+            with _locale.zeros(comms_and_distrib=cand, dtype="int64") as other:
+                other.fill(1)
         self.assertEqual(_mpi.WIN_NULL, rma_window_buffer.intra_locale_win)
 
 

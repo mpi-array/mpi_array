@@ -644,6 +644,7 @@ class Distribution(object):
         self.initialise_struct_locale_extents(self._struct_locale_extents, locale_extents)
 
         self._locale_extents = None
+        self._max_locale_size_h = None
 
     def create_struct_locale_extents(self, num_locales, ndim):
         """
@@ -964,6 +965,26 @@ class Distribution(object):
         An :obj:`int` specifying the number of locales in this distribution.
         """
         return len(self._struct_locale_extents)
+
+    @property
+    def max_locale_size_h(self):
+        """
+        An :obj:`int`, the largest number of elements (including the halo) of a locale
+        extent (calculated when first used).
+        """
+        if self._max_locale_size_h is None:
+            s = self._struct_locale_extents
+            max_locale_size_h = 0
+            if len(s) > 0:
+                shapes_h = \
+                    s[self._locale_extent_type.STOP_N_STR] \
+                    - \
+                    s[self._locale_extent_type.START_N_STR] \
+                    + \
+                    _np.sum(s[self._locale_extent_type.HALO_STR], axis=-1)
+                max_locale_size_h = int(_np.max(_np.prod(shapes_h, axis=-1)))
+            self._max_locale_size_h = max_locale_size_h
+        return self._max_locale_size_h
 
     @property
     def peer_ranks_per_locale(self):
