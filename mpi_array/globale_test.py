@@ -1282,6 +1282,53 @@ class GndarrayTest(_unittest.TestCase):
             self.assertRaises(ValueError, _globale.copyto, [1, ], gary)
             self.assertRaises(ValueError, _globale.copyto, [1, ], [1, ])
 
+    def test_copyto_synchronises_twice(self):
+        """
+        :func:`mpi_array.globale.copyto` synchronises the processes twice (barriers),
+        before the source is read and after the destination is written, and copies
+        the elements. It used to synchronise three times, also between the copies
+        within locales and the fetches from other locales.
+        """
+        updater_type = _globale.RmaRedistributeUpdater
+        barrier = updater_type.barrier
+        num_barriers = []
+
+        def counting_barrier(updater):
+            num_barriers.append(1)
+            barrier(updater)
+
+        shape = (8 * _mpi.COMM_WORLD.size, 8)
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.empty(shape, locale_type=locale_type, dims=(0, 1)) \
+                    as dst, \
+                    _globale_creation.empty(shape, locale_type=locale_type, dims=(1, 0)) \
+                    as src:
+                src.rank_view_n[...] = src.this_locale.inter_locale_rank + 1
+                src.intra_locale_barrier()
+                del num_barriers[:]
+                updater_type.barrier = counting_barrier
+                try:
+                    _globale.copyto(dst, src)
+                finally:
+                    updater_type.barrier = barrier
+                self.assertEqual(2, len(num_barriers))
+                expected = _np.zeros(shape)
+                for extent in src.distribution.locale_extents:
+                    expected[extent.to_slice_n()] = extent.inter_locale_rank + 1
+                self.assertTrue(
+                    dst.locale_comms.peer_comm.allreduce(
+                        bool(
+                            _np.all(
+                                dst.view_n
+                                ==
+                                expected[dst.lndarray_proxy.locale_extent.to_slice_n()]
+                            )
+                        ),
+                        op=_mpi.LAND
+                    )
+                )
+
 
 class CommLoggerTest(_unittest.TestCase):
 

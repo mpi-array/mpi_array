@@ -540,6 +540,14 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self.do_locale_cpy2_update()
 
     def do_update(self):
+        """
+        Copies the elements, collective over the :samp:`peer_comm` of the source array.
+        The first barrier makes sure that the source elements have been written before
+        they are read, the second that all processes have finished reading the source
+        and writing the destination before any of them returns. The direct copies and
+        the fetches read the source and write different regions of the destination,
+        they don't need a barrier between them.
+        """
         self.barrier()
 
         self._dst.locale_comms.rank_logger.debug(
@@ -549,8 +557,6 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         self._dst.locale_comms.rank_logger.debug(
             "%s: END: do_locale_cpy2_update().", self.__class__.__name__
         )
-
-        self.barrier()
 
         self._dst.locale_comms.rank_logger.debug(
             "%s: BEG: do_locale_rma_update()...", self.__class__.__name__
