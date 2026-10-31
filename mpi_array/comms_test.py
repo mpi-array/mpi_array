@@ -39,7 +39,7 @@ from .comms import create_single_locale_distribution, create_locale_comms, creat
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
 from .comms import check_locale_type, LT_NODE, LT_PROCESS
 from .comms import reshape_comms_distribution, shape_squeeze
-from .comms import agree_on_error
+from .comms import agree_on_error, get_cannonical_dims
 from .utils import get_shared_mem_usage_percent_string
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
@@ -389,6 +389,44 @@ class CreateDistributionTest(_unittest.TestCase):
             (20, 31, 17, 4),
             tuple(distrib.globale_extent.stop_n)
         )
+
+    def test_get_cannonical_dims_with_shape(self):
+        """
+        Tests for :func:`mpi_array.comms.get_cannonical_dims` with the :samp:`shape` argument:
+        the chosen numbers of blocks are at most the lengths of the axes, unless the shape
+        is too small for the number of blocks.
+        """
+        self.assertSequenceEqual([4, 4], get_cannonical_dims(16, ndims=2).tolist())
+        self.assertSequenceEqual(
+            [2, 8],
+            get_cannonical_dims(16, ndims=2, shape=(2, 10 ** 6)).tolist()
+        )
+        self.assertSequenceEqual([1, 3], get_cannonical_dims(3, ndims=2, shape=(1, 9)).tolist())
+        self.assertSequenceEqual(
+            [1, 2, 3],
+            get_cannonical_dims(6, dims=(0, 0, 3), shape=(1, 9, 9)).tolist()
+        )
+        # Too small for the number of blocks, or the given numbers of blocks.
+        self.assertSequenceEqual([2, 2], get_cannonical_dims(4, ndims=2, shape=(1, 1)).tolist())
+        self.assertSequenceEqual([4, 1], get_cannonical_dims(4, dims=(0, 1), shape=(2, 5)).tolist())
+        self.assertSequenceEqual([2, 2], get_cannonical_dims(4, ndims=2, shape=(0, 0)).tolist())
+
+    def test_create_block_distribution_without_empty_tiles(self):
+        """
+        Block distributions partition each axis into at most as many blocks as its length,
+        when they can, and so do the tiles of the processes of a locale. The partitions
+        ignored the shape, e.g. a :samp:`(1, n)` array over two or more locales (or the
+        processes of a locale) had empty blocks.
+        """
+        from .globale_creation import empty as _empty
+
+        world = _mpi.COMM_WORLD
+        shape = (1, 8 * world.size)
+        candd = create_distribution(shape=shape, locale_type=LT_PROCESS)
+        is_ok = all(e.size_n > 0 for e in candd.distribution.locale_extents)
+        with _empty(shape, locale_type=LT_NODE) as gary:
+            is_ok = is_ok and (gary.rank_view_n.size > 0)
+        self.assertTrue(world.allreduce(bool(is_ok), op=_mpi.LAND))
 
     def test_shape_squeeze(self):
         """

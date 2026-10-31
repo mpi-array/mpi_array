@@ -1070,7 +1070,7 @@ CartLocaleCommsInfo.__doc__ = \
     """
 
 
-def get_cannonical_dims(num_locales, ndims=None, dims=None):
+def get_cannonical_dims(num_locales, ndims=None, dims=None, shape=None):
     """
     Returns the block partition per axis for :samp:`{num_locales}` number
     of total number of blocks.
@@ -1084,9 +1084,22 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None):
        the number of blocks for the associated axis, zero or negative values
        are chosen (replaced) so that :samp:`num_locales` total number of blocks
        are formed.
+    :type shape: :samp:`None` or sequence of :obj:`int`
+    :param shape: The shape of the partitioned array. If given, the chosen numbers of blocks
+       are at most the lengths of their axes (so that no block is empty), when such
+       a partitioning exists.
     :rtype: :obj:`numpy.ndarray`
     :return: An array of :obj:`int` such that the :samp:`numpy.product` of the
        returned array is equal to :samp:`{num_locales}`.
+
+    Example::
+
+       >>> get_cannonical_dims(16, ndims=2).tolist()
+       [4, 4]
+       >>> get_cannonical_dims(16, ndims=2, shape=(2, 1000)).tolist()
+       [2, 8]
+       >>> get_cannonical_dims(4, ndims=2, shape=(1, 1)).tolist()
+       [2, 2]
     """
     if (ndims is None) and (dims is None):
         raise ValueError("Must specify one of dims or ndims, got both ndims=None and dims=None.")
@@ -1100,11 +1113,28 @@ def get_cannonical_dims(num_locales, ndims=None, dims=None):
     if dims is None:
         dims = _np.zeros((ndims,), dtype="int64")
 
-    dims = \
-        _array_split.split.calculate_num_slices_per_axis(
-            dims,
-            num_locales
-        )
+    shape_dims = None
+    if (shape is not None) and (len(shape) > 0):
+        try:
+            shape_dims = \
+                _array_split.split.calculate_num_slices_per_axis(
+                    dims,
+                    num_locales,
+                    max_slices_per_axis=_np.maximum(_np.asarray(shape, dtype="int64"), 1)
+                )
+        except ValueError:
+            shape_dims = None
+        if (shape_dims is not None) and (_np.prod(shape_dims) != num_locales):
+            # The shape is too small for the number of blocks.
+            shape_dims = None
+    if shape_dims is not None:
+        dims = shape_dims
+    else:
+        dims = \
+            _array_split.split.calculate_num_slices_per_axis(
+                dims,
+                num_locales
+            )
 
     return dims
 
@@ -1658,6 +1688,9 @@ def create_block_distribution(
             intra_locale_comm=intra_locale_comm,
             inter_locale_comm=inter_locale_comm
         )
+    if cart_comm is None:
+        # The same on all processes (the shape and the number of locales are).
+        dims = get_cannonical_dims(locale_comms.num_locales, dims=dims, shape=shape)
     cart_locale_comms = \
         CartLocaleComms(
             dims=dims,

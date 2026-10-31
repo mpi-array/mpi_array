@@ -65,6 +65,7 @@ import collections as _collections
 from .license import license as _license, copyright as _copyright, version as _version
 from .comms import create_distribution, get_win_memory
 from .comms import can_free_in_del as _can_free_in_del
+from .comms import get_cannonical_dims as _get_cannonical_dims
 from .distribution import LocaleExtent as _LocaleExtent
 from .distribution import HaloSubExtent as _HaloSubExtent
 from .distribution import IndexingExtent as _IndexingExtent
@@ -605,9 +606,10 @@ class LndarrayProxy(object):
 
             if ndim > 0:
                 intra_locale_dims = \
-                    _array_split.split.calculate_num_slices_per_axis(
-                        intra_locale_dims,
-                        intra_locale_size
+                    _get_cannonical_dims(
+                        intra_locale_size,
+                        dims=intra_locale_dims,
+                        shape=extent.shape_n
                     )
                 if extent.size_n > 0:
 
