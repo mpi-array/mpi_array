@@ -33,14 +33,14 @@ __version__ = _version()
 
 class IndexingExtent(object):
 
+    """
+    Indexing bounds for a single tile of domain decomposition.
+    """
+
     START = 0
     START_STR = "start"
     STOP = 1
     STOP_STR = "stop"
-
-    """
-    Indexing bounds for a single tile of domain decomposition.
-    """
 
     struct_dtype_dict = _collections.defaultdict(lambda: None)
 
