@@ -204,8 +204,8 @@ class RedistributePlanBench(object):
     Benchmarks for the calculation of the updates which copy the elements of an
     array to an array of a different distribution
     (:obj:`mpi_array.update.UpdatesForRedistribute`), on one process
-    for :samp:`num_locales` locales. The :samp:`pattern` parameter selects
-    the distributions:
+    for :samp:`num_locales` locales: the updates of the destination locale of the process
+    (a locale in the middle). The :samp:`pattern` parameter selects the distributions:
 
     :samp:`"shifted"`
        1-D distributions, each destination locale gets elements from two source locales.
@@ -266,7 +266,11 @@ class RedistributePlanBench(object):
         """
         Time the calculation of the updates.
         """
-        self.update.UpdatesForRedistribute(self.dst, self.src)
+        self.update.UpdatesForRedistribute(
+            self.dst,
+            self.src,
+            dst_inter_locale_rank=num_locales // 2
+        )
 
 
 class HaloPlanBench(object):

@@ -34,14 +34,13 @@ import numpy as _np
 from numpy.lib.mixins import NDArrayOperatorsMixin as _NDArrayOperatorsMixin
 
 from .license import license as _license, copyright as _copyright, version as _version
-from .update import UpdatesForRedistribute as _UpdatesForRedistribute
+from .update import MpiUpdatesForRedistribute as _MpiUpdatesForRedistribute
 from .update import MpiUpdatesForGet as _MpiUpdatesForGet
 from .update import MpiHalosUpdate as _MpiHalosUpdate
-from .update import MpiPairExtentUpdate as _MpiPairExtentUpdate
-from .update import MpiPairExtentUpdateDifferentDtypes as _MpiPairExtentUpdateDifferentDtypes
 from .update import RmaUpdateExecutor as _RmaUpdateExecutor
 from .locale import win_lndarray as _win_lndarray
 from .comms import can_free_in_del as _can_free_in_del
+from .comms import agree_on_error as _agree_on_error
 from .distribution import LocaleExtent as _LocaleExtent
 from .indexing import HaloIndexingExtent as _HaloIndexingExtent
 
@@ -329,50 +328,71 @@ class RankTranslator(object):
         return self._src_group
 
 
-class RmaRedistributeUpdater(_UpdatesForRedistribute):
+class RmaRedistributeUpdater(object):
 
     """
     Helper class for redistributing array to new distribution.
-    Calculates sequence of :obj:`mpi_array.distribution.ExtentUpdate`
-    objects which are used to copy elements from
-    remote :samp:`{src}` locales to local :samp:`{dst}` locales.
+    Copies the elements of the :samp:`{src}` array to the :samp:`{dst}` array
+    (:meth:`do_update`): the elements of source locales which share processes
+    with the destination locale are copied directly, the others are fetched from the
+    remote source locales using one-sided RMA. The updates are calculated for the
+    destination locale of this process only (:attr:`updates`).
     """
 
     def __init__(self, dst, src, casting="same_kind"):
         """
+        Initialise.
+
+        :type dst: :obj:`gndarray`
+        :param dst: Array which receives the elements.
+        :type src: :obj:`gndarray`
+        :param src: Array from which the elements are copied.
+        :type casting: :obj:`str`
+        :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
         """
         self._dst = dst
         self._src = src
         self._casting = casting
-        self._mpi_pair_extent_update_type = _MpiPairExtentUpdate
-        self._max_outstanding_requests = 32 * 32
-        self._min_outstanding_requests_per_proc = 2
-        self._max_ranks_per_inter_locale_sub_group = 128
-        if self._dst.dtype != self._src.dtype:
-            self._mpi_pair_extent_update_type = _MpiPairExtentUpdateDifferentDtypes
+        self._updates = None
 
-        _UpdatesForRedistribute.__init__(
-            self,
-            dst.comms_and_distrib.distribution,
-            src.comms_and_distrib.distribution,
-            peer_rank_translator=RankTranslator(
-                self._dst.locale_comms.peer_comm.group,
-                self._src.locale_comms.peer_comm.group
-            )
-        )
-        self._inter_win = self._src.rma_window_buffer.peer_win
-        self._max_outstanding_requests_per_proc = \
-            _np.max(
-                (
-                    self._min_outstanding_requests_per_proc,
-                    self._max_outstanding_requests // self._max_ranks_per_inter_locale_sub_group
+    def calc_updates(self):
+        """
+        Calculates the updates of the destination locale of this process.
+
+        :rtype: :obj:`mpi_array.update.MpiUpdatesForRedistribute`
+        :return: The updates.
+        :raises ValueError: If elements of the destination locale are not in the source
+           distribution (on the processes of that locale only).
+        """
+        dst_group = self._dst.locale_comms.peer_comm.group
+        src_group = self._src.locale_comms.peer_comm.group
+        try:
+            updates = \
+                _MpiUpdatesForRedistribute(
+                    self._dst.distribution,
+                    self._src.distribution,
+                    dst_dtype=self._dst.dtype,
+                    src_dtype=self._src.dtype,
+                    dst_order=self._dst.order,
+                    src_order=self._src.order,
+                    casting=self._casting,
+                    peer_rank_translator=RankTranslator(dst_group, src_group),
+                    dst_inter_locale_rank=self._dst.this_locale.inter_locale_rank
                 )
-            )
-        seed_str = str(2 ** 31)[1:]
-        rank_str = str(self._inter_win.group.rank + 1)
-        seed_str = rank_str + seed_str[len(rank_str):]
-        seed_str = seed_str[0:-len(rank_str)] + rank_str[::-1]
-        self._random_state = _np.random.RandomState(seed=int(seed_str))
+        finally:
+            dst_group.Free()
+            src_group.Free()
+        return updates
+
+    @property
+    def updates(self):
+        """
+        The :obj:`mpi_array.update.MpiUpdatesForRedistribute` updates of the destination
+        locale of this process, calculated (:meth:`calc_updates`) when first used.
+        """
+        if self._updates is None:
+            self._updates = self.calc_updates()
+        return self._updates
 
     def calc_can_use_existing_src_peer_comm(self):
         """
@@ -411,36 +431,6 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         )
         return can_use_existing_src_peer_comm
 
-    def create_pair_extent_update(
-        self,
-        dst_extent,
-        src_extent,
-        intersection_extent
-    ):
-        """
-        Factory method which creates sequence of
-        of :obj:`mpi_array.distribution.MpiPairExtentUpdate` objects.
-        """
-        updates = \
-            [
-                self._mpi_pair_extent_update_type(
-                    self._dst.distribution.locale_extents[dst_extent.inter_locale_rank],
-                    self._src.distribution.locale_extents[src_extent.inter_locale_rank],
-                    intersection_extent,
-                    intersection_extent
-                ),
-            ]
-        for update in updates:
-            update.initialise_data_types(
-                dst_dtype=self._dst.dtype,
-                src_dtype=self._src.dtype,
-                dst_order=self._dst.lndarray_proxy.md.order,
-                src_order=self._src.lndarray_proxy.md.order
-            )
-            update.casting = self._casting
-
-        return updates
-
     def wait_all(self, req_list):
         """
         """
@@ -458,16 +448,16 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         """
         Performs direct copy updates.
         """
-        updates = self._dst_cpy2_updates[self._dst.this_locale.inter_locale_rank]
+        updates = self.updates.dst_cpy2_updates[self._dst.this_locale.inter_locale_rank]
         my_dst_peer_rank = self._dst.locale_comms.peer_comm.rank
         my_src_peer_rank = self._src.locale_comms.peer_comm.rank
         src_lndarray = self._src.lndarray_proxy.lndarray
         dst_lndarray = self._dst.lndarray_proxy.lndarray
         for update in updates:
             src_translated_peer_ranks = \
-                self._src_translated_peer_ranks[update.src_extent.inter_locale_rank]
+                self.updates.src_translated_peer_ranks[update.src_extent.inter_locale_rank]
             dst_translated_peer_ranks = \
-                self._dst_translated_peer_ranks[update.dst_extent.inter_locale_rank]
+                self.updates.dst_translated_peer_ranks[update.dst_extent.inter_locale_rank]
             if (
                 (
                     (my_src_peer_rank == update.src_extent.peer_rank)
@@ -497,6 +487,8 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         Performs RMA to get elements from remote locales to
         update the locale extent array.
         """
+        # Created on all processes (collective), used by the inter-locale processes.
+        peer_win = self._src.rma_window_buffer.peer_win
         can_use_existing_src_peer_comm = self.calc_can_use_existing_src_peer_comm()
         self._dst.rank_logger.debug(
             "%s.%s: "
@@ -510,7 +502,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         if can_use_existing_src_peer_comm:
             inter_win = _mpi.WIN_NULL
             if self._dst.locale_comms.have_valid_inter_locale_comm:
-                inter_win = self._inter_win
+                inter_win = peer_win
 
             update_executor = \
                 _RmaUpdateExecutor(
@@ -521,7 +513,7 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
                 )
 
             # Fetch remote data.
-            updates = self._dst_rget_updates[self._dst.this_locale.inter_locale_rank]
+            updates = self.updates.dst_rget_updates[self._dst.this_locale.inter_locale_rank]
             update_executor.do_locale_rma_update(updates)
         else:
             raise RuntimeError(
@@ -547,8 +539,23 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
         and writing the destination before any of them returns. The direct copies and
         the fetches read the source and write different regions of the destination,
         they don't need a barrier between them.
+
+        :raises ValueError: (on all processes) If elements of the destination are not
+           in the source distribution. Each process calculates the updates of its locale
+           only, the processes agree on the error in the first barrier.
         """
-        self.barrier()
+        error = None
+        try:
+            self.updates
+        except Exception as e:
+            error = e
+        error = self.barrier(error)
+        if error is not None:
+            try:
+                raise error
+            finally:
+                # The frame shouldn't reference its own exception (a reference cycle).
+                error = None
 
         self._dst.locale_comms.rank_logger.debug(
             "%s: BEG: do_locale_cpy2_update()...", self.__class__.__name__
@@ -568,17 +575,25 @@ class RmaRedistributeUpdater(_UpdatesForRedistribute):
 
         self.barrier()
 
-    def barrier(self):
+    def barrier(self, error=None):
         """
-        MPI barrier.
+        Barrier, collective over the :samp:`peer_comm` of the source array, in which
+        the processes agree on an error (see :func:`mpi_array.comms.agree_on_error`).
+
+        :type error: :samp:`None` or :obj:`Exception`
+        :param error: The error of this process.
+        :rtype: :samp:`None` or :obj:`Exception`
+        :return: The exception to raise on this process, :samp:`None` if no process
+           had an error.
         """
         self._dst.locale_comms.rank_logger.debug(
-            "%s: BEG: self._src.locale_comms.peer_comm.barrier()...", self.__class__.__name__
+            "%s: BEG: barrier of self._src.locale_comms.peer_comm...", self.__class__.__name__
         )
-        self._src.locale_comms.peer_comm.barrier()
+        error = _agree_on_error(self._src.locale_comms.peer_comm, error)
         self._dst.locale_comms.rank_logger.debug(
-            "%s: END: self._src.locale_comms.peer_comm.barrier().", self.__class__.__name__
+            "%s: END: barrier of self._src.locale_comms.peer_comm.", self.__class__.__name__
         )
+        return error
 
 
 def _check_extent_within(extent, globale_extent):

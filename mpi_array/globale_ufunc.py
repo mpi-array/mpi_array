@@ -20,7 +20,6 @@ Functions
    :toctree: generated/
 
    get_dtype_and_ndim - Return :obj:`numpy.dtype` and :samp:`ndim` properties for an object.
-   agree_on_error - Processes agree on an error, so that they all raise.
    ufunc_result_type - Like :func:`numpy.result_type`.
    broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
    shape_extend_dims - Prepend ones to 1D *shape* sequence to make it a specified dimension.
@@ -39,6 +38,7 @@ from .license import license as _license, copyright as _copyright, version as _v
 from . import logging as _logging  # noqa: E402,F401
 from . import globale_creation as _globale_creation
 from . import comms as _comms
+from .comms import agree_on_error  # noqa: F401
 from .locale import win_lndarray as _win_lndarray
 from .distribution import ScalarLocaleExtent, ScalarGlobaleExtent, LocaleExtent, GlobaleExtent
 
@@ -632,41 +632,6 @@ def check_equivalent_inter_locale_comms(
         errors = tuple(e for e in errors if e is not None)
         if len(errors) > 0:
             raise ValueError(errors[0])
-
-
-def agree_on_error(comm, error):
-    """
-    Collective over :samp:`{comm}` (it synchronises like a barrier). Returns the
-    exception to raise on this process: :samp:`{error}` if it is not :samp:`None`, otherwise
-    an exception like the error of another process (same built-in exception type,
-    e.g. :obj:`ValueError` for a sub-class of it, and same message), or :samp:`None`
-    if no process had an error.
-
-    :type comm: :obj:`mpi4py.MPI.Comm`
-    :param comm: The processes which agree.
-    :type error: :samp:`None` or :obj:`Exception`
-    :param error: The error of this process.
-    :rtype: :samp:`None` or :obj:`Exception`
-    :return: The exception to raise.
-    """
-    error_info = None
-    if error is not None:
-        error_type = next(t for t in type(error).__mro__ if t.__module__ == "builtins")
-        try:
-            message = str(error)
-        except Exception:
-            message = "%s (no message)" % (type(error).__name__,)
-        error_info = (error_type, message)
-    error_infos = comm.allgather(error_info)
-    if error is None:
-        for error_info in error_infos:
-            if error_info is not None:
-                try:
-                    error = error_info[0](error_info[1])
-                except Exception:
-                    error = RuntimeError(error_info[1])
-                break
-    return error
 
 
 class GndarrayArrayUfuncExecutor(object):

@@ -37,6 +37,14 @@ Factory Functions
    create_single_locale_distribution - Creating :obj:`SingleLocaleDistribution` instances.
    create_distribution - Factory function for creating :obj:`Distribution` instances.
 
+Functions
+=========
+
+.. autosummary::
+   :toctree: generated/
+
+   agree_on_error - Processes agree on an error, so that they all raise.
+
 
 Attributes
 ==========
@@ -750,6 +758,41 @@ def can_free_in_del():
     :return: :samp:`True` if a :samp:`__del__` method can free collectively.
     """
     return (not _mpi4py_aborts) and (not _mpi.Is_finalized())
+
+
+def agree_on_error(comm, error):
+    """
+    Collective over :samp:`{comm}` (it synchronises like a barrier). Returns the
+    exception to raise on this process: :samp:`{error}` if it is not :samp:`None`, otherwise
+    an exception like the error of the lowest rank process which has one (same built-in
+    exception type, e.g. :obj:`ValueError` for a sub-class of it, and same message),
+    or :samp:`None` if no process has an error. One reduction when no process has an error,
+    and a broadcast of the error otherwise.
+
+    :type comm: :obj:`mpi4py.MPI.Comm`
+    :param comm: The processes which agree.
+    :type error: :samp:`None` or :obj:`Exception`
+    :param error: The error of this process.
+    :rtype: :samp:`None` or :obj:`Exception`
+    :return: The exception to raise.
+    """
+    error_rank = comm.allreduce(comm.size if error is None else comm.rank, op=_mpi.MIN)
+    if error_rank < comm.size:
+        error_info = None
+        if comm.rank == error_rank:
+            error_type = next(t for t in type(error).__mro__ if t.__module__ == "builtins")
+            try:
+                message = str(error)
+            except Exception:
+                message = "%s (no message)" % (type(error).__name__,)
+            error_info = (error_type, message)
+        error_info = comm.bcast(error_info, error_rank)
+        if error is None:
+            try:
+                error = error_info[0](error_info[1])
+            except Exception:
+                error = RuntimeError(error_info[1])
+    return error
 
 
 class LocaleComms(object):

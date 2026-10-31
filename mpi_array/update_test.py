@@ -34,7 +34,7 @@ from . import logging as _logging  # noqa: E402,F401
 
 from .indexing import IndexingExtent
 from .distribution import CartLocaleExtent, GlobaleExtent, BlockPartition
-from .distribution import ClonedDistribution, LocaleExtent
+from .distribution import ClonedDistribution, LocaleExtent, Distribution
 from .update import MpiHaloSingleExtentUpdate, HalosUpdate
 from .update import MpiPairExtentUpdate, UpdatesForRedistribute, UpdatesForGet
 
@@ -464,6 +464,161 @@ class UpdatesForRedistributeTest(_unittest.TestCase):
         dst_extent = LocaleExtent(peer_rank=0, inter_locale_rank=0, start=(5,), stop=(20,))
         with self.assertRaisesRegex(ValueError, "not in the source distribution"):
             UpdatesForGet(dst_extent, src_distrib)
+
+        # Only some destination locales have elements outside the source.
+        dst_distrib = \
+            BlockPartition(
+                (20,),
+                (4,),
+                {(i,): i for i in range(4)},
+                inter_locale_rank_to_peer_rank=_np.arange(4)
+            )
+        src_distrib = \
+            BlockPartition(
+                (12,),
+                (2,),
+                {(i,): i for i in range(2)},
+                inter_locale_rank_to_peer_rank=_np.arange(2)
+            )
+        for dst_inter_locale_rank in (0, 1):
+            UpdatesForRedistribute(
+                dst_distrib,
+                src_distrib,
+                dst_inter_locale_rank=dst_inter_locale_rank
+            ).check_updates()
+        for dst_inter_locale_rank in (2, 3):
+            with self.assertRaisesRegex(ValueError, "not in the source distribution"):
+                UpdatesForRedistribute(
+                    dst_distrib,
+                    src_distrib,
+                    dst_inter_locale_rank=dst_inter_locale_rank
+                )
+
+    def test_locale_updates(self):
+        """
+        The updates of one destination locale (:samp:`dst_inter_locale_rank`) are those
+        calculated by intersecting it with every source locale extent, in rank order.
+        Only the source locales whose extents intersect it are used.
+        """
+        def create_block_partition(shape, dims, halo=0):
+            num_locales = int(_np.prod(dims))
+            return \
+                BlockPartition(
+                    shape,
+                    dims,
+                    _np.arange(num_locales).reshape(dims),
+                    halo=halo,
+                    inter_locale_rank_to_peer_rank=_np.arange(num_locales)
+                )
+
+        def calc_reference_regions(dst_distrib, src_distrib, dst_inter_locale_rank):
+            dst_extent = dst_distrib.locale_extents[dst_inter_locale_rank]
+            leftovers = [IndexingExtent(start=dst_extent.start_n, stop=dst_extent.stop_n)]
+            regions = []
+            for src_extent in src_distrib.locale_extents:
+                src_extent = IndexingExtent(start=src_extent.start_n, stop=src_extent.stop_n)
+                new_leftovers = []
+                for leftover in leftovers:
+                    leftover_leftovers, intersection = \
+                        leftover.calc_intersection_split(src_extent)
+                    new_leftovers += leftover_leftovers
+                    if intersection is not None:
+                        regions.append(intersection)
+                leftovers = new_leftovers
+            return sorted((tuple(r.start), tuple(r.stop)) for r in regions)
+
+        shape = (24, 18, 6)
+        num_locales = 6
+        cases = \
+            (
+                (
+                    create_block_partition(shape, (num_locales, 1, 1)),
+                    create_block_partition(shape, (1, num_locales, 1))
+                ),
+                (
+                    create_block_partition(shape, (2, 3, 1), halo=2),
+                    create_block_partition(shape, (3, 1, 2), halo=1)
+                ),
+                (
+                    ClonedDistribution(shape, 3, inter_locale_rank_to_peer_rank=_np.arange(3)),
+                    create_block_partition(shape, (2, 2, 1))
+                ),
+                (
+                    create_block_partition(shape, (2, 2, 1)),
+                    ClonedDistribution(shape, 3, inter_locale_rank_to_peer_rank=_np.arange(3))
+                ),
+            )
+        for dst_distrib, src_distrib in cases:
+            for dst_inter_locale_rank in range(dst_distrib.num_locales):
+                u4r = \
+                    UpdatesForRedistribute(
+                        dst_distrib,
+                        src_distrib,
+                        dst_inter_locale_rank=dst_inter_locale_rank
+                    )
+                u4r.check_updates()
+                self.assertSequenceEqual([], list(u4r.dst_cpy2_updates.keys()))
+                self.assertSequenceEqual(
+                    [dst_inter_locale_rank],
+                    list(u4r.dst_rget_updates.keys())
+                )
+                self.assertSequenceEqual(
+                    calc_reference_regions(dst_distrib, src_distrib, dst_inter_locale_rank),
+                    sorted(
+                        (tuple(u.dst_update_extent.start), tuple(u.dst_update_extent.stop))
+                        for u in u4r.dst_rget_updates[dst_inter_locale_rank]
+                    )
+                )
+
+    def test_locale_updates_use_intersecting_source_locales(self):
+        """
+        The updates of one destination locale, and the updates of
+        a :obj:`mpi_array.update.UpdatesForGet`, are calculated from the source locales
+        whose extents intersect the destination region: with 64 source locales, a region
+        which gets elements from two of them is split twice (it used to be intersected
+        with every source locale in rank order).
+        """
+        num_splits = []
+
+        class CountingUpdatesForRedistribute(UpdatesForRedistribute):
+
+            def calc_intersection_split(self, dst_extent, src_extent):
+                num_splits.append(src_extent.inter_locale_rank)
+                return UpdatesForRedistribute.calc_intersection_split(self, dst_extent, src_extent)
+
+        class CountingUpdatesForGet(UpdatesForGet):
+
+            def calc_intersection_split(self, dst_extent, src_extent):
+                num_splits.append(src_extent.inter_locale_rank)
+                return UpdatesForGet.calc_intersection_split(self, dst_extent, src_extent)
+
+        num_locales = 64
+        n = 8
+        dst_distrib = \
+            BlockPartition(
+                (num_locales * n,),
+                (num_locales,),
+                {(i,): i for i in range(num_locales)},
+                inter_locale_rank_to_peer_rank=_np.arange(num_locales)
+            )
+        cuts = [0] + [n // 2 + i * n for i in range(num_locales)] + [num_locales * n]
+        src_distrib = \
+            Distribution(
+                (num_locales * n,),
+                [(slice(cuts[i], cuts[i + 1]),) for i in range(num_locales + 1)],
+                inter_locale_rank_to_peer_rank=_np.arange(num_locales + 1)
+            )
+        u4r = CountingUpdatesForRedistribute(dst_distrib, src_distrib, dst_inter_locale_rank=40)
+        u4r.check_updates()
+        self.assertSequenceEqual([40, 41], num_splits)
+
+        del num_splits[:]
+        dst_extent = \
+            LocaleExtent(peer_rank=0, inter_locale_rank=0, start=(40 * n + 3,), stop=(41 * n,))
+        u4g = CountingUpdatesForGet(dst_extent, dst_distrib)
+        self.assertSequenceEqual([0, 40], num_splits)
+        self.assertSequenceEqual([0], list(u4g._dst_rget_updates.keys()))
+        self.assertEqual(1, len(u4g._dst_rget_updates[0]))
 
 
 _unittest.main(__name__)

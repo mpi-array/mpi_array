@@ -39,6 +39,7 @@ from .comms import create_single_locale_distribution, create_locale_comms, creat
 from .comms import check_distrib_type, DT_BLOCK, DT_SLAB, DT_CLONED, DT_SINGLE_LOCALE
 from .comms import check_locale_type, LT_NODE, LT_PROCESS
 from .comms import reshape_comms_distribution, shape_squeeze
+from .comms import agree_on_error
 from .utils import get_shared_mem_usage_percent_string
 from .distribution import SingleLocaleDistribution as _SingleLocaleDistribution
 
@@ -148,6 +149,44 @@ class LocaleCommsTest(_unittest.TestCase):
         self.assertEqual(_mpi.IDENT, _mpi.Comm.Compare(_mpi.COMM_WORLD, lc.peer_comm))
         self.assertEqual(1, lc.intra_locale_comm.size)
         self.assertNotEqual(_mpi.COMM_WORLD, _mpi.COMM_NULL)
+
+    def test_agree_on_error(self):
+        """
+        Tests for :func:`mpi_array.comms.agree_on_error`, the processes without
+        an error get one like the error of the lowest rank process which has one (also
+        when its message can't be made, which used to raise on that process only).
+        """
+        world = _mpi.COMM_WORLD
+
+        class UnprintableError(ValueError):
+
+            def __str__(self):
+                raise RuntimeError("Raised for the test.")
+
+        self.assertTrue(agree_on_error(world, None) is None)
+        for error_type in (ValueError, UnprintableError):
+            error = None
+            if world.rank == (world.size - 1):
+                error = error_type("Raised on the last process.")
+            agreed_error = agree_on_error(world, error)
+            if error is not None:
+                is_ok = agreed_error is error
+            else:
+                is_ok = isinstance(agreed_error, ValueError)
+            self.assertTrue(world.allreduce(is_ok, op=_mpi.LAND))
+
+        error = None
+        if (world.rank > 0) or (world.size == 1):
+            error = IndexError("Raised on process %s." % (world.rank,))
+        agreed_error = agree_on_error(world, error)
+        if error is not None:
+            is_ok = agreed_error is error
+        else:
+            is_ok = \
+                isinstance(agreed_error, IndexError) \
+                and \
+                (str(agreed_error) == "Raised on process 1.")
+        self.assertTrue(world.allreduce(is_ok, op=_mpi.LAND))
 
 
 class CartLocaleCommsTest(_unittest.TestCase):

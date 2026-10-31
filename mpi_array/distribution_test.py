@@ -32,7 +32,7 @@ from . import unittest as _unittest
 from . import logging as _logging  # noqa: E402,F401
 
 from .indexing import IndexingExtent
-from .distribution import BlockPartition, Distribution
+from .distribution import BlockPartition, Distribution, ClonedDistribution
 from .distribution import CartLocaleExtent, GlobaleExtent, LocaleExtent
 
 
@@ -759,6 +759,32 @@ class DistributionTest(_unittest.TestCase):
             ),
             d.get_extent_for_rank(0)
         )
+
+    def test_find_overlapping_locales(self):
+        """
+        Tests for :meth:`mpi_array.distribution.Distribution.find_overlapping_locales`.
+        """
+        d = \
+            Distribution(
+                globale_extent=(slice(0, 10), slice(0, 10)),
+                locale_extents=[
+                    (slice(0, 5), slice(0, 10)),
+                    (slice(5, 10), slice(0, 5)),
+                    (slice(5, 10), slice(5, 10)),
+                    (slice(5, 5), slice(0, 10)),
+                ],
+                halo=2
+            )
+        self.assertSequenceEqual([0], d.find_overlapping_locales((0, 0), (5, 10)).tolist())
+        self.assertSequenceEqual([0, 1, 2], d.find_overlapping_locales((4, 4), (6, 6)).tolist())
+        self.assertSequenceEqual([1], d.find_overlapping_locales((5, 0), (10, 5)).tolist())
+        self.assertSequenceEqual([1, 2], d.find_overlapping_locales((5, 0), (6, 10)).tolist())
+        self.assertSequenceEqual([], d.find_overlapping_locales((2, 2), (2, 8)).tolist())
+        self.assertSequenceEqual([], d.find_overlapping_locales((10, 0), (12, 10)).tolist())
+
+        # Every locale has the element of a 0-d array.
+        d = ClonedDistribution(globale_extent=(), num_locales=3)
+        self.assertSequenceEqual([0, 1, 2], d.find_overlapping_locales((), ()).tolist())
 
 
 class BlockPartitionTest(_unittest.TestCase):

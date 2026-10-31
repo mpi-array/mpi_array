@@ -1293,9 +1293,9 @@ class GndarrayTest(_unittest.TestCase):
         barrier = updater_type.barrier
         num_barriers = []
 
-        def counting_barrier(updater):
+        def counting_barrier(updater, *args):
             num_barriers.append(1)
-            barrier(updater)
+            return barrier(updater, *args)
 
         shape = (8 * _mpi.COMM_WORLD.size, 8)
         for locale_type in (LT_PROCESS, LT_NODE):
@@ -1328,6 +1328,35 @@ class GndarrayTest(_unittest.TestCase):
                         op=_mpi.LAND
                     )
                 )
+
+    def test_copyto_destination_not_in_source(self):
+        """
+        :func:`mpi_array.globale.copyto` to an array with elements which are not in
+        the source array raises :obj:`ValueError` on every process, and copies nothing.
+        Each process calculates the updates of its own locale, only the locales which have
+        such elements find them.
+        """
+        size = _mpi.COMM_WORLD.size
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.zeros((10 * size + 5,), locale_type=locale_type) as dst, \
+                    _globale_creation.ones((10 * size,), locale_type=locale_type) as src:
+                with self.assertRaisesRegex(ValueError, "not in the source distribution"):
+                    _globale.copyto(dst, src)
+                self.assertTrue(
+                    dst.locale_comms.peer_comm.allreduce(
+                        bool(_np.all(dst.view_n == 0)),
+                        op=_mpi.LAND
+                    )
+                )
+                with _globale_creation.zeros_like(src) as dst:
+                    _globale.copyto(dst, src)
+                    self.assertTrue(
+                        dst.locale_comms.peer_comm.allreduce(
+                            bool(_np.all(dst.view_n == 1)),
+                            op=_mpi.LAND
+                        )
+                    )
 
 
 class CommLoggerTest(_unittest.TestCase):

@@ -41,7 +41,7 @@ from . import comms as _comms
 from . import distribution as _distribution
 from . import update as _update
 from .globale_ufunc import broadcast_shape, ufunc_result_type, get_extents
-from .globale_ufunc import check_equivalent_inter_locale_comms, agree_on_error
+from .globale_ufunc import check_equivalent_inter_locale_comms
 from .globale import gndarray as _gndarray
 from .locale import win_lndarray as _win_lndarray
 from .globale_creation import ones as _ones, zeros as _zeros, asarray as _asarray
@@ -1368,31 +1368,6 @@ class GndarrayUfuncTest(_unittest.TestCase):
             self.assertTrue(raises_on_all(lambda: _np.add(gary, 1.0, out=zero_dim_float)))
             self.assertTrue(raises_on_all(lambda: _np.add(gary, 1.0, out=wrong_shape)))
             self.assertTrue((gary == 1).all())
-
-    def test_agree_on_error(self):
-        """
-        Tests for :func:`mpi_array.globale_ufunc.agree_on_error`, the processes without
-        an error get one like the error of another process (also when its message can't
-        be made, which used to raise on that process only).
-        """
-        world = _mpi.COMM_WORLD
-
-        class UnprintableError(ValueError):
-
-            def __str__(self):
-                raise RuntimeError("Raised for the test.")
-
-        self.assertTrue(agree_on_error(world, None) is None)
-        for error_type in (ValueError, UnprintableError):
-            error = None
-            if world.rank == (world.size - 1):
-                error = error_type("Raised on the last process.")
-            agreed_error = agree_on_error(world, error)
-            if error is not None:
-                is_ok = agreed_error is error
-            else:
-                is_ok = isinstance(agreed_error, ValueError)
-            self.assertTrue(world.allreduce(is_ok, op=_mpi.LAND))
 
     def test_gufunc_not_implemented(self):
         """

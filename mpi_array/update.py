@@ -21,6 +21,7 @@ Classes and Functions
    HaloSingleExtentUpdate - Describes sub-extent for halo region update.
    MpiHaloSingleExtentUpdate - Extends :obj:`HaloSingleExtentUpdate` with MPI data type factory.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
+   MpiUpdatesForRedistribute - Extends :obj:`UpdatesForRedistribute` with MPI data types.
    RmaUpdateExecutor - Execute updates using one-sided RMA fetch.
 """
 from __future__ import absolute_import
@@ -836,16 +837,33 @@ class UpdatesForRedistribute(object):
         self,
         dst_distrib,
         src_distrib,
-        peer_rank_translator=None
+        peer_rank_translator=None,
+        dst_inter_locale_rank=None
     ):
         """
+        Calculates the updates.
+
+        :type dst_distrib: :obj:`mpi_array.distribution.Distribution`
+        :param dst_distrib: Distribution of the array which receives the elements.
+        :type src_distrib: :obj:`mpi_array.distribution.Distribution`
+        :param src_distrib: Distribution of the array from which the elements are copied.
+        :type peer_rank_translator: :obj:`mpi_array.globale.RankTranslator`
+        :param peer_rank_translator: Translates ranks between the peer communicators
+           of the destination and source arrays. If given, the regions which can be copied
+           directly from the source locales which share processes with a destination locale
+           are calculated first.
+        :type dst_inter_locale_rank: :samp:`None` or :obj:`int`
+        :param dst_inter_locale_rank: Only calculate the updates of the destination locale
+           with this rank, :samp:`None` for the updates of all destination locales.
+        :raises ValueError: If elements of the destination locales are not in
+           the source distribution.
         """
         object.__init__(self)
 
         self._dst_distrib = dst_distrib
         self._src_distrib = src_distrib
+        self._dst_inter_locale_rank = dst_inter_locale_rank
 
-        self._dst_extent_queue = None
         self._dst_cpy2_updates = None
         self._dst_rget_updates = None
 
@@ -881,6 +899,41 @@ class UpdatesForRedistribute(object):
 
         self.initialise()
 
+    @property
+    def dst_cpy2_updates(self):
+        """
+        A :obj:`dict` of :samp:`(dst_inter_locale_rank, updates)` pairs, the updates
+        copied directly from the source locales which share processes with the destination
+        locale.
+        """
+        return self._dst_cpy2_updates
+
+    @property
+    def dst_rget_updates(self):
+        """
+        A :obj:`dict` of :samp:`(dst_inter_locale_rank, updates)` pairs, the updates
+        fetched from the source locales.
+        """
+        return self._dst_rget_updates
+
+    @property
+    def dst_translated_peer_ranks(self):
+        """
+        The (sorted) peer ranks of each destination locale, translated to the ranks of
+        the peer communicator of the source (:samp:`None` without
+        a :samp:`peer_rank_translator`).
+        """
+        return self._dst_translated_peer_ranks
+
+    @property
+    def src_translated_peer_ranks(self):
+        """
+        The (sorted) peer ranks of each source locale, translated to the ranks of
+        the peer communicator of the destination (:samp:`None` without
+        a :samp:`peer_rank_translator`).
+        """
+        return self._src_translated_peer_ranks
+
     def create_pair_extent_update(
         self,
         dst_extent,
@@ -903,8 +956,8 @@ class UpdatesForRedistribute(object):
         """
         peu = \
             PairExtentUpdate(
-                self._dst_distrib.locale_extents[dst_extent.inter_locale_rank],
-                self._src_distrib.locale_extents[src_extent.inter_locale_rank],
+                self._dst_distrib.get_extent_for_rank(dst_extent.inter_locale_rank),
+                self._src_distrib.get_extent_for_rank(src_extent.inter_locale_rank),
                 intersection_extent,
                 intersection_extent
             )
@@ -937,71 +990,110 @@ class UpdatesForRedistribute(object):
                 self.update_dst_halo
             )
 
+    def calc_intersection_splits(self, dst_extents, src_extent):
+        """
+        Calls :meth:`calc_intersection_split` for each of the :samp:`{dst_extents}`.
+
+        :type dst_extents: sequence of :obj:`HaloIndexingExtent`
+        :param dst_extents: Extents which are to receive updates.
+        :type src_extent: :obj:`HaloIndexingExtent`
+        :param src_extent: Extent which is to provide the updates.
+        :rtype: :obj:`tuple`
+        :return: The :samp:`(leftovers, updates)` pair of :obj:`list` objects.
+        """
+        leftovers = []
+        updates = []
+        for dst_extent in dst_extents:
+            dst_leftovers, dst_updates = self.calc_intersection_split(dst_extent, src_extent)
+            leftovers += dst_leftovers
+            updates += dst_updates
+        return leftovers, updates
+
     def get_cpy2_src_extents(self, dst_inter_locale_rank):
         """
+        Returns the extents of the source locales (in rank order) which share processes
+        with the destination locale, the elements are copied directly from them.
+
+        :type dst_inter_locale_rank: :obj:`int`
+        :param dst_inter_locale_rank: The rank of the destination locale.
+        :rtype: :obj:`tuple`
+        :return: The source :obj:`mpi_array.distribution.LocaleExtent` objects, empty when
+           no :samp:`peer_rank_translator` was given.
         """
-        dst_translated_peer_ranks = self._dst_translated_peer_ranks[dst_inter_locale_rank]
-        src_locale_extents = self._src_distrib.locale_extents
-        src_extent_indices = \
-            tuple(
-                src_inter_locale_rank
-                for src_inter_locale_rank in range(0, len(src_locale_extents))
-                if _np.intersect1d(
-                    dst_translated_peer_ranks,
-                    self._src_peer_ranks[src_inter_locale_rank]
-                ).size > 0
-            )
-        src_extents = tuple(src_locale_extents[e] for e in src_extent_indices)
+        src_extents = ()
+        if (self._dst_translated_peer_ranks is not None) and (self._src_peer_ranks is not None):
+            dst_translated_peer_ranks = self._dst_translated_peer_ranks[dst_inter_locale_rank]
+            if self._src_peer_ranks.ndim == 2:
+                is_shared = \
+                    _np.any(_np.isin(self._src_peer_ranks, dst_translated_peer_ranks), axis=1)
+            else:
+                is_shared = \
+                    _np.array(
+                        tuple(
+                            _np.any(_np.isin(src_peer_ranks, dst_translated_peer_ranks))
+                            for src_peer_ranks in self._src_peer_ranks
+                        ),
+                        dtype="bool"
+                    )
+            src_extents = \
+                tuple(
+                    self._src_distrib.get_extent_for_rank(src_inter_locale_rank)
+                    for src_inter_locale_rank in _np.flatnonzero(is_shared)
+                )
         return src_extents
 
-    def initialise_cpy2_updates(self):
+    def get_rget_src_extents(self, dst_extent):
         """
-        """
-        if (self._dst_translated_peer_ranks is not None) and (self._src_peer_ranks is not None):
-            all_dst_leftovers = []
-            for dst_extent_idx in range(len(self._dst_extent_queue)):
-                dst_extent = self._dst_extent_queue.pop()
-                dst_inter_locale_rank = dst_extent.inter_locale_rank
-                src_extents = self.get_cpy2_src_extents(dst_inter_locale_rank)
-                dst_extent_leftovers = [dst_extent, ]
-                if (src_extents is not None) and (len(src_extents) > 0):
-                    for src_extent in src_extents:
-                        new_dst_extent_leftovers = []
-                        for dst_extent in dst_extent_leftovers:
-                            dst_leftovers, dst_updates = \
-                                self.calc_intersection_split(dst_extent, src_extent)
-                            self._dst_cpy2_updates[dst_inter_locale_rank] += dst_updates
-                            new_dst_extent_leftovers += dst_leftovers
-                        dst_extent_leftovers = new_dst_extent_leftovers
-                all_dst_leftovers += dst_extent_leftovers
+        Returns the extents of the source locales (in rank order) which have elements
+        of :samp:`{dst_extent}` (with its halo if :attr:`update_dst_halo`).
 
-            self._dst_extent_queue.extend(all_dst_leftovers)
-
-    def initialise_rget_updates(self):
+        :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param dst_extent: The extent of the destination locale.
+        :rtype: :obj:`tuple`
+        :return: The source :obj:`mpi_array.distribution.LocaleExtent` objects.
         """
-        """
-        for src_rank in range(len(self._src_distrib.locale_extents)):
-            src_extent = self._src_distrib.locale_extents[src_rank]
-            all_dst_leftovers = []
-            while len(self._dst_extent_queue) > 0:
-                dst_extent = self._dst_extent_queue.pop()
-                dst_rank = dst_extent.inter_locale_rank
-                dst_leftovers, dst_updates = \
-                    self.calc_intersection_split(dst_extent, src_extent)
-                self._dst_rget_updates[dst_rank] += dst_updates
-                all_dst_leftovers += dst_leftovers
-            self._dst_extent_queue.extend(all_dst_leftovers)
-            if len(self._dst_extent_queue) <= 0:
-                break
+        if self.update_dst_halo:
+            start, stop = dst_extent.start_h, dst_extent.stop_h
+        else:
+            start, stop = dst_extent.start_n, dst_extent.stop_n
+        return \
+            tuple(
+                self._src_distrib.get_extent_for_rank(src_inter_locale_rank)
+                for src_inter_locale_rank in self._src_distrib.find_overlapping_locales(start, stop)
+            )
 
-        if len(self._dst_extent_queue) > 0:
-            raise_not_in_source_distribution(self._dst_extent_queue, self._src_distrib)
+    def initialise_locale_updates(self, dst_inter_locale_rank):
+        """
+        Calculates the updates of a destination locale: first those copied directly
+        from the source locales which share processes with it (:meth:`get_cpy2_src_extents`),
+        then those fetched from the source locales which have the remaining elements
+        (:meth:`get_rget_src_extents`), in rank order.
+
+        :type dst_inter_locale_rank: :obj:`int`
+        :param dst_inter_locale_rank: The rank of the destination locale.
+        :rtype: :obj:`list`
+        :return: The regions of the destination extent which are not in the source distribution.
+        """
+        dst_extent = self._dst_distrib.get_extent_for_rank(dst_inter_locale_rank)
+        leftovers = [dst_extent, ]
+        for src_extent in self.get_cpy2_src_extents(dst_inter_locale_rank):
+            leftovers, updates = self.calc_intersection_splits(leftovers, src_extent)
+            self._dst_cpy2_updates[dst_inter_locale_rank] += updates
+        if len(leftovers) > 0:
+            for src_extent in self.get_rget_src_extents(dst_extent):
+                leftovers, updates = self.calc_intersection_splits(leftovers, src_extent)
+                self._dst_rget_updates[dst_inter_locale_rank] += updates
+                if len(leftovers) <= 0:
+                    break
+        return leftovers
 
     def check_updates(self):
         """
         Runs consistency checks on the calculated updates, assumes that
         the :attr:`dst_distrib` and :attr:`src_distrib` distributed
         as a partitioning (no locale extent overlaps except for halo).
+        When only the updates of one destination locale were calculated, the updates
+        are checked against its extent.
 
         :raises RuntimeError: If update inconsistency discovered.
         """
@@ -1028,9 +1120,14 @@ class UpdatesForRedistribute(object):
                             (isect, u0, u1)
                         )
 
-        globale_intersect = \
-            self._dst_distrib.globale_extent.calc_intersection(self._src_distrib.globale_extent)
-        total_intersect_elems = _np.prod(globale_intersect.shape)
+        if self._dst_inter_locale_rank is None:
+            dst_extent = self._dst_distrib.globale_extent
+        else:
+            dst_extent = self._dst_distrib.get_extent_for_rank(self._dst_inter_locale_rank)
+        globale_intersect = dst_extent.calc_intersection(self._src_distrib.globale_extent)
+        total_intersect_elems = 0
+        if globale_intersect is not None:
+            total_intersect_elems = _np.prod(globale_intersect.shape)
 
         if total_intersect_elems != total_dst_update_elems:
             msg += \
@@ -1055,20 +1152,116 @@ class UpdatesForRedistribute(object):
                     (self.__class__.__name__, msg)
                 )
 
-    def initialise_updates(self):
-        """
-        """
-        self.initialise_cpy2_updates()
-        self.initialise_rget_updates()
-
     def initialise(self):
         """
+        Calculates the updates of the destination locales (see :meth:`initialise_locale_updates`).
+
+        :raises ValueError: If elements of the destination locales are not in
+           the source distribution.
         """
-        self._dst_extent_queue = _collections.deque()
-        self._dst_extent_queue.extend(self._dst_distrib.locale_extents)
         self._dst_cpy2_updates = _collections.defaultdict(list)
         self._dst_rget_updates = _collections.defaultdict(list)
-        self.initialise_updates()
+        if self._dst_inter_locale_rank is None:
+            dst_inter_locale_ranks = range(self._dst_distrib.num_locales)
+        else:
+            dst_inter_locale_ranks = (self._dst_inter_locale_rank,)
+        leftovers = []
+        for dst_inter_locale_rank in dst_inter_locale_ranks:
+            leftovers += self.initialise_locale_updates(dst_inter_locale_rank)
+        if len(leftovers) > 0:
+            raise_not_in_source_distribution(leftovers, self._src_distrib)
+
+
+class MpiUpdatesForRedistribute(UpdatesForRedistribute):
+
+    """
+    Extends :obj:`UpdatesForRedistribute` by over-riding :meth:`create_pair_extent_update`
+    to generate :obj:`MpiPairExtentUpdate` objects (:obj:`MpiPairExtentUpdateDifferentDtypes`
+    objects when the element types differ) with their MPI data types. The updates don't
+    refer to arrays, they can be used to copy between any arrays of the distributions,
+    element types and orders.
+    """
+
+    def __init__(
+        self,
+        dst_distrib,
+        src_distrib,
+        dst_dtype,
+        src_dtype,
+        dst_order="C",
+        src_order="C",
+        casting="same_kind",
+        peer_rank_translator=None,
+        dst_inter_locale_rank=None
+    ):
+        """
+        Calculates the updates.
+
+        :type dst_dtype: :obj:`numpy.dtype`
+        :param dst_dtype: The element type of the array which receives the elements.
+        :type src_dtype: :obj:`numpy.dtype`
+        :param src_dtype: The element type of the array from which the elements are copied.
+        :type dst_order: :obj:`str`
+        :param dst_order: The memory layout of the array which receives the elements.
+        :type src_order: :obj:`str`
+        :param src_order: The memory layout of the array from which the elements are copied.
+        :type casting: :obj:`str`
+        :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
+
+        See :obj:`UpdatesForRedistribute` for the other parameters.
+        """
+        self._dst_dtype = _np.dtype(dst_dtype)
+        self._src_dtype = _np.dtype(src_dtype)
+        self._dst_order = dst_order
+        self._src_order = src_order
+        self._casting = casting
+        self._pair_extent_update_type = MpiPairExtentUpdate
+        if self._dst_dtype != self._src_dtype:
+            self._pair_extent_update_type = MpiPairExtentUpdateDifferentDtypes
+        UpdatesForRedistribute.__init__(
+            self,
+            dst_distrib,
+            src_distrib,
+            peer_rank_translator=peer_rank_translator,
+            dst_inter_locale_rank=dst_inter_locale_rank
+        )
+
+    def create_pair_extent_update(
+        self,
+        dst_extent,
+        src_extent,
+        intersection_extent
+    ):
+        """
+        Factory method for creating :obj:`MpiPairExtentUpdate` objects.
+
+        :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param dst_extent: Destination extent.
+        :type src_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param src_extent: Source extent.
+        :type intersection_extent: :obj:`mpi_array.indexing.IndexingExtent`
+        :param src_extent: The intersection of :samp:`{src_extent}`
+           and :samp:`{dst_extent}` which defines the region of array elements which
+           are to be transferred from source to destination.
+        :rtype: :obj:`list`
+        :return: The :obj:`MpiPairExtentUpdate` defining the source and destination sub-arrays.
+        """
+        update = \
+            self._pair_extent_update_type(
+                self._dst_distrib.get_extent_for_rank(dst_extent.inter_locale_rank),
+                self._src_distrib.get_extent_for_rank(src_extent.inter_locale_rank),
+                intersection_extent,
+                intersection_extent
+            )
+        update.initialise_data_types(
+            dst_dtype=self._dst_dtype,
+            src_dtype=self._src_dtype,
+            dst_order=self._dst_order,
+            src_order=self._src_order
+        )
+        update.casting = self._casting
+
+        return [update, ]
 
 
 class UpdatesForGet(object):
@@ -1121,7 +1314,7 @@ class UpdatesForGet(object):
         peu = \
             PairExtentUpdate(
                 self._dst_extent,
-                self._src_distrib.locale_extents[src_extent.inter_locale_rank],
+                self._src_distrib.get_extent_for_rank(src_extent.inter_locale_rank),
                 intersection_extent,
                 intersection_extent
             )
@@ -1157,7 +1350,7 @@ class UpdatesForGet(object):
     def get_cpy2_src_extents(self, dst_inter_locale_rank):
         """
         """
-        src_extents = (self._src_distrib.locale_extents[dst_inter_locale_rank],)
+        src_extents = (self._src_distrib.get_extent_for_rank(dst_inter_locale_rank),)
         return src_extents
 
     def initialise_cpy2_updates(self):
@@ -1184,9 +1377,16 @@ class UpdatesForGet(object):
 
     def initialise_rget_updates(self):
         """
+        Calculates the updates fetched from the source locales (in rank order) which
+        have the elements not copied by the direct copy updates. Only the source locales
+        whose extents intersect the destination extent are considered.
         """
-        for src_rank in range(len(self._src_distrib.locale_extents)):
-            src_extent = self._src_distrib.locale_extents[src_rank]
+        if self._update_dst_halo:
+            start, stop = self._dst_extent.start_h, self._dst_extent.stop_h
+        else:
+            start, stop = self._dst_extent.start_n, self._dst_extent.stop_n
+        for src_rank in self._src_distrib.find_overlapping_locales(start, stop):
+            src_extent = self._src_distrib.get_extent_for_rank(src_rank)
             all_dst_leftovers = []
             while len(self._dst_extent_queue) > 0:
                 dst_extent = self._dst_extent_queue.pop()
@@ -1265,7 +1465,7 @@ class MpiUpdatesForGet(UpdatesForGet):
         peu = \
             MpiPairExtentUpdate(
                 self._dst_extent,
-                self._src_distrib.locale_extents[src_extent.inter_locale_rank],
+                self._src_distrib.get_extent_for_rank(src_extent.inter_locale_rank),
                 intersection_extent,
                 intersection_extent
             )

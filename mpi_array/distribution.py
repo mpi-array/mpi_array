@@ -881,6 +881,31 @@ class Distribution(object):
 
         return globale_extent
 
+    def find_overlapping_locales(self, start, stop):
+        """
+        Returns the ranks (of the :samp:`inter_locale_comm` communicator, in increasing
+        order) of the locales whose extents (without halo) intersect the
+        region :samp:`[{start}, {stop})`. All locales are checked at once (array
+        operations, no loop over the locales). For a 0-d array every locale intersects
+        the region.
+
+        :type start: sequence of :obj:`int`
+        :param start: Per axis start indices of the region.
+        :type stop: sequence of :obj:`int`
+        :param stop: Per axis stop indices of the region.
+        :rtype: :obj:`numpy.ndarray`
+        :return: The ranks of the locales which have elements of the region.
+        """
+        struct_locale_extents = self._struct_locale_extents
+        intersects = \
+            _np.all(
+                _np.maximum(struct_locale_extents[self._locale_extent_type.START_N_STR], start)
+                <
+                _np.minimum(struct_locale_extents[self._locale_extent_type.STOP_N_STR], stop),
+                axis=1
+            )
+        return _np.flatnonzero(intersects)
+
     def get_extent_for_rank(self, inter_locale_rank):
         """
         Returns extent associated with the specified rank
