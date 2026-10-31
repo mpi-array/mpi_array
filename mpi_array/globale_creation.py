@@ -429,7 +429,7 @@ def asarray(a, dtype=None, order=None, **kwargs):
     """
     Converts :samp:`{a}` (potentially via a copy)
     to a :obj:`mpi_array.globale.gndarray`.
-    The :samp:`{kwargs}` are as for the :func:`mpi_array.comms.create_distributon` function
+    The :samp:`{kwargs}` are as for the :func:`mpi_array.comms.create_distribution` function
     and determine the distribution for the
     returned :obj:`mpi_array.globale.gndarray`.
 
@@ -442,7 +442,7 @@ def asarray(a, dtype=None, order=None, **kwargs):
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory. Defaults to :samp:`'C'`.
     :rtype: :obj:`mpi_array.globale.gndarray`
-    :return: The object :obj:`a` converted to an instance
+    :return: The object :samp:`{a}` converted to an instance
        of :obj:`mpi_array.globale.gndarray`.
 
     .. seealso:: :func:`array`, :func:`asanyarray`
@@ -463,7 +463,7 @@ def asanyarray(a, dtype=None, order=None, **kwargs):
        Whether to store multi-dimensional data in row-major (C-style)
        or column-major (Fortran-style) order in memory. Defaults to :samp:`'C'`.
     :rtype: :obj:`mpi_array.globale.gndarray`
-    :return: The object :obj:`a` converted to an instance
+    :return: The object :samp:`{a}` converted to an instance
        of :obj:`mpi_array.globale.gndarray`.
 
     .. seealso:: :func:`array`, :func:`asarray`

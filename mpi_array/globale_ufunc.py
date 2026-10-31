@@ -372,7 +372,7 @@ def broadcast_shape(*shape_args):
 
 def shape_extend_dims(ndim, shape):
     """
-    Returns :obj:`shape` pre-prepended with ones so returned 1D array has length :samp:`{ndim}`.
+    Returns :samp:`{shape}` prepended with ones so returned 1D array has length :samp:`{ndim}`.
 
     :type ndim: :obj:`int`
     :param ndim: Length of returned 1D sequence.
@@ -585,7 +585,7 @@ def check_equivalent_inter_locale_comms(
     Checks that all the :obj:`mpi_array.globale.gndarray` elements
     of :samp:`{gndarrays}` have equivalent inter-locale communicators.
     On processes which are not inter-locale processes the communicators
-    are all :attr:`mpi4py.MPI.COMM_NULL`, there is nothing to compare: for two or more
+    are all :obj:`mpi4py.MPI.COMM_NULL`, there is nothing to compare: for two or more
     arrays this is collective over the intra-locale communicator
     of :samp:`{gndarrays}[0]`, so that all processes of a locale raise if any does.
 

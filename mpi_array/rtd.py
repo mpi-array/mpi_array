@@ -30,7 +30,7 @@ MOCK_MODULES = ['mpi4py', "mpi4py.MPI"]
 
 def initialise_mock_modules(module_name_list):
     """
-    Updates system modules (:func:`sys.modules.update`) with
+    Updates system modules (:obj:`sys.modules`) with
     :samp:`unittest.mock.MagicMock` objects.
 
     :type module_name_list: sequence of :obj:`str`

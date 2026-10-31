@@ -177,9 +177,9 @@ class IndexingExtent(object):
         Returns the indexing extent which is the intersection of
         this extent with the :samp:`{other}` extent.
 
-        :type other: :obj:`IndexingExtent`
+        :type other: :obj:`mpi_array.indexing.IndexingExtent`
         :param other: Perform intersection calculation using this extent.
-        :rtype: :obj:`IndexingExtent`
+        :rtype: :obj:`mpi_array.indexing.IndexingExtent`
         :return: :samp:`None` if the extents do not intersect, otherwise
            returns the extent of overlapping indices.
         """
@@ -222,13 +222,13 @@ class IndexingExtent(object):
     def calc_intersection_split(self, other):
         """
         Returns :samp:`(leftovers, intersection)` pair, where :samp:`intersection`
-        is the :obj:`IndexingExtent` object (possibly :samp:`None`) indicating
+        is the :obj:`mpi_array.indexing.IndexingExtent` object (possibly :samp:`None`) indicating
         the intersection of this (:samp:`{self}`) extent with the :samp:`other` extent
-        and :samp:`leftovers` is a list of :obj:`IndexingExtent` objects
+        and :samp:`leftovers` is a list of :obj:`mpi_array.indexing.IndexingExtent` objects
         indicating regions of :samp:`self` which do not intersect with
         the :samp:`other` extent.
 
-        :type other: :obj:`IndexingExtent`
+        :type other: :obj:`mpi_array.indexing.IndexingExtent`
         :param other: Perform intersection calculation using this extent.
         :rtype: :obj:`tuple`
         :return: :samp:`(leftovers, intersection)` pair.
@@ -712,7 +712,7 @@ def calc_intersection_split(
     update_dst_halo
 ):
     """
-    Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+    Calculates intersection between :samp:`{dst_extent}` and :samp:`{src_extent}`.
     Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
     are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
     The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
@@ -723,18 +723,18 @@ def calc_intersection_split(
 
     Returns :obj:`tuple` pair :samp:`(leftovers, updates)`.
 
-    :type dst_extent: :obj:`HaloIndexingExtent`
+    :type dst_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
     :param dst_extent: Extent which is to receive update from intersection
        with :samp:`{src_extent}`.
-    :type src_extent: :obj:`HaloIndexingExtent`
+    :type src_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
     :param src_extent: Extent which is to provide update for the intersecting
        region of :samp:`{dst_extent}`.
     :type update_factory: callable :obj:`object`
-    :param update_factory: Object called to create instances
-       of :obj:`mpi_array.decomposition.PairUpdateExtent`.
+    :param update_factory: Object called to create the :obj:`list` of updates of
+       the intersection (e.g. :obj:`mpi_array.update.PairExtentUpdate` instances).
     :type update_dst_halo: :obj:`bool`
     :param update_dst_halo: If true, then the halo of :samp:`{dst_extent}` is
-       include when calculating the intersection with :samp:`{src_extent}`.
+       included when calculating the intersection with :samp:`{src_extent}`.
     :rtype: :obj:`tuple`
     :return: Returns :obj:`tuple` pair of :samp:`(leftovers, updates)`.
     """

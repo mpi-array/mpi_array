@@ -136,7 +136,7 @@ _process_time = None
 def initialise_process_time_timer():
     """
     Loads (or creates) :func:`time.process_time` function
-    and caches the function in :attr:`mpi_array.init._process_time`.
+    and caches the function in :samp:`mpi_array.init._process_time`.
 
     :rtype: :obj:`function`
     :return: The :func:`time.process_time` function, if available, otherwise, if possible,

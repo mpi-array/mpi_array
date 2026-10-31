@@ -90,14 +90,15 @@ class ExtentUpdate(object):
     @property
     def dst_extent(self):
         """
-        The locale :obj:`LocaleExtent` which is to receive sub-array update.
+        The locale :obj:`mpi_array.distribution.LocaleExtent` which is to receive sub-array update.
         """
         return self._dst.locale_extent
 
     @property
     def src_extent(self):
         """
-        The locale :obj:`CartLocaleExtent` from which the sub-array update is read.
+        The locale :obj:`mpi_array.distribution.CartLocaleExtent` from which the sub-array
+        update is read.
         """
         return self._src.locale_extent
 
@@ -115,7 +116,7 @@ def pair_extent_update_copyto(peu, dst_array, src_array, casting):
     :type src_array: :obj:`numpy.ndarray`
     :param src_array: Source for copy.
     :type casting: :obj:`str`
-    :param casting: Indicates casting regime, see :func:`numpy.casting`.
+    :param casting: Indicates casting regime, see :func:`numpy.copyto`.
     """
     src_slice = peu.src_extent.globale_to_locale_slice_h(peu.src_update_extent.to_slice())
     dst_slice = peu.dst_extent.globale_to_locale_slice_h(peu.dst_update_extent.to_slice())
@@ -223,14 +224,15 @@ class PairExtentUpdate(ExtentUpdate):
     @property
     def dst_update_extent(self):
         """
-        The locale sub-extent (:obj:`IndexingExtent`) to be updated.
+        The locale sub-extent (:obj:`mpi_array.indexing.IndexingExtent`) to be updated.
         """
         return self._dst.region_extent
 
     @property
     def src_update_extent(self):
         """
-        The locale sub-extent (:obj:`IndexingExtent`) from which the update is read.
+        The locale sub-extent (:obj:`mpi_array.indexing.IndexingExtent`) from which the update
+        is read.
         """
         return self._src.region_extent
 
@@ -399,14 +401,15 @@ class MpiPairExtentUpdate(ExtentUpdate):
     @property
     def dst_update_extent(self):
         """
-        The locale sub-extent (:obj:`IndexingExtent`) to be updated.
+        The locale sub-extent (:obj:`mpi_array.indexing.IndexingExtent`) to be updated.
         """
         return self._dst.region_extent
 
     @property
     def src_update_extent(self):
         """
-        The locale sub-extent (:obj:`IndexingExtent`) from which the update is read.
+        The locale sub-extent (:obj:`mpi_array.indexing.IndexingExtent`) from which the update
+        is read.
         """
         return self._src.region_extent
 
@@ -629,7 +632,8 @@ class HaloSingleExtentUpdate(ExtentUpdate):
     @property
     def update_extent(self):
         """
-        The :obj:`IndexingExtent` indicating the halo sub-array which is to be updated.
+        The :obj:`mpi_array.indexing.IndexingExtent` indicating the halo sub-array which is to
+        be updated.
         """
         return self._src.region_extent
 
@@ -712,7 +716,8 @@ class MpiHaloSingleExtentUpdate(ExtentUpdate):
     @property
     def update_extent(self):
         """
-        The :obj:`IndexingExtent` indicating the halo sub-array which is to be updated.
+        The :obj:`mpi_array.indexing.IndexingExtent` indicating the halo sub-array which is to
+        be updated.
         """
         return self._src.region_extent
 
@@ -768,7 +773,7 @@ class HalosUpdate(object):
         :type rank_to_extents_map: :obj:`dict`
         :param rank_to_extents_map: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
-           is a :obj:`CartLocaleExtent` object indicating the indexing extent
+           is a :obj:`mpi_array.distribution.CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.` Only the extent of :samp:`{dst_rank}` is needed
            when :samp:`{cart_coord_to_extent}` is given.
         :type cart_coord_to_extent: callable
@@ -783,11 +788,11 @@ class HalosUpdate(object):
         """
         Factory method for creating instances of type :obj:`HaloSingleExtentUpdate`.
 
-        :type dst_extent: :obj:`IndexingExtent`
+        :type dst_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param dst_extent: The destination locale extent for halo element update.
-        :type src_extent: :obj:`IndexingExtent`
+        :type src_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param src_extent: The source locale extent for obtaining halo element update.
-        :type halo_extent: :obj:`IndexingExtent`
+        :type halo_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param halo_extent: The extent indicating the sub-array of halo elements.
 
         :rtype: :obj:`HaloSingleExtentUpdate`
@@ -800,17 +805,17 @@ class HalosUpdate(object):
         Calculates the intersection of :samp:`{dst_extent}` halo slab with
         the update region of :samp:`{src_extent}`.
 
-        :type dst_extent: :obj:`CartLocaleExtent`
+        :type dst_extent: :obj:`mpi_array.distribution.CartLocaleExtent`
         :param dst_extent: Halo slab indicated by :samp:`{axis}` and :samp:`{dir}`
            taken from this extent.
-        :type src_extent: :obj:`CartLocaleExtent`
+        :type src_extent: :obj:`mpi_array.distribution.CartLocaleExtent`
         :param src_extent: This extent, minus the halo in the :samp:`{axis}` dimension,
            is intersected with the halo slab.
         :type axis: :obj:`int`
         :param axis: Axis dimension indicating slab.
         :type dir: :attr:`LO` or :attr:`HI`
         :param dir: :attr:`LO` for low-index slab or :attr:`HI` for high-index slab.
-        :rtype: :obj:`IndexingExtent`
+        :rtype: :obj:`mpi_array.indexing.IndexingExtent`
         :return: Overlap extent of :samp:{dst_extent} halo-slab and
            the :samp:`{src_extent}` update region.
         """
@@ -824,12 +829,12 @@ class HalosUpdate(object):
         Partitions the specified extent into smaller extents with number
         of elements no more than :samp:`{max_elements}`.
 
-        :type extent: :obj:`CartLocaleExtent`
+        :type extent: :obj:`mpi_array.distribution.CartLocaleExtent`
         :param extent: The extent to be split.
         :type max_elements: :obj:`int`
         :param max_elements: Each partition of the returned split has no more
            than this many elements.
-        :rtype: :obj:`list` of :obj:`CartLocaleExtent`
+        :rtype: :obj:`list` of :obj:`mpi_array.distribution.CartLocaleExtent`
         :return: List of extents forming a partition of :samp:`{extent}`
            with each extent having no more than :samp:`{max_element}` elements.
         """
@@ -846,7 +851,7 @@ class HalosUpdate(object):
         :type rank_to_extents_map: :obj:`dict`
         :param rank_to_extents_map: Dictionary of :samp:`(r, extent)`
            pairs for all ranks :samp:`r` (of :samp:`cart_comm`), where :samp:`extent`
-           is a :obj:`CartLocaleExtent` object indicating the indexing extent
+           is a :obj:`mpi_array.distribution.CartLocaleExtent` object indicating the indexing extent
            (tile) on MPI rank :samp:`r.`
         :type cart_coord_to_extent: callable
         :param cart_coord_to_extent: Returns the extent of the tile with a cartesian
@@ -912,11 +917,11 @@ class MpiHalosUpdate(HalosUpdate):
         """
         Factory method for creating instances of type :obj:`MpiHaloSingleExtentUpdate`.
 
-        :type dst_extent: :obj:`IndexingExtent`
+        :type dst_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param dst_extent: The destination locale extent for halo element update.
-        :type src_extent: :obj:`IndexingExtent`
+        :type src_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param src_extent: The source locale extent for obtaining halo element update.
-        :type halo_extent: :obj:`IndexingExtent`
+        :type halo_extent: :obj:`mpi_array.indexing.IndexingExtent`
         :param halo_extent: The extent indicating the sub-array of halo elements.
 
         :rtype: :obj:`MpiHaloSingleExtentUpdate`
@@ -1073,17 +1078,17 @@ class UpdatesForRedistribute(object):
 
     def calc_intersection_split(self, dst_extent, src_extent):
         """
-        Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+        Calculates intersection between :samp:`{dst_extent}` and :samp:`{src_extent}`.
         Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
         are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
         The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
         are returned as a :obj:`list` of *update* :obj:`PairExtentUpdate` elements.
         Returns :obj:`tuple` pair :samp:`(leftovers, updates)`
 
-        :type dst_extent: :obj:`HaloIndexingExtent`
+        :type dst_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param dst_extent: Extent which is to receive update from intersection
            with :samp:`{src_extent}`.
-        :type src_extent: :obj:`HaloIndexingExtent`
+        :type src_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param src_extent: Extent which is to provide update for the intersecting
            region of :samp:`{dst_extent}`.
         :rtype: :obj:`tuple`
@@ -1101,9 +1106,9 @@ class UpdatesForRedistribute(object):
         """
         Calls :meth:`calc_intersection_split` for each of the :samp:`{dst_extents}`.
 
-        :type dst_extents: sequence of :obj:`HaloIndexingExtent`
+        :type dst_extents: sequence of :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param dst_extents: Extents which are to receive updates.
-        :type src_extent: :obj:`HaloIndexingExtent`
+        :type src_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param src_extent: Extent which is to provide the updates.
         :rtype: :obj:`tuple`
         :return: The :samp:`(leftovers, updates)` pair of :obj:`list` objects.
@@ -1537,17 +1542,17 @@ class UpdatesForGet(object):
 
     def calc_intersection_split(self, dst_extent, src_extent):
         """
-        Calculates intersection between :samp:`{dst_extent}` and `{src_extent}`.
+        Calculates intersection between :samp:`{dst_extent}` and :samp:`{src_extent}`.
         Any regions of :samp:`{dst_extent}` which **do not** intersect with :samp:`{src_extent}`
         are returned as a :obj:`list` of *left-over* :samp:`type({dst_extent})` elements.
         The regions of :samp:`{dst_extent}` which **do** intersect with :samp:`{src_extent}`
         are returned as a :obj:`list` of *update* :obj:`PairExtentUpdate` elements.
         Returns :obj:`tuple` pair :samp:`(leftovers, updates)`
 
-        :type dst_extent: :obj:`HaloIndexingExtent`
+        :type dst_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param dst_extent: Extent which is to receive update from intersection
            with :samp:`{src_extent}`.
-        :type src_extent: :obj:`HaloIndexingExtent`
+        :type src_extent: :obj:`mpi_array.indexing.HaloIndexingExtent`
         :param src_extent: Extent which is to provide update for the intersecting
            region of :samp:`{dst_extent}`.
         :rtype: :obj:`tuple`
@@ -1716,7 +1721,7 @@ class RmaUpdateExecutor(object):
         Initialise.
 
         :type inter_win: :obj:`mpi4py.MPI.Win`
-        :param inter_win: The window of the source arrays, :attr:`mpi4py.MPI.WIN_NULL`
+        :param inter_win: The window of the source arrays, :obj:`mpi4py.MPI.WIN_NULL`
            (or :samp:`None`) on processes which don't fetch.
         :type dst_lndarray: :obj:`numpy.ndarray`
         :param dst_lndarray: The destination array.

@@ -902,7 +902,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
         create a new distribution for the output. With locales of more than one
         process this could fail with mismatched collectives (and hang): the inter-locale
         processes passed their cartesian communicator to the (cached) communicators
-        creation, the other processes passed :attr:`mpi4py.MPI.COMM_NULL`, so the cache
+        creation, the other processes passed :obj:`mpi4py.MPI.COMM_NULL`, so the cache
         could have an entry for some processes of a locale but not for the others.
         """
         for shape_a, shape_b in (((8, 1), (1, 8)), ((8, 1, 1), (1, 8, 1)), ((1, 8), (8, 1))):
@@ -1294,7 +1294,7 @@ class GndarrayUfuncTest(_unittest.TestCase):
         equivalent, also on the processes which aren't inter-locale processes
         (:samp:`COMM_NULL` communicators). Those used to carry on (e.g. into the ufunc)
         while the inter-locale processes raised. Here the communicators have the same
-        processes in a different order (:attr:`mpi4py.MPI.SIMILAR`), the locales have
+        processes in a different order (:obj:`mpi4py.MPI.SIMILAR`), the locales have
         up to two processes.
         """
         world = _mpi.COMM_WORLD

@@ -139,7 +139,7 @@ class LocaleExtent(HaloSubExtent):
 
     """
     Indexing extent for single region of array residing on a locale.
-    Extends :obj:`HaloSubExtent` by storing additional :attr:`{peer_rank}`
+    Extends :obj:`HaloSubExtent` by storing additional :attr:`peer_rank`
     and :attr:`inter_locale_rank` rank integers indicating the process
     responsible for exchanging the data to/from this extent.
     """
@@ -257,7 +257,7 @@ class LocaleExtent(HaloSubExtent):
         :param axis: Indexing extent of halo slab for this axis.
         :type dir: :attr:`LO` or :attr:`HI`
         :param dir: Indicates low-index halo slab or high-index halo slab.
-        :rtype: :obj:`IndexingExtent`
+        :rtype: :obj:`mpi_array.indexing.IndexingExtent`
         :return: Indexing extent for halo slab.
 
         .. todo::
@@ -285,7 +285,7 @@ class LocaleExtent(HaloSubExtent):
 
         :type axis: :obj:`int` or sequence of :obj:`int`
         :param axis: Axis (or axes) for which halo is trimmed.
-        :rtype: :obj:`IndexingExtent`
+        :rtype: :obj:`mpi_array.indexing.IndexingExtent`
         :return: Indexing extent with halo trimmed from specified axis (or axes) :samp:`{axis}`.
 
         .. todo::
@@ -439,7 +439,7 @@ class CartLocaleExtent(LocaleExtent):
            which corresponds to the :samp:`{peer_comm}` peer_rank in the :samp:`peer_comm`
            communicator.
         :type cart_coord: sequence of :obj:`int`
-        :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
+        :param cart_coord: Coordinate index (:meth:`mpi4py.MPI.Cartcomm.Get_coords`) of
            this :obj:`LocaleExtent` in the cartesian domain distribution.
         :type cart_shape: sequence of :obj:`int`
         :param cart_shape: Number of :obj:`LocaleExtent` regions in each axis direction
@@ -492,7 +492,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_rank(self):
         """
         An :obj:`int` indicating the rank of the process in the :samp:`cart_comm`
-        cartesian communicator which corresponds to the :attr:`{peer_rank}` rank
+        cartesian communicator which corresponds to the :attr:`peer_rank` rank
         in the :samp:`peer_comm` communicator.
         """
         return self.inter_locale_rank
@@ -501,7 +501,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_coord(self):
         """
         A :obj:`tuple` of :obj:`int` indicating the coordinate
-        index (:meth:`mpi4py.MPI.CartComm.Get_coordinate`) of
+        index (:meth:`mpi4py.MPI.Cartcomm.Get_coords`) of
         this :obj:`LocaleExtent` in the cartesian domain distribution.
         """
         return self._struct[self.CART_COORD]
@@ -1168,7 +1168,7 @@ class BlockPartition(Distribution):
            number of high-index ghost elements).
         :type cart_coord_to_cart_rank: :obj:`dict`
         :param cart_coord_to_cart_rank: Mapping between cartesian
-           communicator coordinate (:meth:`mpi4py.MPI.CartComm.Get_coords`)
+           communicator coordinate (:meth:`mpi4py.MPI.Cartcomm.Get_coords`)
            and cartesian communicator rank.
         """
         self._globale_extent_type = GlobaleExtent

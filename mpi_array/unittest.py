@@ -109,7 +109,7 @@ def open_hang_dump_file():
     """
     If the :samp:`MPI_ARRAY_TEST_HANG_DIR` environment variable names a directory,
     opens the file :samp:`hang_stacks_rank{NNNN}.txt` (:samp:`{NNNN}` is
-    the :attr:`mpi4py.MPI.COMM_WORLD` rank) in that directory, and the hang detection
+    the :obj:`mpi4py.MPI.COMM_WORLD` rank) in that directory, and the hang detection
     writes stacks to this file instead of :obj:`sys.stderr`.
 
     :rtype: :samp:`None` or :obj:`str`
@@ -180,14 +180,14 @@ class TestCase(_builtin_unittest.TestCase):
 
     def assertArraySplitEqual(self, splt1, splt2):
         """
-        Compares :obj:`list` of :obj:`numpy.ndarray` results returned by :func:`numpy.mpi_array`
-        and :func:`mpi_array.split.mpi_array` functions.
+        Compares :obj:`list` of :obj:`numpy.ndarray` results returned by
+        :func:`numpy.array_split` and :func:`array_split.split.array_split` functions.
 
         :type splt1: :obj:`list` of :obj:`numpy.ndarray`
         :param splt1: First object in equality comparison.
         :type splt2: :obj:`list` of :obj:`numpy.ndarray`
         :param splt2: Second object in equality comparison.
-        :raises unittest.AssertionError: If any element of :samp:`{splt1}` is not equal to
+        :raises AssertionError: If any element of :samp:`{splt1}` is not equal to
             the corresponding element of :samp:`splt2`.
         """
         self.assertEqual(len(splt1), len(splt2))
@@ -501,7 +501,7 @@ class TextTestRunner(_builtin_unittest.TextTestRunner):
 class TestProgram(_builtin_unittest.TestProgram):
 
     """
-    A command-line program that runs a set of tests, extends :obj:`unittest.TestProgram`
+    A command-line program that runs a set of tests, extends :samp:`unittest.TestProgram`
     by using logging rather than standard stream.
     """
 
@@ -518,7 +518,7 @@ def main(
     failfast=None
 ):
     """
-    Like :func:`unittest.main`, initialises :mod:`logging.Logger` objects
+    Like :func:`unittest.main`, initialises :obj:`logging.Logger` objects
     and instantiates a :obj:`TestProgram` to discover and run :obj:`TestCase` objects.
     Loads a set of tests from module and runs them;
     this is primarily for making test modules conveniently executable.
@@ -545,7 +545,7 @@ def main(
        are *discovered* and run.
     :type log_level: :obj:`int`
     :param log_level: The default logging level for all
-       :obj:`mpi_array.logging.Logger` objects.
+       :obj:`logging.Logger` objects.
     :type init_logger_names: sequence of :obj:`str`
     :param init_logger_names: List of logger names to initialise
        (using :func:`mpi_array.logging.initialise_loggers`). If :samp:`None`,
@@ -553,7 +553,7 @@ def main(
        is empty no loggers are initialised.
 
     Each test runs under the hang-detection timer (see :func:`arm_hang_detection`).
-    After the tests have run, the ranks of :attr:`mpi4py.MPI.COMM_WORLD` agree on
+    After the tests have run, the ranks of :obj:`mpi4py.MPI.COMM_WORLD` agree on
     the exit status, so every rank exits with :samp:`0` if all ranks passed, with :samp:`1`
     if any rank had a failure or error, and with :attr:`NO_TESTS_EXIT_STATUS` if no
     tests were found.

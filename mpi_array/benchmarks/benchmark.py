@@ -209,7 +209,7 @@ class Benchmark(object):
     @property
     def comm(self):
         """
-        The :obj:`mpi4pi.MPI.Comm` used for synchronization.
+        The :obj:`mpi4py.MPI.Comm` used for synchronization.
         """
         return self._comm
 
@@ -220,7 +220,7 @@ class Benchmark(object):
     @property
     def setup_error(self):
         """
-        The error which occured during :meth:`do_setup`, :samp:`None` if no error occurred.
+        The error which occurred during :meth:`do_setup`, :samp:`None` if no error occurred.
         """
         return self._setup_error
 
@@ -773,7 +773,7 @@ class BenchmarkRunner(object):
     @property
     def comm(self):
         """
-        A :obj:`mpi4py.MPI.Comm` object, typically :attr:`mpi4py.MPI.COMM_WORLD`.
+        A :obj:`mpi4py.MPI.Comm` object, typically :obj:`mpi4py.MPI.COMM_WORLD`.
         """
         return mpi.COMM_WORLD
 

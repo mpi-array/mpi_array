@@ -24,7 +24,7 @@ __version__ = _version()
 def _get_num_locales(locale_type):
     """
     Returns the number of locales of the :samp:`{locale_type}` locale type
-    over :attr:`mpi4py.MPI.COMM_WORLD`.
+    over :obj:`mpi4py.MPI.COMM_WORLD`.
     """
     comms = _try_import_for_setup("mpi_array.comms")
     return comms.create_locale_comms(locale_type=locale_type)[0].num_locales

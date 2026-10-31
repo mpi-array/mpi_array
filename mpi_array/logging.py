@@ -53,7 +53,7 @@ class SplitStreamHandler(_builtin_logging.Handler):
     def __init__(self, outstr=sys.stdout, errstr=sys.stderr, splitlevel=_builtin_logging.WARNING):
         """
         Initialise with a pair of streams and a threshold level which determines
-        the stream where the messages are writting.
+        the stream where the messages are written.
 
         :type outstr: file-like
         :param outstr: Logging messages are written to this stream if
@@ -393,8 +393,8 @@ def initialise_loggers(names, log_level=_builtin_logging.WARNING, handler_class=
     :param names: List of logger names.
     :type log_level: :obj:`int`
     :param log_level: Log level for messages, typically
-       one of :obj:`logging.DEBUG`, :obj:`logging.INFO`, :obj:`logging.WARN`, :obj:`logging.ERROR`
-       or :obj:`logging.CRITICAL`.
+       one of :obj:`logging.DEBUG`, :obj:`logging.INFO`, :obj:`logging.WARNING`,
+       :obj:`logging.ERROR` or :obj:`logging.CRITICAL`.
        See :ref:`levels`.
     :type handler_class: One of the :obj:`logging.handlers` classes.
     :param handler_class: The handler class for output of log messages,

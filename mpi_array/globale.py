@@ -699,7 +699,7 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def free(self):
         """
-        Collective (all samp:`peer_comm` processes) free of MPI windows (and locale array memory).
+        Collective (all :samp:`peer_comm` processes) free of MPI windows (and locale array memory).
         """
         self._halo_updater = None
         if self._comms_and_distrib is not None:

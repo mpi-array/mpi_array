@@ -141,15 +141,15 @@ class win_lndarray(_np.ndarray):
         root_rank=0
     ):
         """
-        Construct. Allocates shared-memory (:func:`mpi4py.MPI.Win.Allocated_shared`)
-        buffer when :samp:`{comm}.size > 1`. Uses :func:`mpi4py.MPI.Win.Allocate`
+        Construct. Allocates shared-memory (:meth:`mpi4py.MPI.Win.Allocated_shared`)
+        buffer when :samp:`{comm}.size > 1`. Uses :meth:`mpi4py.MPI.Win.Allocate`
         to allocate buffer when :samp:`{comm}.size == 1`.
 
         :type shape: :samp:`None` or sequence of :obj:`int`
         :param shape: **Local** shape of the array, this parameter is ignored.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
-        :type buffer: :obj:`buffer`
+        :type buffer: :samp:`None` or :obj:`memoryview`
         :param buffer: The sequence of bytes providing array element storage.
            If :samp:`None`, the memory is allocated in an MPI window (collective
            over :samp:`{comm}`), otherwise no window is created.
@@ -160,7 +160,7 @@ class win_lndarray(_np.ndarray):
         :param strides: Strides of data in memory.
         :type order: {:samp:`C`, :samp:`F`} or :samp:`None`
         :param order: Row-major (C-style) or column-major (Fortran-style) order.
-        :type comm: :obj:`mpi4py.Comm`
+        :type comm: :obj:`mpi4py.MPI.Comm`
         :param comm: Communicator used for allocating MPI window memory.
         :type root_rank: :obj:`int`
         :param root_rank: Rank of root process which allocates the shared memory.
@@ -339,7 +339,7 @@ class lndarray(_np.ndarray):
         :param shape: **Local** shape of the array, this parameter is ignored.
         :type dtype: :obj:`numpy.dtype`
         :param dtype: Data type for elements of the array.
-        :type buffer: :obj:`buffer`
+        :type buffer: :obj:`memoryview`
         :param buffer: The sequence of bytes providing array element storage.
            Raises :obj:`ValueError` if :samp:`{buffer} is None`.
         :type offset: :samp:`None` or :obj:`int`
@@ -800,7 +800,8 @@ class LndarrayProxy(object):
     @property
     def locale_extent(self):
         """
-        A :obj:`LocaleExtent` describing the portion of the array assigned to this locale.
+        A :obj:`mpi_array.distribution.LocaleExtent` describing the portion of the array
+        assigned to this locale.
         """
         return self._locale_extent
 
@@ -865,7 +866,7 @@ class LndarrayProxy(object):
     @property
     def rank_view_partition_h(self):
         """
-        Rank tile view from the paritioning of entire :samp:`self._lndarray`
+        Rank tile view from the partitioning of entire :samp:`self._lndarray`
         (i.e. partition of halo array). Same as :samp:`self.rank_view_n` when
         halo is zero.
         """

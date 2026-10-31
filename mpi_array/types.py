@@ -3,7 +3,7 @@
 The :mod:`mpi_array.types` Module
 =================================
 
-Convert :obj:`numpy.dtype` to :obj:`mpi4pi.MPI.Datatype`.
+Convert :obj:`numpy.dtype` to :obj:`mpi4py.MPI.Datatype`.
 
 Functions
 =========
@@ -11,7 +11,7 @@ Functions
 .. autosummary::
    :toctree: generated/
 
-   to_datatype - Convert :obj:`numpy.dtype` to :obj:`mpi4pi.MPI.Datatype`.
+   to_datatype - Convert :obj:`numpy.dtype` to :obj:`mpi4py.MPI.Datatype`.
 
 Utilities
 =========
@@ -43,7 +43,7 @@ _lookup = None
 def create_lookup():
     """
     Creates a :obj:`collections.defaultdict` of (:obj:`numpy.dtype`, :obj:`mpi4py.MPI.Datatype`)
-    key-value pairs. Populated with basic types from :obj:`mpi4py.MPI._typedict`.
+    key-value pairs. Populated with basic types from :samp:`mpi4py.MPI._typedict`.
 
     :rtype: :obj:`collections.defaultdict`
     :return: A :obj:`collections.defaultdict` with default element being :samp:`None`.
