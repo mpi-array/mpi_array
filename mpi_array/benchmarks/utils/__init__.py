@@ -8,8 +8,7 @@ Modules
    :toctree: generated/
 
    misc - Miscellaneous helper functions/classes for benchmarking.
-   wlm - Generating *workload-mangager* (e.g. PBS Pro, Slurm, Torque) benchmark  batch scripts.
-   wlm_test - :mod:`wlm` unit-tests.
+   wlm - Generating *workload-manager* (e.g. PBS Pro, Slurm, Torque) benchmark batch scripts.
 
 """
 from __future__ import absolute_import

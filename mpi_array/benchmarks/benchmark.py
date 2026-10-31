@@ -1,11 +1,35 @@
 """
-Manages finding, running and recoding benchmark results.
+Manages finding, running and recording benchmark results.
 
 This module has shamelessly borrows from
 the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
 file `benchmark.py <https://github.com/spacetelescope/asv/blob/master/asv/benchmark.py>`_.
 See the `airspeed velocity (asv) <http://asv.readthedocs.io/en/latest>`_
 `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
+
+Classes
+=======
+
+.. autosummary::
+   :toctree: generated/
+
+   Benchmark - A benchmark, found in a benchmark module.
+   TimeBenchmark - A benchmark which times a function.
+   BenchmarkRunner - Finds and runs benchmarks, records their results.
+
+Functions
+=========
+
+.. autosummary::
+   :toctree: generated/
+
+   disc_files - Finds the benchmark modules.
+   disc_benchmarks - Finds the benchmarks of the modules.
+   get_setup_cache_key - The key of the cached setup of a benchmark.
+   get_source_code - The source code of the functions of a benchmark.
+   root_and_package_from_name - The root directory and package of a module name.
+   create_runner_argument_parser - The command line parser of the runner.
+   run_main - Runs the benchmarks from the command line.
 
 """
 from __future__ import absolute_import
@@ -67,6 +91,10 @@ def _get_first_attr(sources, name, default, ignore_case=False):
 
 
 def get_setup_cache_key(func):
+    """
+    Returns the key of the cached setup of :samp:`{func}`, its source file and line
+    (:samp:`None` if :samp:`{func}` is :samp:`None`).
+    """
     if func is None:
         return None
     return '{0}:{1}'.format(inspect.getsourcefile(func),
@@ -638,6 +666,8 @@ def disc_benchmarks(root, package=None):
 
 def create_runner_argument_parser():
     """
+    Returns the :obj:`argparse.ArgumentParser` of the command line of the runner
+    (see :func:`run_main`).
     """
     import argparse
     ap = argparse.ArgumentParser("mpi-array-benchmarks")
@@ -888,7 +918,7 @@ class BenchmarkRunner(object):
     @property
     def filter_name_regex(self):
         """
-        The :obj:`re.RegularExpression` used to filter the benchmarks by name.
+        The :obj:`re.Pattern` used to filter the benchmarks by name.
         """
         if self._filter_name_regex is None:
             import re as _re
@@ -1102,13 +1132,13 @@ class BenchmarkRunner(object):
         """
         Dump the profile stats from the :obj:`pstats.Stats` object to file.
 
-        :type profile_stats: :obj:`pstat.Stats`
+        :type profile_stats: :obj:`pstats.Stats`
         :param profile_stats: The stats to dump to file.
         :type profile_file_name: :obj:`str`
         :param profile_file_name: The name of the file where stats are dumped
             (overwritten if it exists).
 
-        .. seealso: :meth:`pstat.Stats.dump_stats`
+        .. seealso:: :meth:`pstats.Stats.dump_stats`
 
         """
         if (profile_stats is not None) and (profile_file_name is not None):
@@ -1118,7 +1148,7 @@ class BenchmarkRunner(object):
         """
         Logs the output from :meth:`pstats.Stats.print_stats`.
 
-        :type profile_stats: :obj:`pstat.Stats`
+        :type profile_stats: :obj:`pstats.Stats`
         :param profile_stats: The stats to dump to file.
         """
         if profile_stats is not None:

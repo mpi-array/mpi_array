@@ -3,7 +3,14 @@
 The :mod:`mpi_array.benchmarks` Package
 =======================================
 
-Runtime benchmarking.
+Runtime benchmarking, in the style of `airspeed velocity (asv) <https://asv.readthedocs.io/>`_.
+Run the benchmarks (here those of :mod:`mpi_array.benchmarks.bench_update`, on 4 processes)
+with::
+
+   mpirun -n 4 python -m mpi4py -m mpi_array.benchmarks -t Wtime \\
+       -f 'benchmarks.bench_update' -o results.json -b benchmarks.json
+
+The :samp:`-q` (quick) option runs each benchmark once, :samp:`--help` lists the options.
 
 Modules
 =======

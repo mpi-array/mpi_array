@@ -1,5 +1,18 @@
 """
-Benchmarks for ufuncs.
+Benchmarks for ufuncs. A benchmark class is created (:func:`create_ufunc_benchmarks`) for each
+ufunc and implementation, :samp:`NumpyUfuncBench_{ufunc}` and :samp:`MpiArrayUfuncBench_{ufunc}`
+(e.g. :samp:`MpiArrayUfuncBench_add`), from the classes below.
+
+.. autosummary::
+   :toctree: generated/
+
+   UfuncBench - Base class for ufunc benchmarks.
+   NumpyUfuncBench - Ufuncs of :obj:`numpy.ndarray` arrays.
+   MpiArrayUfuncBench - Ufuncs of :obj:`mpi_array.globale.gndarray` arrays.
+   create_ufunc_bench - Creates the benchmark class of a ufunc.
+   create_ufunc_benchmarks - Creates the benchmark classes of the ufuncs.
+   find_scipy_ufuncs - Makes :samp:`scipy.special.erf` an attribute of numpy and mpi_array.
+
 """
 from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version
@@ -31,7 +44,8 @@ class UfuncBench(_Bench):
         Initialise.
 
         :type ufunc_name: :obj:`str`
-        :param ufunc_name: Name of the ufunc, should be the name of an attribute of :attr:`module`.
+        :param ufunc_name: Name of the ufunc, should be the name of an attribute of
+           :attr:`~mpi_array.benchmarks.core.Bench.module`.
         """
         _Bench.__init__(self)
         self._ufunc_name = ufunc_name
@@ -170,9 +184,9 @@ class UfuncBench(_Bench):
 
     def initialise(self, shape, dtype, module_name):
         """
-        Sets the :attr:`module`, :attr:`dtype` and :attr:`ufunc` attributes
-        and initialises the :attr:`a_ary`, :attr:`b_ary`, :attr:`b_scalar` and :attr:`c_ary`
-        arrays.
+        Sets the :attr:`~mpi_array.benchmarks.core.Bench.module`, :samp:`dtype`
+        and :samp:`ufunc` attributes and initialises the :attr:`a_ary`, :attr:`b_ary`,
+        :attr:`b_scalar` and :attr:`c_ary` arrays.
         """
         self.module = _try_import_for_setup(module_name)
         self.dtype = self.module.dtype(dtype)
@@ -236,7 +250,7 @@ class NumpyUfuncBench(UfuncBench):
 
     def setup(self, shape, dtype="float64"):
         """
-        Import :mod:`numpy` module and assign to :attr:`module`.
+        Import :mod:`numpy` module and assign to :attr:`~mpi_array.benchmarks.core.Bench.module`.
         """
 
         mpi = _try_import_for_setup("mpi4py.MPI")
@@ -248,7 +262,7 @@ class NumpyUfuncBench(UfuncBench):
 
 class MpiArrayUfuncBench(UfuncBench):
     """
-    Benchmarks for :mod:`mpi_array` ufuncs..
+    Benchmarks for :mod:`mpi_array` ufuncs.
     """
 
     def initialise_arrays(self, shape):
@@ -303,7 +317,7 @@ class MpiArrayUfuncBench(UfuncBench):
 
     def free(self, a):
         """
-        See :meth:`free_mpi_array_obj`.
+        See :meth:`~mpi_array.benchmarks.core.Bench.free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -429,7 +443,7 @@ def create_ufunc_benchmarks(ufunc_names, module_names, module=None):
 
 def find_scipy_ufuncs():
     """
-    Imports the :func:`scipy.special.erf` ufunc and sets it as an attribute
+    Imports the :samp:`scipy.special.erf` ufunc and sets it as an attribute
     of the :mod:`numpy` and :mod:`mpi_array` modules.
     """
     try:

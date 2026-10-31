@@ -1,5 +1,12 @@
 """
-Generate *workload-mangager* (e.g. PBS Pro, Slurm, Torque) benchmark batch scripts.
+Generate *workload-manager* (e.g. PBS Pro, Slurm, Torque) benchmark batch scripts.
+
+.. autosummary::
+   :toctree: generated/
+
+   WlmScriptGenerator - Generates the batch scripts.
+   adjust_list_to_length - Extends or truncates a list to a length.
+
 """
 from __future__ import absolute_import
 import copy as _copy

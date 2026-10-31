@@ -1,5 +1,18 @@
 """
 Benchmarks for array creation.
+
+.. autosummary::
+   :toctree: generated/
+
+   CreateBench - Base class for array creation benchmarks.
+   NumpyCreateBench - Creation of :obj:`numpy.ndarray` arrays.
+   MpiArrayCreateBench - Creation of :obj:`mpi_array.globale.gndarray` arrays.
+   MpiArrayCreateLikeBench - Creation of arrays like other arrays.
+   BlockPartitionCreateBench - Creation of block distributions.
+   CommsCreateBench - Creation of communicators.
+   CommsAllocBench - Allocation of locale arrays.
+   MangoCreateBench - Creation of arrays with the (optional) :samp:`mango` package.
+
 """
 from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version
@@ -50,7 +63,7 @@ class NumpyCreateBench(CreateBench):
 
     def setup(self, shape):
         """
-        Import :mod:`numpy` module and assign to :attr:`module`.
+        Import :mod:`numpy` module and assign to :attr:`~mpi_array.benchmarks.core.Bench.module`.
         """
         self.array = None
         self.module = self.try_import_for_setup("numpy")
@@ -87,7 +100,8 @@ class NumpyCreateBench(CreateBench):
 
 class MpiArrayCreateBench(NumpyCreateBench):
     """
-    Benchmarks for :func:`mpi_array.empty`, :func:`mpi_array.zeros` etc.
+    Benchmarks for :func:`mpi_array.empty <mpi_array.globale_creation.empty>`,
+    :func:`mpi_array.zeros <mpi_array.globale_creation.zeros>` etc.
     """
 
     def setup(self, shape):
@@ -98,7 +112,7 @@ class MpiArrayCreateBench(NumpyCreateBench):
 
     def free(self, a):
         """
-        See :meth:`free_mpi_array_obj`.
+        See :meth:`~mpi_array.benchmarks.core.Bench.free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -143,7 +157,8 @@ class BlockPartitionCreateBench(object):
 
 class MpiArrayCreateLikeBench(CreateBench):
     """
-    Benchmarks for :func:`mpi_array.empty_like`, :func:`mpi_array.zeros_like` etc.
+    Benchmarks for :func:`mpi_array.empty_like <mpi_array.globale_creation.empty_like>`,
+    :func:`mpi_array.zeros_like <mpi_array.globale_creation.zeros_like>` etc.
     """
 
     def setup(self, shape):
@@ -161,7 +176,7 @@ class MpiArrayCreateLikeBench(CreateBench):
 
     def free(self, a):
         """
-        See :meth:`free_mpi_array_obj`.
+        See :meth:`~mpi_array.benchmarks.core.Bench.free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -195,7 +210,7 @@ class CommsCreateBench(CreateBench):
 
     def free(self, a):
         """
-        See :meth:`free_mpi_array_obj`.
+        See :meth:`~mpi_array.benchmarks.core.Bench.free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -244,7 +259,7 @@ class CommsAllocBench(CreateBench):
 
     def free(self, a):
         """
-        See :meth:`free_mpi_array_obj`.
+        See :meth:`~mpi_array.benchmarks.core.Bench.free_mpi_array_obj`.
         """
         self.free_mpi_array_obj(a)
 
@@ -257,13 +272,13 @@ class CommsAllocBench(CreateBench):
 
 class MangoCreateBench(NumpyCreateBench):
     """
-    Benchmarks for :func:`mango.empty` and :func:`mango.zeros`
+    Benchmarks for :samp:`mango.empty` and :samp:`mango.zeros`
     (`mango tomography software <https://physics.anu.edu.au/appmaths/capabilities/mango.php>`_).
     """
 
     def setup(self, shape):
         """
-        Import :mod:`mango` module and assign to :samp:`self.module`.
+        Import :samp:`mango` module and assign to :samp:`self.module`.
         """
         self.module = self.try_import_for_setup("mango")
 
@@ -281,7 +296,7 @@ class MangoCreateBench(NumpyCreateBench):
 #
 #    def setup(self, shape):
 #        """
-#        Import :mod:`mango` module and assign to :samp:`self.module`.
+#        Import :samp:`mango` module and assign to :samp:`self.module`.
 #        """
 #        self._ga = self.try_import_for_setup("ga4py.ga")
 #        self.module = self.try_import_for_setup("ga4py.gain")

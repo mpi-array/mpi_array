@@ -1,5 +1,11 @@
 """
 Core utilities for benchmark implementations.
+
+.. autosummary::
+   :toctree: generated/
+
+   Bench - Base class for benchmarks.
+
 """
 from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version
@@ -23,7 +29,7 @@ class Bench(object):
 
     def __init__(self):
         """
-        Initialise, set :attr:`module` to :samp:`None`.
+        Initialise, set :attr:`~mpi_array.benchmarks.core.Bench.module` to :samp:`None`.
         """
         self._module = None
         self._root_logger = None
@@ -52,7 +58,7 @@ class Bench(object):
     @property
     def module(self):
         """
-        The :obj:`module` used to create array instances.
+        The module (:obj:`types.ModuleType`) used to create array instances.
         """
         return self._module
 
@@ -67,11 +73,11 @@ class Bench(object):
 
         :type module_name: :obj:`str`
         :param module_name: Attempt to import this module.
-        :rtype: :obj:`module`
+        :rtype: :obj:`types.ModuleType`
         :return: Module named :samp:`{module_name}`.
         :raises NotImplementedError: if there is an :obj:`ImportError`.
 
-        .. seealso:: :func:`mpi_array.benchmarks.utils.try_import_for_setup`.
+        .. seealso:: :func:`mpi_array.benchmarks.utils.misc.try_import_for_setup`.
         """
         return _try_import_for_setup(module_name)
 
@@ -101,7 +107,7 @@ class Bench(object):
         """
         Free MPI communicators and MPI windows for the given object.
 
-        :type a: free-able
+        :type a: :obj:`mpi_array.globale.gndarray` or :obj:`mpi_array.comms.LocaleComms`
         :param a: A :obj:`mpi_array.globale.gndarray` instance
            or a :obj:`mpi_array.comms.LocaleComms` instance.
         """

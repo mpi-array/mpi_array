@@ -1,6 +1,6 @@
 """
 Benchmarks for copying elements between arrays of different distributions
-(:func:`mpi_array.copyto`) and for halo (ghost element) updates
+(:func:`mpi_array.copyto <mpi_array.globale.copyto>`) and for halo (ghost element) updates
 (:meth:`mpi_array.globale.gndarray.update`).
 
 The :samp:`*PlanBench` benchmarks time the calculation of the updates on one process,
@@ -8,6 +8,15 @@ for a number of locales which is a parameter (the distributions are created with
 MPI communicators). The other benchmarks time the operations on the locales of the
 processes which run them: with the :samp:`"process"` locale type every process is
 a locale, so the number of locales grows with the number of processes.
+
+.. autosummary::
+   :toctree: generated/
+
+   CopytoBench - Copies between arrays of different distributions.
+   HaloUpdateBench - Halo updates.
+   RedistributePlanBench - Calculation of the updates of copies between arrays.
+   HaloPlanBench - Calculation of the halo updates.
+
 """
 from __future__ import absolute_import
 from ..license import license as _license, copyright as _copyright, version as _version
@@ -61,9 +70,10 @@ def _create_block_partition(shape, dims, halo=0):
 
 class CopytoBench(_Bench):
     """
-    Benchmarks for :func:`mpi_array.copyto`. Each locale has :samp:`locale_shape` elements
-    of the destination array, the globale array grows with the number of locales along
-    axis 0. The :samp:`pattern` parameter selects the distributions:
+    Benchmarks for :func:`mpi_array.copyto <mpi_array.globale.copyto>`. Each locale
+    has :samp:`locale_shape` elements of the destination array, the globale array grows
+    with the number of locales along axis 0. The :samp:`pattern` parameter selects the
+    distributions:
 
     :samp:`"transpose"`
        The destination is partitioned into slabs along axis 0, the source into slabs
@@ -106,7 +116,7 @@ class CopytoBench(_Bench):
 
     def setup(self, locale_type, pattern, locale_shape):
         """
-        Creates the destination (:attr:`dst`) and source (:attr:`src`) arrays.
+        Creates the destination (:samp:`dst`) and source (:samp:`src`) arrays.
         """
         self.module = self.try_import_for_setup("mpi_array")
         num_locales = _get_num_locales(locale_type)
@@ -174,7 +184,7 @@ class HaloUpdateBench(_Bench):
 
     def setup(self, locale_type, locale_shape, halo):
         """
-        Creates the array (:attr:`ary`).
+        Creates the array (:samp:`ary`).
         """
         self.module = self.try_import_for_setup("mpi_array")
         comms = self.try_import_for_setup("mpi_array.comms")
@@ -232,7 +242,7 @@ class RedistributePlanBench(object):
 
     def setup(self, pattern, num_locales):
         """
-        Creates the destination (:attr:`dst`) and source (:attr:`src`) distributions.
+        Creates the destination (:samp:`dst`) and source (:samp:`src`) distributions.
         """
         _check_single_process()
         self.update = _try_import_for_setup("mpi_array.update")
@@ -298,7 +308,7 @@ class HaloPlanBench(object):
 
     def setup(self, num_locales):
         """
-        Creates the distribution (:attr:`distrib`).
+        Creates the distribution (:samp:`distrib`).
         """
         _check_single_process()
         self.globale = _try_import_for_setup("mpi_array.globale")

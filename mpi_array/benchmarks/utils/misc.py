@@ -7,6 +7,13 @@ file `benchmark.py <https://github.com/spacetelescope/asv/blob/master/asv/benchm
 
 See the `LICENSE <https://github.com/spacetelescope/asv/blob/master/LICENSE.rst>`_.
 
+.. autosummary::
+   :toctree: generated/
+
+   try_import_for_setup - Imports a module, for the setup of a benchmark.
+   SpecificImporter - Imports a given module from a given path.
+   update_sys_path - Inserts a :obj:`SpecificImporter` into :obj:`sys.meta_path`.
+
 """
 from __future__ import absolute_import
 # Licensed under a 3-clause BSD style license - see LICENSE.rst
@@ -26,7 +33,7 @@ def try_import_for_setup(module_name):
 
     :type module_name: :obj:`str`
     :param module_name: Attempt to import this module.
-    :rtype: :obj:`module`
+    :rtype: :obj:`types.ModuleType`
     :returns: The imported module named :samp:`{module_name}`.
     :raises NotImplementedError: if there is an :obj:`ImportError`.
     """
@@ -69,10 +76,10 @@ class SpecificImporter(object):
 
 def update_sys_path(root):
     """
-    Inserts a :obj:`SpecificImporter` instance into the :attr:`sys.meta_path`.
+    Inserts a :obj:`SpecificImporter` instance into the :obj:`sys.meta_path`.
 
     :type root: :obj:`str`
-    :param root: The :obj`SpecificImported` path inserted at the head of :attr:`sys.meta_path`.
+    :param root: The :obj:`SpecificImporter` path inserted at the head of :obj:`sys.meta_path`.
     """
     import os
     import sys
