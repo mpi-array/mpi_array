@@ -64,6 +64,9 @@ class IndexingExtent(object):
     @staticmethod
     def get_struct_dtype_from_ndim(cls, ndim):
         """
+        Returns the struct :obj:`numpy.dtype` of the extents of :samp:`{ndim}` dimensions
+        of the extent class :samp:`{cls}` (created once,
+        see :meth:`create_struct_dtype_from_ndim`).
         """
         dtype = cls.struct_dtype_dict[ndim]
         if dtype is None:
@@ -73,6 +76,8 @@ class IndexingExtent(object):
 
     def get_struct_dtype(self, ndim):
         """
+        Returns the struct :obj:`numpy.dtype` of the extents of :samp:`{ndim}` dimensions
+        of the class of this extent, see :meth:`get_struct_dtype_from_ndim`.
         """
         return self.__class__.get_struct_dtype_from_ndim(self.__class__, ndim)
 
@@ -124,8 +129,8 @@ class IndexingExtent(object):
         """
         Creates a struct instance with :obj:`numpy.dtype` :samp:`self.struct_dtype_dict[ndim]`.
 
-        :rtype: struct
-        :return: A struct.
+        :rtype: :obj:`numpy.void`
+        :return: A structured scalar.
         """
         return _np.zeros((1,), dtype=self.get_struct_dtype(ndim))[0]
 

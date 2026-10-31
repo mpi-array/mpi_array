@@ -22,6 +22,7 @@ Classes
    RmaWindowBuffer - Container for locale array buffer and associated RMA windows.
    DeferredFrees - Frees MPI windows at points which all processes reach.
    WindowFree - Frees an MPI window, deferred when its owner is garbage collected.
+   CommsCache - Cache of communicators (and associated info), by key.
 
 Factory Functions
 =================
@@ -49,6 +50,13 @@ Functions
    get_canonical_dims - The number of blocks along each axis of a partition.
    flush_shared_memory_channels - Processes the messages between the processes of a node.
    get_shared_memory_comm - The communicator of the processes of a node.
+   get_win_memory - The memory of an MPI window.
+   can_free_in_del - Whether MPI windows can be freed.
+   reshape_comms_distribution - The communicators and distribution for a new shape.
+   shape_squeeze - Removes the ones from a shape.
+   check_distrib_type - Checks a distribution type.
+   check_locale_type - Checks a locale type.
+   mpi_version - The MPI API version.
 
 
 Attributes
@@ -63,6 +71,7 @@ Attributes
    DT_SLAB
    DT_CLONED
    DT_SINGLE_LOCALE
+   deferred_frees
 
 
 """
@@ -945,7 +954,11 @@ class DeferredFrees(object):
         :param max_bytes: The processes agree on the frees when this many bytes (per process)
            have been allocated over a communicator since they last agreed.
         """
+        #: The number of allocations (over a communicator) after which the processes agree
+        #: on the frees, see :meth:`note_allocation`.
         self.max_allocations = max_allocations
+        #: The number of bytes (per process, over a communicator) after which the processes
+        #: agree on the frees, see :meth:`note_allocation`.
         self.max_bytes = max_bytes
         #: The number of allocations and bytes over each communicator since the last agreement.
         self._allocations = dict()
@@ -1237,6 +1250,8 @@ class LocaleComms(object):
 
     def free(self):
         """
+        Does nothing, the communicators are not freed (they are cached for other
+        arrays, see :func:`get_locale_comms_info`).
         """
         pass
 
@@ -1701,7 +1716,8 @@ class CartLocaleComms(LocaleComms):
 
     def calc_cart_peer_ranks_per_locale(self):
         """
-        Collective over :attr:`intra_locale_comm`. Returns the peer-ranks-per-locale table
+        Collective over :attr:`~LocaleComms.intra_locale_comm`. Returns the
+        peer-ranks-per-locale table
         with rows in :attr:`cart_comm` rank order. The :obj:`LocaleComms` table is in the
         rank order of the inter-locale communicator from which :attr:`cart_comm` was
         created, but the :attr:`cart_comm` ranks can be ordered differently
@@ -1714,9 +1730,9 @@ class CartLocaleComms(LocaleComms):
         passed on inter-locale processes), so a collective there could deadlock.
 
         :rtype: :obj:`numpy.ndarray`
-        :return: The table with :samp:`table[cart_rank]` the :attr:`peer_comm` ranks
+        :return: The table with :samp:`table[cart_rank]` the :attr:`~LocaleComms.peer_comm` ranks
            of the locale with :attr:`cart_comm` rank :samp:`cart_rank`.
-        :raises ValueError: (on all :attr:`intra_locale_comm` processes) if
+        :raises ValueError: (on all :attr:`~LocaleComms.intra_locale_comm` processes) if
            the :attr:`cart_comm` group is not a permutation of the inter-locale group.
         """
         error = None
@@ -1806,7 +1822,8 @@ class CartLocaleComms(LocaleComms):
     def inter_locale_comm(self):
         """
         Overrides :attr:`LocaleComms.inter_locale_comm` to return :attr:`cart_comm`.
-        Note that :attr:`peer_ranks_per_locale` is indexed by :attr:`cart_comm` rank.
+        Note that :attr:`~LocaleComms.peer_ranks_per_locale` is indexed by :attr:`cart_comm`
+        rank.
         """
         return self.cart_comm
 

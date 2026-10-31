@@ -7,18 +7,52 @@ Python package for multi-dimensional distributed arrays
 (
 `Partitioned Global Address Space <https://en.wikipedia.org/wiki/Partitioned_global_address_space>`_
 )
-with :obj:`numpy.ndarray`-like API.
+with :obj:`numpy.ndarray`-like API. The classes and functions below are attributes of the
+package (e.g. :samp:`mpi_array.zeros` is :func:`mpi_array.globale_creation.zeros`).
 
-
-Classes and Functions
-=====================
+Classes
+=======
 
 .. autosummary::
-   :toctree: generated/
 
-Attributes
-==========
+   ~globale.gndarray - A :obj:`numpy.ndarray` like distributed array.
 
+Array Creation
+==============
+
+.. autosummary::
+
+   ~globale_creation.empty - Create uninitialised array.
+   ~globale_creation.empty_like - Create uninitialised array like another array.
+   ~globale_creation.zeros - Create zero-initialised array.
+   ~globale_creation.zeros_like - Create zero-initialised array like another array.
+   ~globale_creation.ones - Create one-initialised array.
+   ~globale_creation.ones_like - Create one-initialised array like another array.
+   ~globale_creation.full - Create *fill value* initialised array.
+   ~globale_creation.full_like - Create *fill value* initialised array like another.
+   ~globale_creation.array - Create array from an existing array-like object.
+   ~globale_creation.asarray - Convert to an array.
+   ~globale_creation.asanyarray - Convert to an array, sub-classes pass through.
+   ~globale_creation.copy - Create a replica of an array.
+   ~globale_creation.eye - Not implemented.
+   ~globale_creation.identity - Not implemented.
+
+Functions
+=========
+
+.. autosummary::
+
+   ~globale.copyto - Copy elements of one array to another array.
+   ~globale.free_all - Free the arrays of a sequence.
+
+Ufuncs
+======
+
+The :obj:`numpy.ufunc` objects of NumPy are attributes of the package too
+(e.g. :samp:`mpi_array.sqrt` is :obj:`numpy.sqrt`), they apply to
+:obj:`mpi_array.globale.gndarray` arguments (see :mod:`mpi_array.globale_ufunc`), as
+does the operator of an :obj:`mpi_array.globale.gndarray` (e.g. :samp:`a + 1`).
+:samp:`mpi_array.dtype` is :obj:`numpy.dtype`.
 
 """
 import sys as _sys

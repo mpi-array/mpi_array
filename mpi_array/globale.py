@@ -16,6 +16,8 @@ Classes
    PerAxisRmaHaloUpdater - Helper class for performing ghost element updates.
    RmaRedistributeUpdater - Helper class for redistributing elements between distributions.
    RedistributeUpdatesCache - Cache of the updates of copies between arrays.
+   RankTranslator - Translates ranks between two process groups.
+   CommLogger - Has a logger for all processes and a logger for the root process.
 
 Functions
 =========
@@ -24,6 +26,7 @@ Functions
    :toctree: generated/
 
    copyto - Copy elements of one array to another array.
+   free_all - Free the arrays of a sequence.
 
 
 """
@@ -57,8 +60,8 @@ _builtin_slice = slice
 class CommLogger:
 
     """
-    Has a logger for messages from all processes (:attr:`rank_logger`) and a logger
-    for messages from the root process (:attr:`root_logger`).
+    Has a logger for messages from all processes (:attr:`~CommLogger.rank_logger`) and
+    a logger for messages from the root process (:attr:`~CommLogger.root_logger`).
     """
 
     def __init__(self, rank_logger=None, root_logger=None):
@@ -67,6 +70,9 @@ class CommLogger:
 
     @property
     def rank_logger(self):
+        """
+        A :obj:`logging.Logger` for messages from all processes.
+        """
         return self._rank_logger
 
     @rank_logger.setter
@@ -75,6 +81,9 @@ class CommLogger:
 
     @property
     def root_logger(self):
+        """
+        A :obj:`logging.Logger` for messages from the root process.
+        """
         return self._root_logger
 
     @root_logger.setter
@@ -200,7 +209,7 @@ class PerAxisRmaHaloUpdater(CommLogger):
            is a :obj:`mpi_array.update.MpiHalosUpdate` containing the description
            of regions which are required to be fetched from remote processes,
            :samp:`None` when no axis has halo updates. The :samp:`bool_sequence` is
-           of length :attr:`ndim` and :samp:`bool_sequence[a] is True`
+           of length :samp:`ndim` and :samp:`bool_sequence[a] is True`
            indicates that halo updates are required on axis :samp:`a`
            (see :meth:`calc_have_axis_updates`), :samp:`halos_update.updates_per_axis[a]`
            is :samp:`None` for the other axes.
@@ -772,41 +781,73 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def __array_ufunc__(self, *args, **kwargs):
         """
+        Executes a :obj:`numpy.ufunc` which has :obj:`gndarray` arguments (inputs or outputs),
+        see :func:`mpi_array.globale_ufunc.gndarray_array_ufunc`.
         """
         from . import globale_ufunc as _globale_ufunc
         return _globale_ufunc.gndarray_array_ufunc(self, *args, **kwargs)
 
     @property
     def this_locale(self):
+        """
+        The :obj:`mpi_array.comms.ThisLocaleInfo` of this process: the inter-locale rank
+        of its locale and its peer rank.
+        """
         return self._comms_and_distrib.this_locale
 
     @property
     def locale_comms(self):
+        """
+        The :obj:`mpi_array.comms.LocaleComms` of the array: the peer, intra-locale and
+        inter-locale communicators.
+        """
         return self._comms_and_distrib.locale_comms
 
     @property
     def distribution(self):
+        """
+        The :obj:`mpi_array.distribution.Distribution` of the array: the extent of each
+        locale array.
+        """
         return self._comms_and_distrib.distribution
 
     @property
     def comms_and_distrib(self):
+        """
+        The :obj:`mpi_array.comms.CommsAndDistribution` of the array, e.g. to create
+        an array with the same distribution (the :samp:`comms_and_distrib` argument
+        of :func:`mpi_array.globale_creation.empty`).
+        """
         return self._comms_and_distrib
 
     @property
     def rma_window_buffer(self):
+        """
+        The :obj:`mpi_array.comms.RmaWindowBuffer`, the memory and the RMA windows of
+        the locale array.
+        """
         return self._rma_window_buffer
 
     @property
     def lndarray_proxy(self):
+        """
+        The :obj:`mpi_array.locale.LndarrayProxy` of the locale array (of the locale
+        of this process), which has views of the locale array and of the tile of this
+        process.
+        """
         return self._lndarray_proxy
 
     @property
     def ndim(self):
+        """
+        The number of dimensions of the array, :samp:`len({self}.shape)`.
+        """
         return len(self.shape)
 
     @property
     def num_locales(self):
         """
+        The number of locales over which the array is distributed.
         """
         return self._comms_and_distrib.locale_comms.num_locales
 
@@ -819,10 +860,16 @@ class gndarray(_NDArrayOperatorsMixin):
 
     @property
     def dtype(self):
+        """
+        The :obj:`numpy.dtype` of the elements of the array.
+        """
         return self._lndarray_proxy.dtype
 
     @property
     def order(self):
+        """
+        The memory layout of the locale arrays, :samp:`'C'` (only C order is implemented).
+        """
         return self._lndarray_proxy.md.order
 
     @property
@@ -862,12 +909,16 @@ class gndarray(_NDArrayOperatorsMixin):
     @property
     def rank_logger(self):
         """
+        A :obj:`logging.Logger` for messages from all the processes
+        (see :attr:`mpi_array.comms.LocaleComms.rank_logger`).
         """
         return self._comms_and_distrib.locale_comms.rank_logger
 
     @property
     def root_logger(self):
         """
+        A :obj:`logging.Logger` for messages from the root process of the peer communicator
+        (see :attr:`mpi_array.comms.LocaleComms.root_logger`).
         """
         return self._comms_and_distrib.locale_comms.root_logger
 
@@ -879,6 +930,9 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def intra_locale_barrier(self):
         """
+        Barrier of the processes of the locale of this process (collective over
+        the :samp:`intra_locale_comm`), e.g. after writing the locale array and before
+        other processes of the locale read it.
         """
         self.rank_logger.debug(
             "BEG: self.comms_and_distrib.locale_comms.intra_locale_comm.barrier()..."
@@ -890,6 +944,9 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def inter_locale_barrier(self):
         """
+        Barrier of the inter-locale processes (one process of each locale, collective over
+        the :samp:`inter_locale_comm`), the other processes return at once.
+        See :meth:`locale_get`.
         """
         if self.comms_and_distrib.locale_comms.have_valid_inter_locale_comm:
             self.rank_logger.debug(
@@ -902,6 +959,10 @@ class gndarray(_NDArrayOperatorsMixin):
 
     @property
     def halo_updater(self):
+        """
+        The :obj:`PerAxisRmaHaloUpdater` which updates the halos of the locale array
+        (created when first used), see :meth:`update`.
+        """
         if self._halo_updater is None:
             self._halo_updater = \
                 PerAxisRmaHaloUpdater(
@@ -919,6 +980,11 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def update(self):
         """
+        Updates the halo (ghost) elements of the locale arrays with the elements of the
+        neighbouring locales, collective over the :samp:`peer_comm`. The inter-locale
+        processes fetch the halos with one-sided RMA, an axis at a time. With one locale
+        there is nothing to update. It synchronises: the processes may write the elements
+        until they call it, and again once it returns.
         """
         # If running on single locale then there are no halos to update.
         if self.comms_and_distrib.locale_comms.num_locales > 1:
@@ -939,6 +1005,18 @@ class gndarray(_NDArrayOperatorsMixin):
             self.intra_locale_barrier()
 
     def calculate_copyfrom_updates(self, src, casting="same_kind"):
+        """
+        Returns the :obj:`RmaRedistributeUpdater` which copies the elements of :samp:`{src}`
+        to this array (see :meth:`copyfrom`), it calculates the updates when they are
+        first used.
+
+        :type src: :obj:`gndarray`
+        :param src: Array from which the elements are copied.
+        :type casting: :obj:`str`
+        :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
+        :rtype: :obj:`RmaRedistributeUpdater`
+        :return: The updater.
+        """
         return \
             RmaRedistributeUpdater(
                 self,
@@ -949,12 +1027,18 @@ class gndarray(_NDArrayOperatorsMixin):
     def copyfrom(self, src, casting="same_kind"):
         """
         Copy the elements of the :samp:`{src}` array to corresponding elements of
-        the :samp:`{self}` array.
+        the :samp:`{self}` array, collective over the :samp:`peer_comm` of :samp:`{src}`.
+        The arrays can have different distributions (and dtypes). It synchronises:
+        the processes may write :samp:`{src}` until they call it, and may read the elements
+        of :samp:`{self}` (or write :samp:`{src}`) once it returns.
 
         :type src: :obj:`gndarray`
         :param src: Global array from which elements are copied.
         :type casting: :obj:`str`
         :param casting: See :samp:`{casting}` parameter in :func:`numpy.copyto`.
+        :raises ValueError: If :samp:`{src}` isn't a :obj:`gndarray`, or (on all processes)
+           if elements of :samp:`{self}` are not elements of :samp:`{src}`
+           (see :meth:`RmaRedistributeUpdater.do_update`).
         """
 
         if not isinstance(src, gndarray):
@@ -966,6 +1050,14 @@ class gndarray(_NDArrayOperatorsMixin):
         redistribute_updater.do_update()
 
     def all(self, **unused_kwargs):
+        """
+        Returns :samp:`True` if all the elements (excluding the halos) are true, the same
+        on all processes (collective over the :samp:`peer_comm`). Reductions along axes
+        aren't implemented: the keyword arguments (e.g. :samp:`axis`) are ignored.
+
+        :rtype: :obj:`bool`
+        :return: Whether all the elements are true.
+        """
         return \
             self.locale_comms.peer_comm.allreduce(
                 bool(self.lndarray_proxy.rank_view_n.all()),
@@ -993,6 +1085,15 @@ class gndarray(_NDArrayOperatorsMixin):
         self.intra_locale_barrier()
 
     def copy(self, order='C'):
+        """
+        Returns a copy of the array, with the same distribution (collective, see
+        :func:`mpi_array.globale_creation.empty_like`).
+
+        :type order: :samp:`{'C', 'K', 'A'}`
+        :param order: Only C order is implemented, see :func:`mpi_array.locale.check_order`.
+        :rtype: :obj:`gndarray`
+        :return: The copy, including the halo elements.
+        """
         from . import globale_creation as _globale_creation
 
         ary_out = _globale_creation.empty_like(self, order=order)
@@ -1053,7 +1154,7 @@ class gndarray(_NDArrayOperatorsMixin):
 
     def locale_get(self, slice=None, start=None, stop=None, halo=0):
         """
-        Collective over :samp:`{self}.comms.intra_locale_comm` to
+        Collective over :samp:`{self}.locale_comms.intra_locale_comm` to
         get a portion of the globale array. Returns a view from the
         locale extent of the array if possible, otherwise allocates
         shared memory (a :obj:`mpi_array.locale.win_lndarray`) and performs

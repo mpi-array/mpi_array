@@ -12,13 +12,23 @@ Classes
    :toctree: generated/
 
    GlobaleExtent - Indexing and halo info for globale array.
+   ScalarGlobaleExtent - Indexing extent of a scalar (0-d) globale array.
    HaloSubExtent - Indexing sub-extent of globale extent.
    LocaleExtent - Indexing and halo info for locale array region.
    CartLocaleExtent - Indexing and halo info for a tile in a cartesian distribution.
+   ScalarLocaleExtent - Indexing extent of a scalar (0-d) locale array.
    Distribution - Apportionment of extents amongst locales.
    ClonedDistribution - Entire array occurs in each locale.
    SingleLocaleDistribution - Entire array occurs on a single locale.
    BlockPartition - Block partition distribution of array extents amongst locales.
+
+Functions
+=========
+
+.. autosummary::
+   :toctree: generated/
+
+   convert_slice_split_to_struct - Converts a split into a structured array of extents.
 
 """
 from __future__ import absolute_import
@@ -139,8 +149,8 @@ class LocaleExtent(HaloSubExtent):
 
     """
     Indexing extent for single region of array residing on a locale.
-    Extends :obj:`HaloSubExtent` by storing additional :attr:`peer_rank`
-    and :attr:`inter_locale_rank` rank integers indicating the process
+    Extends :obj:`HaloSubExtent` by storing additional :attr:`~LocaleExtent.peer_rank`
+    and :attr:`~LocaleExtent.inter_locale_rank` rank integers indicating the process
     responsible for exchanging the data to/from this extent.
     """
 
@@ -255,7 +265,8 @@ class LocaleExtent(HaloSubExtent):
 
         :type axis: :obj:`int`
         :param axis: Indexing extent of halo slab for this axis.
-        :type dir: :attr:`LO` or :attr:`HI`
+        :type dir: :attr:`~mpi_array.indexing.HaloIndexingExtent.LO`
+           or :attr:`~mpi_array.indexing.HaloIndexingExtent.HI`
         :param dir: Indicates low-index halo slab or high-index halo slab.
         :rtype: :obj:`mpi_array.indexing.IndexingExtent`
         :return: Indexing extent for halo slab.
@@ -492,7 +503,7 @@ class CartLocaleExtent(LocaleExtent):
     def cart_rank(self):
         """
         An :obj:`int` indicating the rank of the process in the :samp:`cart_comm`
-        cartesian communicator which corresponds to the :attr:`peer_rank` rank
+        cartesian communicator which corresponds to the :attr:`~LocaleExtent.peer_rank` rank
         in the :samp:`peer_comm` communicator.
         """
         return self.inter_locale_rank
@@ -648,6 +659,9 @@ class Distribution(object):
 
     def create_struct_locale_extents(self, num_locales, ndim):
         """
+        Returns a zero-initialised structured array for the extents of :samp:`{num_locales}`
+        locales of an :samp:`{ndim}` dimensional array (with the struct :obj:`numpy.dtype`
+        of the locale extent type).
         """
         return \
             _np.zeros(
@@ -660,6 +674,18 @@ class Distribution(object):
 
     def initialise_struct_locale_extents(self, struct_locale_extents, locale_extents_descr):
         """
+        Sets the extents of the locales (:samp:`{struct_locale_extents}`, see
+        :meth:`create_struct_locale_extents`): their inter-locale and peer ranks, their start
+        and stop, and their halo (trimmed by the halo of the globale extent, unless given).
+
+        :type struct_locale_extents: :obj:`numpy.ndarray`
+        :param struct_locale_extents: The extents, which are set.
+        :type locale_extents_descr: sequence
+        :param locale_extents_descr: The extent of each locale: a structured array (with start,
+           stop and optionally halo fields), or a sequence of :obj:`tuple` of :obj:`slice`, of
+           objects with :samp:`start` and :samp:`stop` attributes, or of shapes (which start
+           at zero).
+        :raises ValueError: If :samp:`{locale_extents_descr}` isn't one of these.
         """
         num_locales = len(locale_extents_descr)
         START_STR = self._locale_extent_type.START_STR
@@ -799,6 +825,8 @@ class Distribution(object):
 
     def create_locale_extents(self, struct_locale_extents):
         """
+        Returns an :obj:`object` array of the locale extents (of the locale extent type)
+        of the elements of :samp:`{struct_locale_extents}`.
         """
         return \
             _np.array(
@@ -911,7 +939,7 @@ class Distribution(object):
     def get_extent_for_rank(self, inter_locale_rank):
         """
         Returns extent associated with the specified rank
-        of the :attr:`inter_locale_comm` communicator.
+        of the :attr:`~mpi_array.comms.LocaleComms.inter_locale_comm` communicator.
 
         :type inter_locale_rank: :obj:`int`
         :param inter_locale_rank: Return the locale extent
@@ -929,8 +957,9 @@ class Distribution(object):
     def halo(self):
         """
         A :samp:`(ndim, 2)` shaped array of :obj:`int` indicating the
-        halo (ghost elements) for extents. This may differ from the :attr:`LocaleExtent.halo`
-        value due to the locale extent halos getting trimmed to lie within the globale extent.
+        halo (ghost elements) for extents. This may differ from the halo of the locale
+        extents (:attr:`~mpi_array.indexing.HaloIndexingExtent.halo`), which are trimmed
+        to lie within the globale extent.
         """
         return self._halo
 
@@ -1089,6 +1118,23 @@ class SingleLocaleDistribution(Distribution):
 
 def convert_slice_split_to_struct(splt, globale_extent, halo):
     """
+    Converts a split of the globale array (e.g. from
+    :meth:`array_split.ShapeSplitter.calculate_split`) into a structured array of the
+    start, stop and halo of each tile (with the struct :obj:`numpy.dtype`
+    of :obj:`mpi_array.indexing.HaloIndexingExtent`). The halo of a tile is trimmed so
+    that it doesn't extend beyond the halo of :samp:`{globale_extent}`, empty tiles
+    have no halo.
+
+    :type splt: :obj:`numpy.ndarray`
+    :param splt: The split, an array of :obj:`tuple` of :obj:`slice` (one tuple for
+       each tile, without the halo).
+    :type globale_extent: :obj:`GlobaleExtent`
+    :param globale_extent: The extent of the globale array.
+    :type halo: :obj:`int`, sequence of :obj:`int` or :samp:`(ndim, 2)` shaped array
+    :param halo: The halo of the tiles, see
+       :func:`array_split.split.convert_halo_to_array_form`.
+    :rtype: :obj:`numpy.ndarray`
+    :return: The structured array, of the shape of :samp:`{splt}`.
     """
     LO = HaloIndexingExtent.LO
     HI = HaloIndexingExtent.HI
@@ -1242,6 +1288,8 @@ class BlockPartition(Distribution):
 
     def initialise_struct_locale_extents(self, struct_locale_extents, locale_extents_descr):
         """
+        Extends :meth:`Distribution.initialise_struct_locale_extents` with the cartesian
+        coordinate and shape of the locales.
         """
         Distribution.initialise_struct_locale_extents(
             self,

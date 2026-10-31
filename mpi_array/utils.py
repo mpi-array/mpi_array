@@ -22,6 +22,7 @@ Classes
    :toctree: generated/
 
    LruCache - A least recently used cache.
+   SharedMemUsagePercentString - Shared memory use string, calculated when formatted.
 
 """
 from __future__ import absolute_import
@@ -114,7 +115,8 @@ def log_memory_alloc(logger, pfx, num_rank_bytes, rank_shape, dtype, buffer=None
 class LruCache(object):
 
     """
-    A least recently used cache: a mapping of at most :attr:`max_size` entries, the least
+    A least recently used cache: a mapping of at most :attr:`~LruCache.max_size` entries,
+    the least
     recently used entry is removed when there are more. For values which are the same
     on every process (the entries which are removed can then differ between processes).
     """

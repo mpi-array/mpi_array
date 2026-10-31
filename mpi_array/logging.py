@@ -23,6 +23,9 @@ Classes and Functions
    get_rank_logger - Returns :obj:`logging.Logger` for MPI ranks.
    get_root_logger - Returns :obj:`logging.Logger` for MPI root-rank.
    LoggerFactory - Factory class for generating :obj:`logging.Logger` objects.
+   MultiLineFormatter - A :obj:`logging.Formatter` which prefixes each line of a message.
+   get_handlers - The handlers of a logger.
+   get_handler_classes - The classes of the handlers of a logger.
 
 Attributes
 ==========
@@ -58,7 +61,7 @@ class SplitStreamHandler(_builtin_logging.Handler):
         :type outstr: file-like
         :param outstr: Logging messages are written to this stream if
            the message level is less than :samp:`self.splitLevel`.
-        :type errstr: stream
+        :type errstr: file-like
         :param errstr: Logging messages are written to this stream if
            the message level is greater-than-or-equal-to :samp:`self.splitLevel`.
         :type splitlevel: int

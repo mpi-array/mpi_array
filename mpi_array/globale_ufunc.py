@@ -23,8 +23,19 @@ Functions
    ufunc_result_type - Like :func:`numpy.result_type`.
    broadcast_shape - Calculates broadcast shape from sequence of shape arguments.
    shape_extend_dims - Prepend ones to 1D *shape* sequence to make it a specified dimension.
-   gndarray_array_ufunc - A :obj:`numpy.ndarray` like distributed array.
+   gndarray_array_ufunc - The :samp:`__array_ufunc__` implementation of :obj:`gndarray`.
+   get_extents - The locale and globale extents of a ufunc argument.
+   calc_matching_locale_slices - The parts of the inputs for a locale of the output.
+   calc_matching_peer_rank_slices - The parts of the inputs for a tile of the output.
+   check_equivalent_inter_locale_comms - Checks the inter-locale communicators of arrays.
+   convert_to_array_like - Converts the ufunc arguments which aren't arrays.
+   is_python_scalar - Whether an object is a Python scalar.
+   set_numpy_ufuncs_as_module_attr - Sets the NumPy ufuncs as attributes of a module.
 
+Attributes
+==========
+
+.. autodata:: gndarray_ufunc_executor_factory
 
 """
 
@@ -348,8 +359,8 @@ def broadcast_shape(*shape_args):
     the :mod:`numpy` `broadcast <https://numpy.org/doc/stable/user/basics.broadcasting.html>`_
     shape for the give shape arguments (see :func:`numpy.broadcast_shapes`).
 
-    :type shape1, shape2, ...: sequence of `int`
-    :param shape1, shape2, ...: Array shapes to be broadcast.
+    :type shape_args: sequence of :obj:`int`
+    :param shape_args: Array shapes to be broadcast.
     :rtype: :obj:`tuple` of :obj:`int`
     :return: The broadcast shape.
     :raises ValueError: If the shapes cannot be broadcast together.
@@ -454,7 +465,7 @@ def calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_local
     :param out_locale_extent: A locale extent of the output array.
     :type out_globale_extent: :obj:`mpi_array.distribution.GlobaleExtent`
     :param out_globale_extent: The globale extent of the output :obj:`mpi_array.globale.gndarray`.
-    :type inp_locale_extents: sequence of extent pairs
+    :type inp_locale_extents: sequence of :obj:`tuple`
     :param inp_locale_extents: This is the sequence
        of :samp:`(inp_locale_extent, inp_globale_extent)` pairs, one pair for
        each ufunc input.
@@ -494,7 +505,7 @@ def calc_matching_locale_slices(out_locale_extent, out_globale_extent, inp_local
 
 def calc_matching_peer_rank_slices(out_slice, inp_arys):
     """
-    For each input array in :samp:`{inp_arys}, calculates the portion
+    For each input array in :samp:`{inp_arys}`, calculates the portion
     which broadcasts to the :samp:`{out_slice}`.
     Returns :obj:`tuple` of :obj:`slice` (one tuple for each array/scalar element
     in :samp:`{inp_arys}`). The returned *slices* indicate the
@@ -655,9 +666,9 @@ class GndarrayArrayUfuncExecutor(object):
         :type method: :obj:`str`
         :param method: The name of the method of :samp:`{ufunc}` which is
            to be executed.
-        :type inputs: array like
+        :type inputs: sequence of array_like
         :param inputs: The ufunc inputs.
-        :type kwargs: keyword args
+        :type kwargs: :obj:`dict`
         :param kwargs: The ufunc keyword arguments.
         """
         self._array_like_obj = array_like_obj
@@ -1082,6 +1093,15 @@ class GndarrayArrayUfuncExecutor(object):
 
     def execute___call__(self):
         """
+        Executes the :samp:`__call__` method of the ufunc: creates the outputs
+        (collective over the :samp:`peer_comm` of the first :obj:`mpi_array.globale.gndarray`
+        argument), fetches the parts of the inputs which each tile of the outputs needs, and
+        calls the ufunc on each tile. When remote elements are fetched, the inter-locale
+        processes synchronise before and after the fetches. All the processes of a locale
+        raise if the ufunc raised on any of them (see :func:`mpi_array.comms.agree_on_error`).
+
+        :rtype: :obj:`mpi_array.globale.gndarray` or :obj:`tuple`
+        :return: The output (or the :obj:`tuple` of outputs).
         """
         from .globale import gndarray as _gndarray
 
@@ -1253,13 +1273,13 @@ def gndarray_array_ufunc(array_like_obj, ufunc, method, *inputs, **kwargs):
 
 def set_numpy_ufuncs_as_module_attr(set_attr_module, search_module):
     """
-    Finds all :obj:`numpy.ufunc` attributes in the :samp:`{search_module}` :obj:`module`
-    and sets corresponding attributes of :samp:`{set_attr_module}` :obj:`module`.
+    Finds all :obj:`numpy.ufunc` attributes in the :samp:`{search_module}` module
+    and sets corresponding attributes of the :samp:`{set_attr_module}` module.
 
-    :type set_attr_module: :obj:`module`
+    :type set_attr_module: :obj:`types.ModuleType`
     :param set_attr_module: Set ufunc attributes of this module to those found
        in the :samp:`{search_module}` module
-    :type search_module: :obj:`module`
+    :type search_module: :obj:`types.ModuleType`
     :param search_module: Find :obj:`numpy.ufunc` attributes in this module.
 
     """

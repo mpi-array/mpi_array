@@ -34,7 +34,7 @@ def create_linux_process_time():
     Uses :mod:`ctypes` to create a :func:`time.process_time`
     on the :samp:`'Linux'` platform.
 
-    :rtype: :obj:`function`
+    :rtype: callable
     :return: A :func:`time.process_time` equivalent.
     """
     import ctypes
@@ -74,7 +74,7 @@ def create_darwin_process_time():
     Uses :mod:`ctypes` to create a :func:`time.process_time`
     on the :samp:`'darwin'` (OSX) platform.
 
-    :rtype: :obj:`function`
+    :rtype: callable
     :return: A :func:`time.process_time` equivalent.
     """
     import ctypes
@@ -138,7 +138,7 @@ def initialise_process_time_timer():
     Loads (or creates) :func:`time.process_time` function
     and caches the function in :samp:`mpi_array.init._process_time`.
 
-    :rtype: :obj:`function`
+    :rtype: callable
     :return: The :func:`time.process_time` function, if available, otherwise, if possible,
        an equivalent created using :mod:`ctypes`, otherwise :func:`timeit.default_timer`.
     """
@@ -168,7 +168,7 @@ def get_process_time_timer():
     available in the Python stdlib until Python 3.3.  This is a :mod:`ctypes`
     backport for Pythons that don't have it.
 
-    :rtype: :obj:`function`
+    :rtype: callable
     :return: The :func:`time.process_time` function, if available, otherwise, if possible,
        an equivalent created using :mod:`ctypes`, otherwise :func:`timeit.default_timer`.
     """

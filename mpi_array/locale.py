@@ -76,7 +76,7 @@ __version__ = _version()
 class NdarrayMetaData(object):
 
     """
-    Encapsulates, strides, offset and order argument of :meth:`LndarrayProxy.__new__`.
+    Encapsulates the strides, offset and order arguments of :obj:`LndarrayProxy`.
     """
 
     def __init__(self, offset, strides, order):
@@ -97,6 +97,10 @@ class NdarrayMetaData(object):
 
     @property
     def order(self):
+        """
+        The memory layout, :samp:`'C'` (row-major) or :samp:`'F'` (column-major)
+        or :samp:`None`.
+        """
         return self._order
 
 
@@ -705,7 +709,8 @@ class LndarrayProxy(object):
         """
         The object which frees the memory of the locale array: the object given
         to :meth:`set_memory_owner`, otherwise this proxy when it has
-        an :attr:`rma_window_buffer` (:samp:`None` when there is no owner).
+        an RMA window buffer (its :samp:`rma_window_buffer`), :samp:`None` when there
+        is no owner.
         The views of the array (e.g. :attr:`view_n`), and the arrays of
         type :obj:`lndarray` made from them, keep it alive: its memory is not freed after
         garbage collection while they exist. Views are invalid after an explicit

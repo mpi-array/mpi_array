@@ -20,7 +20,9 @@ Classes and Functions
    TestProgram - Over-ride to use :obj:`logging.Logger` output.
    TextTestRunner - Over-ride to use :obj:`logging.Logger` output.
    TextTestResult - Over-ride to use :obj:`logging.Logger` output.
+   LoggerDecorator - A stream like object which writes to a :obj:`logging.Logger`.
    main - Convenience command-line test-case *search and run* function.
+   handle_arg - Replaces an argument unless it was given.
 
 Hang detection
 ==============
@@ -44,6 +46,17 @@ file :samp:`hang_stacks_rank{NNNN}.txt` in that directory instead of :obj:`sys.s
    cancel_hang_detection - Stops the hang-detection timer.
    open_hang_dump_file - Opens the per-rank file for hang-detection stacks.
    close_hang_dump_file - Closes the per-rank file for hang-detection stacks.
+
+Attributes
+==========
+
+.. autosummary::
+   :toctree: generated/
+
+   TEST_TIMEOUT_ENV_VAR
+   DEFAULT_TEST_TIMEOUT
+   TEST_HANG_DIR_ENV_VAR
+   NO_TESTS_EXIT_STATUS
 
 """
 from __future__ import absolute_import
@@ -174,7 +187,7 @@ def _fix_docstring_for_sphinx(docstr):
 class TestCase(_builtin_unittest.TestCase):
 
     """
-    Extends :obj:`unittest.TestCase` with the :meth:`assertArraySplitEqual`.
+    Extends :obj:`unittest.TestCase` with the :meth:`~TestCase.assertArraySplitEqual`.
     """
 
     def assertArraySplitEqual(self, splt1, splt2):
@@ -249,23 +262,41 @@ class TestCase(_builtin_unittest.TestCase):
 class LoggerDecorator:
 
     """
-    Decorator for :obj:`logging.Logger` to provide :meth:`write`, :meth:`writeln`
-    and :meth:`flush` methods.
+    Decorator for :obj:`logging.Logger` to provide :meth:`~LoggerDecorator.write`,
+    :meth:`~LoggerDecorator.writeln` and :meth:`~LoggerDecorator.flush` methods.
     """
 
     def __init__(self, logger):
+        """
+        Initialise.
+
+        :type logger: :obj:`logging.Logger`
+        :param logger: The logger to which the messages are written.
+        """
         self.logger = logger
 
     def write(self, v=""):
+        """
+        Writes :samp:`{v}` as an info message.
+        """
         self.logger.info(v)
 
     def writeln(self, v=""):
+        """
+        Writes :samp:`{v}` as an info message.
+        """
         self.logger.info(v)
 
     def write_error(self, v):
+        """
+        Writes :samp:`{v}` as an error message.
+        """
         self.logger.error(v)
 
     def flush(self):
+        """
+        Does nothing.
+        """
         pass
 
 
@@ -275,6 +306,12 @@ class TextTestResult(_builtin_unittest.TextTestResult):
     Over-ride to use :obj:`logging.Logger` output. Each test is run
     under the hang-detection timer (see :func:`arm_hang_detection`).
     """
+
+    def __init__(self, *args, **kwargs):
+        """
+        Initialise, the arguments are those of :obj:`unittest.TextTestResult`.
+        """
+        _builtin_unittest.TextTestResult.__init__(self, *args, **kwargs)
 
     def startTest(self, test):
         arm_hang_detection()
@@ -395,7 +432,11 @@ class TextTestRunner(_builtin_unittest.TextTestRunner):
     """
 
     def __init__(self, *args, **kwargs):
-
+        """
+        Initialise, the arguments are those of :obj:`unittest.TextTestRunner`. The default
+        result class is :obj:`TextTestResult`, and the default stream is
+        a :obj:`LoggerDecorator`.
+        """
         handle_arg(5, "resultclass", TextTestResult, args, kwargs)
         verbosity = handle_arg(2, "verbosity", 0, args, kwargs)
 
@@ -505,6 +546,10 @@ class TestProgram(_builtin_unittest.TestProgram):
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialise, the arguments are those of :func:`unittest.main`. The default test
+        runner is :obj:`TextTestRunner`.
+        """
         handle_arg(3, "testRunner", TextTestRunner, args, kwargs)
         _builtin_unittest.TestProgram.__init__(self, *args, **kwargs)
 

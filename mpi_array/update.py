@@ -22,8 +22,14 @@ Classes and Functions
    MpiHaloSingleExtentUpdate - Like :obj:`HaloSingleExtentUpdate`, with MPI data types.
    UpdatesForRedistribute - Calculate sequence of overlapping extents between two distributions.
    MpiUpdatesForRedistribute - Extends :obj:`UpdatesForRedistribute` with MPI data types.
+   UpdatesForGet - The updates which fetch a region of an array.
+   MpiUpdatesForGet - Extends :obj:`UpdatesForGet` with MPI data types.
+   HalosUpdate - The halo updates of a locale.
+   MpiHalosUpdate - Extends :obj:`HalosUpdate` with MPI data types.
    ProcessUpdates - The updates of a process for a copy between arrays.
    split_region - Splits a region into pieces along an axis.
+   pair_extent_update_copyto - Copies the region of an update between arrays.
+   raise_not_in_source_distribution - Raises for regions not in a distribution.
    RmaUpdateExecutor - Execute updates using one-sided RMA fetch.
 """
 from __future__ import absolute_import
@@ -52,15 +58,29 @@ class ExtentAndRegion:
     """
 
     def __init__(self, locale_extent, region_extent=None):
+        """
+        Initialise.
+
+        :type locale_extent: :obj:`mpi_array.distribution.LocaleExtent`
+        :param locale_extent: The extent of the locale array.
+        :type region_extent: :obj:`mpi_array.indexing.IndexingExtent`
+        :param region_extent: The update region (globale indices).
+        """
         self._locale_extent = locale_extent
         self._region_extent = region_extent
 
     @property
     def locale_extent(self):
+        """
+        The :obj:`mpi_array.distribution.LocaleExtent` of the locale array.
+        """
         return self._locale_extent
 
     @property
     def region_extent(self):
+        """
+        The update region, an :obj:`mpi_array.indexing.IndexingExtent` (globale indices).
+        """
         return self._region_extent
 
     @region_extent.setter
@@ -283,6 +303,17 @@ class MpiExtentAndRegion(ExtentAndRegion):
         self._dtype = None
 
     def create_data_type(self, dtype, order="C"):
+        """
+        Creates (and commits) the MPI sub-array data type of the region of the locale array.
+
+        :type dtype: :obj:`numpy.dtype`
+        :param dtype: The element type.
+        :type order: :obj:`str`
+        :param order: The memory layout, :samp:`"C"` or :samp:`"F"`.
+        :rtype: :obj:`tuple`
+        :return: The :samp:`(mpi_data_type, mpi_order, parent_mpi_data_type)` triple, the
+           parent is the data type of the elements.
+        """
         mpi_order = _mpi.ORDER_C
         if order.upper() == "F":
             mpi_order = _mpi.ORDER_FORTRAN
@@ -323,6 +354,10 @@ class MpiExtentAndRegion(ExtentAndRegion):
 
     @property
     def mpi_data_type(self):
+        """
+        The :obj:`mpi4py.MPI.Datatype` of the region (see :meth:`initialise_mpi_data_type`),
+        :samp:`None` before it is created.
+        """
         return self._mpi_data_type
 
 
@@ -473,7 +508,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
         :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
         :type origin_dst_buffer: :obj:`memoryview`
         :param origin_dst_buffer: The destination memory for the update, size of buffer
-           should correspond to the size of the :attr:`dst_extent`.
+           should correspond to the size of the :attr:`~ExtentUpdate.dst_extent`.
         """
         mpi_win.Get(
             [origin_dst_buffer, 1, self.dst_data_type],
@@ -492,7 +527,7 @@ class MpiPairExtentUpdate(ExtentUpdate):
         :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
         :type origin_dst_buffer: :obj:`memoryview`
         :param origin_dst_buffer: The destination memory for the update, size of buffer
-           should correspond to the size of the :attr:`dst_extent`.
+           should correspond to the size of the :attr:`~ExtentUpdate.dst_extent`.
         """
         req = \
             mpi_win.Rget(
@@ -504,6 +539,8 @@ class MpiPairExtentUpdate(ExtentUpdate):
 
     def conclude(self):
         """
+        Does nothing, the fetched elements are already in the destination
+        (see :meth:`MpiPairExtentUpdateDifferentDtypes.conclude`).
         """
         pass
 
@@ -568,7 +605,7 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         Performs calls :meth:`mpi4py.MPI.Win.Get` method of :samp:`mpi_win`
         to perform the RMA data-transfer. Uses a locally allocated buffer
         to receive the data and then uses :func:`numpy.copyto` to convert
-        the :attr:`src_dtype` to the :attr:`dst_dtype`.
+        the :attr:`~MpiPairExtentUpdate.src_dtype` to the :attr:`~MpiPairExtentUpdate.dst_dtype`.
 
         :type mpi_win: :obj:`mpi4py.MPI.Win.Get`
         :param mpi_win: Window used to retrieve update region for array.
@@ -576,7 +613,7 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
         :param target_src_rank: The rank of the target process in :samp:`mpi_win.group.rank`.
         :type origin_dst_buffer: :obj:`memoryview`
         :param origin_dst_buffer: The destination memory for the update, size of buffer
-           should correspond to the size of the :attr:`dst_extent`.
+           should correspond to the size of the :attr:`~ExtentUpdate.dst_extent`.
         """
         self._buffer = _np.empty(shape=self._src.region_extent.shape, dtype=self._src._dtype)
         self._dst_buffer = origin_dst_buffer
@@ -590,6 +627,11 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
 
     def do_rget(self, mpi_win, target_src_rank, origin_dst_buffer):
         """
+        Like :meth:`do_get`, with :meth:`mpi4py.MPI.Win.Rget`: the fetch completes
+        with the returned request, then call :meth:`conclude`.
+
+        :rtype: :obj:`mpi4py.MPI.Request`
+        :return: The request of the fetch.
         """
         self._buffer = _np.empty(shape=self._src.region_extent.shape, dtype=self._src._dtype)
         self._dst_buffer = origin_dst_buffer
@@ -605,6 +647,8 @@ class MpiPairExtentUpdateDifferentDtypes(MpiPairExtentUpdate):
 
     def conclude(self):
         """
+        Copies (and casts) the fetched elements to the destination, after the fetch has
+        completed.
         """
         origin_dst_buffer_slice = \
             self._dst.locale_extent.globale_to_locale_slice_h(self._dst.region_extent.to_slice())
@@ -855,7 +899,7 @@ class HalosUpdate(object):
            (tile) on MPI rank :samp:`r.`
         :type cart_coord_to_extent: callable
         :param cart_coord_to_extent: Returns the extent of the tile with a cartesian
-           coordinate, see :meth:`__init__`.
+           coordinate, see :obj:`HalosUpdate`.
         """
         self._dst_rank = dst_rank
         self._dst_extent = rank_to_extents_map[dst_rank]
@@ -898,7 +942,7 @@ class HalosUpdate(object):
     @property
     def updates_per_axis(self):
         """
-        A :attr:`ndim` length list of pair elements, each element of the pair
+        A :samp:`ndim` length list of pair elements, each element of the pair
         is a list of :obj:`HaloSingleExtentUpdate` objects.
         """
         return self._updates
@@ -1158,7 +1202,7 @@ class UpdatesForRedistribute(object):
     def get_rget_src_extents(self, dst_extent):
         """
         Returns the extents of the source locales (in rank order) which have elements
-        of :samp:`{dst_extent}` (with its halo if :attr:`update_dst_halo`).
+        of :samp:`{dst_extent}` (with its halo if :samp:`update_dst_halo`).
 
         :type dst_extent: :obj:`mpi_array.distribution.LocaleExtent`
         :param dst_extent: The extent of the destination locale.
@@ -1203,7 +1247,7 @@ class UpdatesForRedistribute(object):
     def check_updates(self):
         """
         Runs consistency checks on the calculated updates, assumes that
-        the :attr:`dst_distrib` and :attr:`src_distrib` distributed
+        the :samp:`{dst_distrib}` and :samp:`{src_distrib}` distributed
         as a partitioning (no locale extent overlaps except for halo).
         When only the updates of one destination locale were calculated, the updates
         are checked against its extent.
@@ -1288,7 +1332,8 @@ class UpdatesForRedistribute(object):
 class MpiUpdatesForRedistribute(UpdatesForRedistribute):
 
     """
-    Extends :obj:`UpdatesForRedistribute` by over-riding :meth:`create_pair_extent_update`
+    Extends :obj:`UpdatesForRedistribute` by over-riding
+    :meth:`~UpdatesForRedistribute.create_pair_extent_update`
     to generate :obj:`MpiPairExtentUpdate` objects (:obj:`MpiPairExtentUpdateDifferentDtypes`
     objects when the element types differ). The updates of a process
     (:meth:`create_process_updates`) have their MPI data types. The updates don't
@@ -1570,12 +1615,16 @@ class UpdatesForGet(object):
 
     def get_cpy2_src_extents(self, dst_inter_locale_rank):
         """
+        Returns the source extents whose elements are copied directly, without RMA: that of
+        the source locale with the inter-locale rank of the destination locale.
         """
         src_extents = (self._src_distrib.get_extent_for_rank(dst_inter_locale_rank),)
         return src_extents
 
     def initialise_cpy2_updates(self):
         """
+        Calculates the direct copy updates (see :meth:`get_cpy2_src_extents`), the regions
+        which they don't copy are left in the queue of destination extents.
         """
         all_dst_leftovers = []
         for dst_extent_idx in range(len(self._dst_extent_queue)):
@@ -1624,11 +1673,15 @@ class UpdatesForGet(object):
 
     def initialise_updates(self):
         """
+        Calculates the direct copy updates, then the fetch updates.
         """
         self.initialise_cpy2_updates()
         self.initialise_rget_updates()
 
     def initialise(self):
+        """
+        Calculates the updates of the destination extent (see :meth:`initialise_updates`).
+        """
         self._dst_extent_queue = _collections.deque()
         self._dst_extent_queue.extend((self._dst_extent,))
         self._dst_cpy2_updates = _collections.defaultdict(list)
@@ -1640,7 +1693,8 @@ class UpdatesForGet(object):
 class MpiUpdatesForGet(UpdatesForGet):
 
     """
-    Extends :obj:`UpdatesForGet` by over-riding :meth:`create_pair_extent_update`
+    Extends :obj:`UpdatesForGet` by over-riding
+    :meth:`~UpdatesForGet.create_pair_extent_update`
     to generate :obj:`MpiPairExtentUpdate` objects.
     """
 
@@ -1789,7 +1843,7 @@ class RmaUpdateExecutor(object):
         """
         Returns the updates of :samp:`{updates}` grouped by target rank (of :attr:`inter_win`),
         the targets in a random order which depends on the rank of this process
-        (the :samp:`win_rank` argument of :meth:`__init__`), so that the processes don't
+        (the :samp:`win_rank` argument of :obj:`RmaUpdateExecutor`), so that the processes don't
         all fetch from the same targets at the same time.
 
         :type updates: sequence of :obj:`MpiPairExtentUpdate`
