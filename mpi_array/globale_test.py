@@ -1358,6 +1358,87 @@ class GndarrayTest(_unittest.TestCase):
                         )
                     )
 
+    def test_copyto_reuses_updates(self):
+        """
+        Repeated copies between arrays of the same distributions, element types and orders
+        use the updates calculated for the first copy, they used to be calculated for every
+        copy. Copies with another element type or casting calculate their own updates.
+        """
+        updater_type = _globale.RmaRedistributeUpdater
+        calc_updates = updater_type.calc_updates
+        num_calcs = []
+
+        def counting_calc_updates(updater):
+            num_calcs.append(1)
+            return calc_updates(updater)
+
+        shape = (8 * _mpi.COMM_WORLD.size, 8)
+        for locale_type in (LT_PROCESS, LT_NODE):
+            with \
+                    _globale_creation.zeros(shape, locale_type=locale_type, dims=(0, 1)) \
+                    as dst, \
+                    _globale_creation.empty(shape, locale_type=locale_type, dims=(1, 0)) \
+                    as src, \
+                    _globale_creation.empty_like(src, dtype="int32") as int_src:
+                del num_calcs[:]
+                updater_type.calc_updates = counting_calc_updates
+                try:
+                    for value in (1, 2):
+                        src.fill(value)
+                        _globale.copyto(dst, src)
+                        self.assertEqual(1, len(num_calcs))
+                        self.assertTrue(
+                            dst.locale_comms.peer_comm.allreduce(
+                                bool(_np.all(dst.view_n == value)),
+                                op=_mpi.LAND
+                            )
+                        )
+                    with _globale_creation.empty_like(dst) as dst_like:
+                        _globale.copyto(dst_like, src)
+                    self.assertEqual(1, len(num_calcs))
+                    int_src.fill(3)
+                    for i in range(2):
+                        _globale.copyto(dst, int_src)
+                        self.assertEqual(2, len(num_calcs))
+                    _globale.copyto(dst, src, casting="unsafe")
+                    self.assertEqual(3, len(num_calcs))
+                finally:
+                    updater_type.calc_updates = calc_updates
+                self.assertTrue(
+                    dst.locale_comms.peer_comm.allreduce(
+                        bool(_np.all(dst.view_n == 2)),
+                        op=_mpi.LAND
+                    )
+                )
+
+    def test_redistribute_updates_cache(self):
+        """
+        Tests for :obj:`mpi_array.globale.RedistributeUpdatesCache`, the least recently
+        used entry is removed, the distributions are weakly referenced and their entries
+        are removed when they are deleted.
+        """
+        class Distrib(object):
+            pass
+
+        cache = _globale.RedistributeUpdatesCache(max_size=2)
+        d0, d1, d2 = Distrib(), Distrib(), Distrib()
+        self.assertEqual("u01", cache.get(d0, d1, ("k",), lambda: "u01"))
+        self.assertEqual("u01", cache.get(d0, d1, ("k",), lambda: "x"))
+        self.assertEqual("u01k", cache.get(d0, d1, ("k", 1), lambda: "u01k"))
+        self.assertEqual("u01", cache.get(d0, d1, ("k",), lambda: "x"))
+        self.assertEqual("u02", cache.get(d0, d2, ("k",), lambda: "u02"))
+        self.assertEqual(2, len(cache))
+        self.assertEqual("y", cache.get(d0, d1, ("k", 1), lambda: "y"))
+        self.assertEqual("u02", cache.get(d0, d2, ("k",), lambda: "x"))
+
+        ref = _weakref.ref(d2)
+        del d2
+        self.assertTrue(ref() is None)
+        self.assertEqual(1, len(cache))
+        self.assertEqual("y", cache.get(d0, d1, ("k", 1), lambda: "x"))
+        cache.clear()
+        self.assertEqual(0, len(cache))
+
 
 class CommLoggerTest(_unittest.TestCase):
 

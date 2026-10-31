@@ -15,6 +15,7 @@ Classes
    gndarray - A :obj:`numpy.ndarray` like distributed array.
    PerAxisRmaHaloUpdater - Helper class for performing ghost element updates.
    RmaRedistributeUpdater - Helper class for redistributing elements between distributions.
+   RedistributeUpdatesCache - Cache of the updates of copies between arrays.
 
 Functions
 =========
@@ -29,6 +30,8 @@ Functions
 
 from __future__ import absolute_import
 
+import collections as _collections
+import weakref as _weakref
 import mpi4py.MPI as _mpi
 import numpy as _np
 from numpy.lib.mixins import NDArrayOperatorsMixin as _NDArrayOperatorsMixin
@@ -328,6 +331,93 @@ class RankTranslator(object):
         return self._src_group
 
 
+class RedistributeUpdatesCache(object):
+
+    """
+    A least recently used cache of the updates calculated for copies between arrays
+    (:obj:`RmaRedistributeUpdater`), so that repeated copies between arrays of the same
+    distributions (the same objects), element types and orders don't calculate them
+    again. The distributions are weakly referenced: the cache doesn't keep them alive,
+    the entries of a distribution are removed when it is deleted, and an entry is never
+    used for another distribution object.
+    """
+
+    def __init__(self, max_size=32):
+        """
+        Initialise.
+
+        :type max_size: :obj:`int`
+        :param max_size: The maximum number of entries, the least recently used entry
+           is removed when there are more.
+        """
+        self._max_size = max_size
+        self._entries = _collections.OrderedDict()
+
+    def __len__(self):
+        """
+        The number of entries.
+        """
+        return len(self._entries)
+
+    def clear(self):
+        """
+        Removes all entries.
+        """
+        self._entries.clear()
+
+    def remove_entry(self, cache_key, ref):
+        """
+        Removes the entry of :samp:`{cache_key}` if it has the weak reference :samp:`{ref}`
+        (called when the referenced distribution is deleted).
+        """
+        entry = self._entries.get(cache_key, None)
+        if (entry is not None) and ((entry[0] is ref) or (entry[1] is ref)):
+            del self._entries[cache_key]
+
+    def get(self, dst_distrib, src_distrib, key, calc_updates):
+        """
+        Returns the updates for copies from arrays of the :samp:`{src_distrib}`
+        distribution to arrays of the :samp:`{dst_distrib}` distribution. They are
+        calculated (:samp:`{calc_updates}()`) and cached when they are not in the cache.
+
+        :type dst_distrib: :obj:`mpi_array.distribution.Distribution`
+        :param dst_distrib: The distribution of the array which receives the elements.
+        :type src_distrib: :obj:`mpi_array.distribution.Distribution`
+        :param src_distrib: The distribution of the array from which the elements are copied.
+        :type key: :obj:`tuple`
+        :param key: The other (hashable) parameters of the updates, e.g. the element types.
+        :type calc_updates: callable
+        :param calc_updates: Calculates the updates.
+        :rtype: :obj:`object`
+        :return: The updates.
+        """
+        cache_key = (id(dst_distrib), id(src_distrib)) + tuple(key)
+        entry = self._entries.get(cache_key, None)
+        if (entry is not None) and (entry[0]() is dst_distrib) and (entry[1]() is src_distrib):
+            updates = entry[2]
+        else:
+            updates = calc_updates()
+
+            def remove_entry(ref, cache=self, cache_key=cache_key):
+                cache.remove_entry(cache_key, ref)
+
+            entry = \
+                (
+                    _weakref.ref(dst_distrib, remove_entry),
+                    _weakref.ref(src_distrib, remove_entry),
+                    updates
+                )
+            self._entries[cache_key] = entry
+            while len(self._entries) > self._max_size:
+                self._entries.popitem(last=False)
+        self._entries.move_to_end(cache_key)
+        return updates
+
+
+#: The updates of copies between arrays.
+_redistribute_updates_cache = RedistributeUpdatesCache()
+
+
 class RmaRedistributeUpdater(object):
 
     """
@@ -388,10 +478,24 @@ class RmaRedistributeUpdater(object):
     def updates(self):
         """
         The :obj:`mpi_array.update.MpiUpdatesForRedistribute` updates of the destination
-        locale of this process, calculated (:meth:`calc_updates`) when first used.
+        locale of this process, calculated (:meth:`calc_updates`) when first used, unless
+        they are in the cache (:obj:`RedistributeUpdatesCache`).
         """
         if self._updates is None:
-            self._updates = self.calc_updates()
+            self._updates = \
+                _redistribute_updates_cache.get(
+                    self._dst.distribution,
+                    self._src.distribution,
+                    (
+                        self._dst.dtype,
+                        self._src.dtype,
+                        self._dst.order,
+                        self._src.order,
+                        self._casting,
+                        int(self._dst.this_locale.inter_locale_rank)
+                    ),
+                    self.calc_updates
+                )
         return self._updates
 
     def calc_can_use_existing_src_peer_comm(self):
