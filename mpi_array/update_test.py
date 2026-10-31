@@ -137,6 +137,38 @@ class MpiPairExtentUpdateTest(_unittest.TestCase):
         self.assertEqual(_mpi.ORDER_C, u._dst._mpi_order)
         self.assertEqual(_mpi.ORDER_C, u._src._mpi_order)
 
+    def test_data_type_free(self):
+        """
+        The MPI data types of an update are freed when they are replaced (other element
+        type or order) and when the update is deleted. They used to be left allocated.
+        """
+        u = MpiPairExtentUpdate(self.de, self.se, self.due, self.sue)
+        u.initialise_data_types(dst_dtype="int32", src_dtype="int32", dst_order="C", src_order="C")
+        data_types = (u.dst_data_type, u.src_data_type)
+        u.initialise_data_types(
+            dst_dtype="float64",
+            src_dtype="int32",
+            dst_order="C",
+            src_order="C"
+        )
+        self.assertEqual(_mpi.DATATYPE_NULL, data_types[0])
+        self.assertTrue(u.src_data_type is data_types[1])
+        self.assertNotEqual(_mpi.DATATYPE_NULL, data_types[1])
+
+        data_types = (u.dst_data_type, u.src_data_type)
+        del u
+        for data_type in data_types:
+            self.assertEqual(_mpi.DATATYPE_NULL, data_type)
+
+        # The basic data types (e.g. of the elements) aren't freed.
+        u = MpiHaloSingleExtentUpdate(self.de, self.se, self.due)
+        u.initialise_data_types(dtype="int32", order="C")
+        data_types = (u.dst_data_type, u.src_data_type, u._dst._parent_mpi_data_type)
+        del u
+        self.assertEqual(_mpi.DATATYPE_NULL, data_types[0])
+        self.assertEqual(_mpi.DATATYPE_NULL, data_types[1])
+        self.assertNotEqual(_mpi.DATATYPE_NULL, data_types[2])
+
 
 class MpiHaloSingleExtentUpdateTest(_unittest.TestCase):
 

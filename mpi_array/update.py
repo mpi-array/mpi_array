@@ -183,6 +183,13 @@ class PairExtentUpdate(ExtentUpdate):
 
 class MpiExtentAndRegion(ExtentAndRegion):
 
+    """
+    Extends :obj:`ExtentAndRegion` with the MPI data type of the region.
+    """
+
+    _mpi_data_type = None
+    _owns_mpi_data_type = False
+
     def __init__(
         self,
         locale_extent,
@@ -197,7 +204,27 @@ class MpiExtentAndRegion(ExtentAndRegion):
         self._parent_mpi_data_type = None
         self._order = order
         self._mpi_data_type = mpi_data_type
+        #: Only the data types created by :meth:`initialise_mpi_data_type` are freed.
+        self._owns_mpi_data_type = False
         self._mpi_order = mpi_order
+
+    def __del__(self):
+        """
+        Frees the MPI data type (:meth:`free_mpi_data_type`).
+        """
+        self.free_mpi_data_type()
+
+    def free_mpi_data_type(self):
+        """
+        Frees the MPI data type created by :meth:`initialise_mpi_data_type`. This is
+        a local MPI call (no communication), communication which uses the data type
+        completes normally.
+        """
+        if self._owns_mpi_data_type and (not _mpi.Is_finalized()):
+            self._mpi_data_type.Free()
+        self._owns_mpi_data_type = False
+        self._mpi_data_type = None
+        self._dtype = None
 
     def create_data_type(self, dtype, order="C"):
         mpi_order = _mpi.ORDER_C
@@ -217,6 +244,11 @@ class MpiExtentAndRegion(ExtentAndRegion):
         return mpi_data_type, mpi_order, parent_mpi_data_type
 
     def initialise_mpi_data_type(self, dtype, order):
+        """
+        Creates the MPI data type of the region for the :samp:`{dtype}` element type
+        and :samp:`{order}` memory layout, unless it was created for them already
+        (a data type created for others is freed).
+        """
         dtype = _np.dtype(dtype)
         order = order.lower()
         if (
@@ -226,8 +258,10 @@ class MpiExtentAndRegion(ExtentAndRegion):
             or
             (self._order != order)
         ):
+            self.free_mpi_data_type()
             self._mpi_data_type, self._mpi_order, self._parent_mpi_data_type = \
                 self.create_data_type(dtype, order)
+            self._owns_mpi_data_type = True
             self._dtype = dtype
             self._order = order
 
