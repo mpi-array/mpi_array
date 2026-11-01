@@ -53,16 +53,20 @@ jobs:
         with:
           mpi: ${{ matrix.mpi }}
       - name: Configure MPI
-        # As in the CI of mpi4py: the processes yield when idle (the runners have few cores),
-        # and Open MPI's one-sided communication doesn't use UCX. Over TCP, Open MPI 4.1
-        # uses its osc/pt2pt component, which doesn't support MPI_THREAD_MULTIPLE (the
-        # default thread level of mpi4py): Win.Create would fail with MPI_ERR_WIN.
+        # Mostly as in the CI of mpi4py: the processes yield when idle (the runners have few
+        # cores), Open MPI's one-sided communication doesn't use UCX. The communication
+        # within the runner uses shared memory, not TCP: the tests hung at 3 and 4 processes
+        # over TCP. The single copy (CMA) of Open MPI's vader needs ptrace permission, which
+        # the runners don't give. Without RDMA, Open MPI 4.1 uses its osc/pt2pt component,
+        # which doesn't support MPI_THREAD_MULTIPLE (the default thread level of mpi4py):
+        # Win.Create would fail with MPI_ERR_WIN.
         run: |
           if [ "${{ matrix.mpi }}" = "openmpi" ]; then
             {
               echo "OMPI_MCA_plm_ssh_agent=false"
               echo "OMPI_MCA_pml=ob1"
-              echo "OMPI_MCA_btl=tcp,self"
+              echo "OMPI_MCA_btl=self,vader"
+              echo "OMPI_MCA_btl_vader_single_copy_mechanism=none"
               echo "OMPI_MCA_osc=^ucx"
               echo "OMPI_MCA_rmaps_base_oversubscribe=true"
               echo "OMPI_MCA_mpi_yield_when_idle=true"
@@ -76,7 +80,7 @@ jobs:
               echo "MPIR_CVAR_CH4_PROGRESS_THROTTLE=true"
               echo "MPIR_CVAR_CH4_PROGRESS_THROTTLE_NO_PROGRESS_COUNT=1"
               echo "MPIR_CVAR_CH3_INTERFACE_HOSTNAME=127.0.0.1"
-              echo "UCX_TLS=tcp,sm,self"
+              echo "UCX_TLS=sm,self"
               echo "FI_PROVIDER=tcp"
               echo "HYDRA_LAUNCHER=fork"
             } >> "$GITHUB_ENV"
