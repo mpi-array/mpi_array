@@ -350,8 +350,27 @@ class TextTestResult(_builtin_unittest.TextTestResult):
             self.stream.write('.')
             self.stream.flush()
 
+    def log_error(self, flavour, test, err):
+        """
+        Logs the error (or failure) of a test with its traceback, when it happens: an error
+        on some processes can make the others hang in a collective, and then the errors
+        printed after the tests (:meth:`printErrors`) never are.
+
+        :type flavour: :obj:`str`
+        :param flavour: :samp:`"ERROR"` or :samp:`"FAIL"`.
+        :type test: :obj:`unittest.TestCase`
+        :param test: The test.
+        :type err: :obj:`str`
+        :param err: The formatted traceback.
+        """
+        self.stream.write_error(self.separator1)
+        self.stream.write_error("%s: %s" % (flavour, self.getDescription(test)))
+        self.stream.write_error(self.separator2)
+        self.stream.write_error("%s" % err)
+
     def addError(self, test, err):
         _builtin_unittest.result.TestResult.addError(self, test, err)
+        self.log_error("ERROR", test, self.errors[-1][1])
         if self.showAll:
             self.stream.write_error("ERROR")
         elif self.dots:
@@ -360,6 +379,7 @@ class TextTestResult(_builtin_unittest.TextTestResult):
 
     def addFailure(self, test, err):
         _builtin_unittest.result.TestResult.addFailure(self, test, err)
+        self.log_error("FAIL", test, self.failures[-1][1])
         if self.showAll:
             self.stream.write_error("FAIL")
         elif self.dots:
@@ -397,11 +417,12 @@ class TextTestResult(_builtin_unittest.TextTestResult):
         self.printErrorList('FAIL', self.failures)
 
     def printErrorList(self, flavour, errors):
+        """
+        Logs the tests which had errors (or failures), their tracebacks were logged
+        when they happened (see :meth:`log_error`).
+        """
         for test, err in errors:
-            self.stream.write_error(self.separator1)
             self.stream.write_error("%s: %s" % (flavour, self.getDescription(test)))
-            self.stream.write_error(self.separator2)
-            self.stream.write_error("%s" % err)
 
 
 def handle_arg(arg_index, arg_key, arg_value, args, kwargs):
