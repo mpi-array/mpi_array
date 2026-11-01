@@ -1291,7 +1291,10 @@ class LocaleComms(object):
                     dtype.itemsize,
                     comm=self.intra_locale_comm
                 )
-            buffer, itemsize = intra_locale_win.Shared_query(0)
+            # Not the displacement unit of the query: for zero size memory MPICH 4.2 gives
+            # zero to the other processes, and Win.Create then fails on them only.
+            buffer, _ = intra_locale_win.Shared_query(0)
+            itemsize = dtype.itemsize
             _log_shared_memory_alloc(
                 self.rank_logger.debug, "END: ", num_rank_bytes, rank_shape, dtype, buffer=buffer
             )

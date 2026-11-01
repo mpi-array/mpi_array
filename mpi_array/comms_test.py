@@ -376,6 +376,24 @@ class CartLocaleCommsTest(_unittest.TestCase):
         self.assertEqual(_np.dtype("uint16").itemsize, rma_window_buff.itemsize)
         self.assertEqual(100 * rma_window_buff.dtype.itemsize, len(rma_window_buff.buffer))
 
+    def test_alloc_locale_buffer_without_elements(self):
+        """
+        The item size (the displacement unit of the RMA windows) of the buffer of a locale
+        array without elements is the size of the elements on all the processes of the locale.
+        For zero size shared memory, MPICH 4.2 gave a displacement unit of zero to the processes
+        which didn't allocate it, and :meth:`mpi4py.MPI.Win.Create` then failed on them only.
+        """
+        lc = CartLocaleComms(ndims=1)
+        rma_window_buff = lc.alloc_locale_buffer(shape=(0,), dtype="float64")
+        self.assertEqual(0, len(rma_window_buff.buffer))
+        # The same result on all processes, before the collective window creation.
+        self.assertSequenceEqual(
+            [8, ] * lc.peer_comm.size,
+            lc.peer_comm.allgather(rma_window_buff.itemsize)
+        )
+        rma_window_buff.initialise_windows()
+        rma_window_buff.free()
+
 
 class CreateDistributionTest(_unittest.TestCase):
 
