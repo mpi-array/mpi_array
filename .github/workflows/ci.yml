@@ -54,7 +54,9 @@ jobs:
           mpi: ${{ matrix.mpi }}
       - name: Configure MPI
         # As in the CI of mpi4py: the processes yield when idle (the runners have few cores),
-        # and Open MPI's one-sided communication doesn't use UCX.
+        # and Open MPI's one-sided communication doesn't use UCX. Over TCP, Open MPI 4.1
+        # uses its osc/pt2pt component, which doesn't support MPI_THREAD_MULTIPLE (the
+        # default thread level of mpi4py): Win.Create would fail with MPI_ERR_WIN.
         run: |
           if [ "${{ matrix.mpi }}" = "openmpi" ]; then
             {
@@ -66,6 +68,7 @@ jobs:
               echo "OMPI_MCA_mpi_yield_when_idle=true"
               echo "OMPI_MCA_btl_base_warn_component_unused=false"
               echo "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
+              echo "MPI4PY_RC_THREAD_LEVEL=serialized"
             } >> "$GITHUB_ENV"
           else
             {
@@ -91,12 +94,12 @@ jobs:
       - name: Tests, 1 to 4 processes
         run: |
           mkdir -p "$RUNNER_TEMP/logs"
-          python utils/run_mpi_tests.py -n 1 2 3 4 --timeout 300 \
+          python utils/run_mpi_tests.py -n 1 2 3 4 \
             --log-dir "$RUNNER_TEMP/logs/source" | tee "$RUNNER_TEMP/logs/source.txt"
       - name: Tests of the installed package, 2 processes
         working-directory: ${{ runner.temp }}
         run: |
-          python "$GITHUB_WORKSPACE/utils/run_mpi_tests.py" -n 2 --timeout 300 \
+          python "$GITHUB_WORKSPACE/utils/run_mpi_tests.py" -n 2 \
             --no-exit-scenarios --log-dir "$RUNNER_TEMP/logs/installed" \
             | tee "$RUNNER_TEMP/logs/installed.txt"
       - name: Benchmarks, quick run on 2 processes
