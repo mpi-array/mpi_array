@@ -4,7 +4,7 @@ The :mod:`mpi_array.tests` Module
 =================================
 
 Module for running all :mod:`mpi_array` unit-tests, including :mod:`unittest` test-cases
-and :mod:`doctest` tests for module doc-strings and sphinx (RST) documentation.
+and :mod:`doctest` tests of the docstring examples (see :obj:`DocTestTestSuite`).
 Execute as::
 
    python -m mpi_array.tests
@@ -12,6 +12,7 @@ Execute as::
 """
 from __future__ import absolute_import
 
+import importlib as _importlib
 import re as _re
 import unittest as _unittest
 import doctest as _doctest  # noqa: E402,F401
@@ -52,37 +53,50 @@ class MultiPlatformAnd23Checker(_doctest_OuputChecker):
 _doctest.OutputChecker = MultiPlatformAnd23Checker
 
 
+#: The modules whose docstring examples are tested.
+DOCTEST_MODULE_NAMES = \
+    (
+        "mpi_array.comms",
+        "mpi_array.globale_ufunc",
+        "mpi_array.indexing",
+        "mpi_array.locale",
+        "mpi_array.update",
+    )
+
+
 class DocTestTestSuite(_unittest.TestSuite):
 
+    """
+    The :mod:`doctest` tests of the README (when it is next to the package) and of
+    the docstrings of the :attr:`DOCTEST_MODULE_NAMES` modules.
+    """
+
     def __init__(self):
+        """
+        Initialise with the tests.
+        """
         readme_file_name = \
             _os_path.realpath(
                 _os_path.join(_os_path.dirname(__file__), "..", "README.md")
             )
         suite = _unittest.TestSuite()
+        optionflags = _doctest.NORMALIZE_WHITESPACE | _doctest.ELLIPSIS
 
         if _os_path.exists(readme_file_name):
             suite.addTests(
                 _doctest.DocFileSuite(
                     readme_file_name,
                     module_relative=False,
-                    optionflags=_doctest.NORMALIZE_WHITESPACE
+                    optionflags=optionflags
                 )
             )
-        from . import indexing as _indexing
-        suite.addTests(
-            _doctest.DocTestSuite(
-                _indexing,
-                optionflags=_doctest.NORMALIZE_WHITESPACE
+        for module_name in DOCTEST_MODULE_NAMES:
+            suite.addTests(
+                _doctest.DocTestSuite(
+                    _importlib.import_module(module_name),
+                    optionflags=optionflags
+                )
             )
-        )
-        from . import globale_ufunc as _globale_ufunc
-        suite.addTests(
-            _doctest.DocTestSuite(
-                _globale_ufunc,
-                optionflags=_doctest.NORMALIZE_WHITESPACE
-            )
-        )
 
         _unittest.TestSuite.__init__(self, suite)
 
