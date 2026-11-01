@@ -458,20 +458,6 @@ class RmaWindowBuffer(object):
         """
         return _np.frombuffer(self.intra_locale_win_memory, dtype='B')
 
-    @property
-    def win_memory(self):
-        """
-        The memory exposed in the RMA windows (:attr:`peer_win`, :attr:`inter_locale_win`):
-        the :attr:`intra_locale_win_memory`, or a new zero-length buffer when the locale
-        array has no elements. MPI may give zero-length window memory any base
-        (e.g. :samp:`NULL`), which :meth:`mpi4py.MPI.Win.Create` didn't accept with MPICH 4.2
-        and UCX (the window creation hung).
-        """
-        memory = self.intra_locale_win_memory
-        if len(memory) == 0:
-            memory = bytearray(0)
-        return memory
-
     def create_inter_locale_win(self):
         """
         Creates a :obj:`mpi4py.MPI.Win` window (over the :attr:`inter_locale_comm`
@@ -487,7 +473,7 @@ class RmaWindowBuffer(object):
             self.rank_logger.debug("BEG: Win.Create for self.inter_locale_comm")
             inter_locale_win = \
                 _mpi.Win.Create(
-                    self.win_memory,
+                    self.intra_locale_win_memory,
                     self.itemsize,
                     comm=self._inter_locale_comm
                 )
@@ -503,8 +489,8 @@ class RmaWindowBuffer(object):
         :return: Newly created window exposing the :attr:`buffer` memory.
         """
         if self._inter_locale_comm != _mpi.COMM_NULL:
-            peer_buffer = self.win_memory
-            peer_buffer_nbytes = len(peer_buffer)
+            peer_buffer = self.intra_locale_win_memory
+            peer_buffer_nbytes = len(self.intra_locale_win_memory)
         else:
             peer_buffer_nbytes = 0
             # Zero-length buffer (Win.Create(None) fails with MPI_ERR_WIN
