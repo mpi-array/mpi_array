@@ -20,6 +20,7 @@ Utilities
    :toctree: generated/
 
    create_lookup - Creates :obj:`dict` of (:obj:`numpy.dtype`, :obj:`mpi4py.MPI.Datatype`) pairs.
+   is_usable_datatype - Whether a basic MPI data type can be used for a :obj:`numpy.dtype`.
    create_datatype - Creates a :obj:`mpi4py.MPI.Datatype` from a given :obj:`numpy.dtype`.
    find_or_create_datatype - Returns a :obj:`mpi4py.MPI.Datatype` given a :obj:`numpy.dtype`.
 
@@ -40,10 +41,40 @@ __version__ = _version()
 _lookup = None
 
 
+def is_usable_datatype(datatype, dtyp):
+    """
+    Returns :samp:`True` if the basic MPI data type :samp:`{datatype}` can be used for elements
+    of :obj:`numpy.dtype` :samp:`{dtyp}`: it is valid, it has the size of an element, and so
+    does each element of a data type derived from it. MPI implementations differ in their
+    support for some types, e.g. :obj:`numpy.float16`: Open MPI 4.1 has no
+    valid :samp:`MPI_SHORT_FLOAT`, the types derived from the 16 bit float type of MPICH 4.2
+    have size zero.
+
+    :type datatype: :obj:`mpi4py.MPI.Datatype`
+    :param datatype: The MPI data type.
+    :type dtyp: :obj:`numpy.dtype`
+    :param dtyp: The element type.
+    :rtype: :obj:`bool`
+    :return: Whether :samp:`{datatype}` can be used for :samp:`{dtyp}` elements.
+    """
+    try:
+        if (datatype == _mpi.DATATYPE_NULL) or (datatype.Get_size() != dtyp.itemsize):
+            return False
+        derived = datatype.Create_contiguous(2)
+        try:
+            return derived.Get_size() == 2 * dtyp.itemsize
+        finally:
+            derived.Free()
+    except _mpi.Exception:
+        return False
+
+
 def create_lookup():
     """
     Creates a :obj:`collections.defaultdict` of (:obj:`numpy.dtype`, :obj:`mpi4py.MPI.Datatype`)
-    key-value pairs. Populated with basic types from :samp:`mpi4py.MPI._typedict`.
+    key-value pairs. Populated with basic types from :samp:`mpi4py.MPI._typedict`, those which
+    can be used (see :func:`is_usable_datatype`), the others get byte types
+    (see :func:`create_datatype`).
 
     :rtype: :obj:`collections.defaultdict`
     :return: A :obj:`collections.defaultdict` with default element being :samp:`None`.
@@ -53,9 +84,11 @@ def create_lookup():
     if hasattr(_mpi, "_typedict"):
         for c in _mpi._typedict.keys():
             try:
-                lu[_np.dtype(c)] = _mpi._typedict[c]
+                dtyp = _np.dtype(c)
             except TypeError:
-                pass
+                continue
+            if is_usable_datatype(_mpi._typedict[c], dtyp):
+                lu[dtyp] = _mpi._typedict[c]
 
     return lu
 

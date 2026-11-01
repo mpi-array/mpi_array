@@ -105,6 +105,23 @@ class TypesTest(_unittest.TestCase):
         mpi_dt_from_np_dt = _types.to_datatype(("int8", (3,)))
         self.assertEqual(3, mpi_dt_from_np_dt.Get_extent()[1])
 
+    def test_derived_types_of_basic_types(self):
+        """
+        The data types derived from those of the basic :obj:`numpy.dtype` have the size
+        and extent of their elements. MPI implementations differ in their support of some
+        basic types: the derived types of the 16 bit float of MPICH 4.2 had size zero,
+        and Open MPI 4.1 has no valid :samp:`MPI_SHORT_FLOAT`
+        (see :func:`mpi_array.types.is_usable_datatype`).
+        """
+        for np_dt in _np.typecodes["AllInteger"] + _np.typecodes["AllFloat"] + "?":
+            itemsize = _np.dtype(np_dt).itemsize
+            mpi_dt = _types.to_datatype(np_dt)
+            self.assertEqual(itemsize, mpi_dt.Get_size(), np_dt)
+            self.assertEqual((0, itemsize), mpi_dt.Get_extent(), np_dt)
+            mpi_dt = _types.to_datatype((np_dt, (3,)))
+            self.assertEqual(3 * itemsize, mpi_dt.Get_size(), np_dt)
+            self.assertEqual((0, 3 * itemsize), mpi_dt.Get_extent(), np_dt)
+
     def test_struct(self):
         """
         Test for :obj:`mpi_array.types.to_datatype` converting structure :obj:`numpy.dtype`
