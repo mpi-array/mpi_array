@@ -30,7 +30,8 @@ Hang detection
 A deadlock in a multi-process run would otherwise hang forever. Each test is
 therefore run under a :func:`faulthandler.dump_traceback_later` timer: if a single
 test takes longer than the timeout, every rank dumps the stacks of all its threads
-to :obj:`sys.stderr` and exits with a non-zero status (which makes :samp:`mpirun`
+to :obj:`sys.stderr` and, a few seconds later (:attr:`HANG_EXIT_DELAY`, so that all
+the ranks have dumped their stacks), exits with a non-zero status (which makes :samp:`mpirun`
 abort the job). The per-test timeout (in seconds) is read from
 the :samp:`MPI_ARRAY_TEST_TIMEOUT` environment variable, a value of :samp:`0`
 disables the timer. If the :samp:`MPI_ARRAY_TEST_HANG_DIR` environment variable
@@ -57,11 +58,13 @@ Attributes
    DEFAULT_TEST_TIMEOUT
    TEST_HANG_DIR_ENV_VAR
    NO_TESTS_EXIT_STATUS
+   HANG_EXIT_DELAY
 
 """
 from __future__ import absolute_import
 
 import faulthandler as _faulthandler
+import math as _math
 import os as _os
 import signal as _signal
 import sys as _sys
@@ -83,6 +86,9 @@ TEST_HANG_DIR_ENV_VAR = "MPI_ARRAY_TEST_HANG_DIR"
 
 #: Exit status when no tests were run (same as :func:`unittest.main` in Python 3.12+).
 NO_TESTS_EXIT_STATUS = 5
+
+#: Seconds between the hang-detection dump of the stacks and the exit of a process.
+HANG_EXIT_DELAY = 10.0
 
 #: File object to which hang-detection stacks are written (:samp:`None` means :obj:`sys.stderr`).
 _hang_dump_file = None
@@ -156,7 +162,10 @@ def arm_hang_detection(timeout=None):
     (Re)starts the hang-detection timer. If the timer is not re-armed (or cancelled)
     within :samp:`{timeout}` seconds, the stacks of all threads are written
     to :obj:`sys.stderr` (or the file opened by :func:`open_hang_dump_file`)
-    and the process exits with status 1.
+    and the process exits :attr:`HANG_EXIT_DELAY` seconds later (killed
+    by :samp:`SIGALRM`). The other processes of a hung job then dump their stacks
+    too, before the first exit makes :samp:`mpirun` kill them. Without :func:`signal.alarm`
+    the process exits with status 1 when it dumps its stacks.
 
     :type timeout: :obj:`float`
     :param timeout: Timeout in seconds, if :samp:`None` uses :func:`get_test_timeout`.
@@ -164,9 +173,16 @@ def arm_hang_detection(timeout=None):
     """
     if timeout is None:
         timeout = get_test_timeout()
-    _faulthandler.cancel_dump_traceback_later()
+    cancel_hang_detection()
     if timeout > 0:
-        _faulthandler.dump_traceback_later(timeout, exit=True, file=_hang_dump_target())
+        delayed_exit = hasattr(_signal, "alarm")
+        _faulthandler.dump_traceback_later(
+            timeout,
+            exit=(not delayed_exit),
+            file=_hang_dump_target()
+        )
+        if delayed_exit:
+            _signal.alarm(int(_math.ceil(timeout + HANG_EXIT_DELAY)))
 
 
 def cancel_hang_detection():
@@ -174,6 +190,8 @@ def cancel_hang_detection():
     Stops the hang-detection timer started by :func:`arm_hang_detection`.
     """
     _faulthandler.cancel_dump_traceback_later()
+    if hasattr(_signal, "alarm"):
+        _signal.alarm(0)
 
 
 def _fix_docstring_for_sphinx(docstr):
