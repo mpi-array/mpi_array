@@ -24,7 +24,11 @@ def read_readme():
 
 
 def create_git_describe():
-    cmd = ["git", "describe"]
+    """
+    Writes the :samp:`git describe` of the source to mpi_array/git_describe.txt (the version
+    when it isn't available, e.g. git is not installed or this is not a git repository).
+    """
+    cmd = ["git", "describe", "--tags", "--always"]
     try:
         p = \
             subprocess.Popen(
@@ -45,19 +49,11 @@ def create_git_describe():
         # Write the git describe to text file
         open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(stdout.decode())
     except (Exception,) as e:
-        # Try and make up a git-describe like string
-        # (e.g. git is not installed, or not a git repository).
+        # Use the version (e.g. git is not installed, or not a git repository).
         print("Problem with '%s': %s: %s" % (" ".join(cmd), e, getattr(e, "output", "")))
         version_str = open(os.path.join("mpi_array", "version.txt"), "rt").read().strip()
-        if ("TRAVIS_TAG" in os.environ.keys()) and (len(os.environ["TRAVIS_TAG"]) > 0):
-            version_str = os.environ["TRAVIS_TAG"]
-        else:
-            if ("TRAVIS_BRANCH" in os.environ.keys()) and (len(os.environ["TRAVIS_BRANCH"]) > 0):
-                version_str += os.environ["TRAVIS_BRANCH"]
-            if ("TRAVIS_COMMIT" in os.environ.keys()) and (len(os.environ["TRAVIS_COMMIT"]) > 0):
-                version_str += "-" + \
-                    os.environ["TRAVIS_COMMIT"][0:min([7, len(os.environ["TRAVIS_COMMIT"])])]
         open(os.path.join("mpi_array", "git_describe.txt"), "wt").write(version_str)
+
 
 create_git_describe()
 
@@ -116,13 +112,11 @@ setup(
         'Natural Language :: English',
     ],
     python_requires=">=3.10",
-    install_requires= \
-        [
-            "numpy>=2.0",
-            "array_split>=0.4.0",
-            "psutil>=4.3.0",
-        ]
-        + mpi4py_requires,
+    install_requires=[
+        "numpy>=2.0",
+        "array_split>=0.4.0",
+        "psutil>=4.3.0",
+    ] + mpi4py_requires,
     extras_require={
         "docs": ["sphinx", "sphinx_rtd_theme", "myst-parser", ],
     },

@@ -1,0 +1,133 @@
+# Lint, tests (with the doctests and the README quick start) and the documentation.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: flake8
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - name: Install flake8
+        run: python -m pip install flake8
+      - name: flake8
+        run: python -m flake8 mpi_array utils setup.py docs/source/conf.py
+
+  tests:
+    name: tests (Python ${{ matrix.python-version }}, ${{ matrix.mpi }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.10", "3.14"]
+        mpi: [mpich, openmpi]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: ${{ matrix.python-version }}
+      - uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: ${{ matrix.mpi }}
+      - name: Configure MPI
+        # As in the CI of mpi4py: the processes yield when idle (the runners have few cores),
+        # and Open MPI's one-sided communication doesn't use UCX.
+        run: |
+          if [ "${{ matrix.mpi }}" = "openmpi" ]; then
+            {
+              echo "OMPI_MCA_plm_ssh_agent=false"
+              echo "OMPI_MCA_pml=ob1"
+              echo "OMPI_MCA_btl=tcp,self"
+              echo "OMPI_MCA_osc=^ucx"
+              echo "OMPI_MCA_rmaps_base_oversubscribe=true"
+              echo "OMPI_MCA_mpi_yield_when_idle=true"
+              echo "OMPI_MCA_btl_base_warn_component_unused=false"
+              echo "PRTE_MCA_rmaps_default_mapping_policy=:oversubscribe"
+            } >> "$GITHUB_ENV"
+          else
+            {
+              echo "MPIR_CVAR_POLLS_BEFORE_YIELD=1"
+              echo "MPIR_CVAR_CH4_PROGRESS_THROTTLE=true"
+              echo "MPIR_CVAR_CH4_PROGRESS_THROTTLE_NO_PROGRESS_COUNT=1"
+              echo "MPIR_CVAR_CH3_INTERFACE_HOSTNAME=127.0.0.1"
+              echo "UCX_TLS=tcp,sm,self"
+              echo "FI_PROVIDER=tcp"
+              echo "HYDRA_LAUNCHER=fork"
+            } >> "$GITHUB_ENV"
+          fi
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          # Built with the MPI of the runner.
+          python -m pip install --no-binary=mpi4py mpi4py
+          python -m pip install .
+      - name: Versions
+        run: |
+          mpiexec --version
+          mpi_array_info.py
+      - name: Tests, 1 to 4 processes
+        run: >
+          python utils/run_mpi_tests.py -n 1 2 3 4 --timeout 300
+          --log-dir "${{ runner.temp }}/logs/source"
+      - name: Tests of the installed package, 2 processes
+        working-directory: ${{ runner.temp }}
+        run: >
+          python "${{ github.workspace }}/utils/run_mpi_tests.py" -n 2 --timeout 300
+          --no-exit-scenarios --log-dir "${{ runner.temp }}/logs/installed"
+      - name: Benchmarks, quick run on 2 processes
+        working-directory: ${{ runner.temp }}
+        timeout-minutes: 15
+        run: >
+          mpiexec -n 2 python -m mpi4py -m mpi_array.benchmarks --quick
+          -o benchmark_results.json -b benchmarks.json
+      - name: Upload the test logs
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-logs-python${{ matrix.python-version }}-${{ matrix.mpi }}
+          path: ${{ runner.temp }}/logs
+
+  docs:
+    name: documentation
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+      - uses: mpi4py/setup-mpi@v1
+        with:
+          mpi: mpich
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --no-binary=mpi4py mpi4py
+          python -m pip install ".[docs]"
+      - name: Build the HTML, warnings and references which aren't found are errors
+        run: python -m sphinx -n -W --keep-going -b html docs/source docs/_build/html
+      - name: Upload the HTML
+        uses: actions/upload-artifact@v7
+        with:
+          name: html
+          path: docs/_build/html

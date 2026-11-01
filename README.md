@@ -3,9 +3,7 @@
 <!-- start long description -->
 <!-- start badges -->
 
-[![Build Status](https://travis-ci.org/mpi-array/mpi_array.svg?branch=dev)](https://travis-ci.org/mpi-array/mpi_array)
-[![AppVeyor Status](https://ci.appveyor.com/api/projects/status/6yuhwolxtq93qvd0?svg=true)](https://ci.appveyor.com/project/mpi-array/mpi-array)
-[![Coveralls Status](https://coveralls.io/repos/github/mpi-array/mpi_array/badge.svg)](https://coveralls.io/github/mpi-array/mpi_array)
+[![CI](https://github.com/mpi-array/mpi_array/actions/workflows/ci.yml/badge.svg)](https://github.com/mpi-array/mpi_array/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/mpi-array/badge/?version=latest)](http://mpi-array.readthedocs.io/en/latest/?badge=latest)
 [![MIT License](https://img.shields.io/github/license/mashape/apistatus.svg)](https://github.com/mpi-array/mpi_array/blob/dev/LICENSE.txt)
 
@@ -141,9 +139,9 @@ python utils/run_mpi_tests.py
 This also checks that programs which end while arrays are allocated (normally, or with an
 unhandled exception) exit without hanging, see `mpi_array/exit_scenarios.py`.
 
-Travis CI at:
+The tests run in GitHub Actions (with MPICH and Open MPI), at:
 
-> https://travis-ci.org/mpi-array/mpi_array/
+> https://github.com/mpi-array/mpi_array/actions/workflows/ci.yml
 
 
 ## Documentation
