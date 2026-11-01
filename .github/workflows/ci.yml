@@ -13,6 +13,11 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+defaults:
+  run:
+    # With pipefail, the exit status of a test run piped to tee is that of the run.
+    shell: bash
+
 jobs:
   lint:
     name: flake8
@@ -26,7 +31,7 @@ jobs:
       - name: Install flake8
         run: python -m pip install flake8
       - name: flake8
-        run: python -m flake8 mpi_array utils setup.py docs/source/conf.py
+        run: python -m flake8 mpi_array utils setup.py docs/source/conf.py .github/scripts
 
   tests:
     name: tests (Python ${{ matrix.python-version }}, ${{ matrix.mpi }})
@@ -84,20 +89,26 @@ jobs:
           mpiexec --version
           mpi_array_info.py
       - name: Tests, 1 to 4 processes
-        run: >
-          python utils/run_mpi_tests.py -n 1 2 3 4 --timeout 300
-          --log-dir "${{ runner.temp }}/logs/source"
+        run: |
+          mkdir -p "$RUNNER_TEMP/logs"
+          python utils/run_mpi_tests.py -n 1 2 3 4 --timeout 300 \
+            --log-dir "$RUNNER_TEMP/logs/source" | tee "$RUNNER_TEMP/logs/source.txt"
       - name: Tests of the installed package, 2 processes
         working-directory: ${{ runner.temp }}
-        run: >
-          python "${{ github.workspace }}/utils/run_mpi_tests.py" -n 2 --timeout 300
-          --no-exit-scenarios --log-dir "${{ runner.temp }}/logs/installed"
+        run: |
+          python "$GITHUB_WORKSPACE/utils/run_mpi_tests.py" -n 2 --timeout 300 \
+            --no-exit-scenarios --log-dir "$RUNNER_TEMP/logs/installed" \
+            | tee "$RUNNER_TEMP/logs/installed.txt"
       - name: Benchmarks, quick run on 2 processes
         working-directory: ${{ runner.temp }}
         timeout-minutes: 15
         run: >
           mpiexec -n 2 python -m mpi4py -m mpi_array.benchmarks --quick
           -o benchmark_results.json -b benchmarks.json
+      - name: Annotate the failures
+        # The summaries and the ends of the logs of the failures, readable without the logs.
+        if: failure()
+        run: python .github/scripts/annotate_failures.py "$RUNNER_TEMP"/logs/*.txt
       - name: Upload the test logs
         if: failure()
         uses: actions/upload-artifact@v7
