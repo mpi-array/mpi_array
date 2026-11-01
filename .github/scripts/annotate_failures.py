@@ -8,6 +8,8 @@ Writes GitHub Actions error annotations for the failures reported by
 Each file is the output of a :samp:`run_mpi_tests.py` run. Its summary (from the result
 table on) is one annotation, the end of the log of each failed run or exit scenario
 is another (at most :attr:`MAX_ANNOTATIONS` in all, GitHub shows ten for each step).
+For a run which hung, the annotation has the stacks of all the ranks, with their frames
+of the :mod:`mpi_array` modules only.
 """
 from __future__ import print_function
 
@@ -25,6 +27,23 @@ MAX_LOG_LINES = 80
 MAX_CHARS = 8000
 
 _LOG_RE = re.compile(r"(/\S+\.log)\s*$")
+
+_STACKS_HEADER = "==== Stacks dumped by the hang detection"
+
+_FRAME_RE = re.compile(r'^\s*File "([^"]+)", line \d+')
+
+
+def is_package_frame(line):
+    """
+    Returns :samp:`True` for a stack line of a frame of a module of the :mod:`mpi_array`
+    package, other than those of its test runner.
+    """
+    m = _FRAME_RE.match(line)
+    if m is None:
+        return False
+    parts = re.split(r"[/\\]", m.group(1))
+    return \
+        ("mpi_array" in parts[:-1]) and (parts[-1] not in ("unittest.py", "tests.py"))
 
 
 def escape_data(text):
@@ -48,6 +67,27 @@ def annotate(title, text):
     if len(text) > MAX_CHARS:
         text = "...\n" + text[-MAX_CHARS:]
     print("::error title=%s::%s" % (escape_property(title), escape_data(text)))
+
+
+def compact_stacks(log_lines):
+    """
+    Returns the stacks dumped by the hang detection in a log, with only their frames
+    of the :mod:`mpi_array` modules, :samp:`None` if the log has none.
+    """
+    start = [i for i in range(len(log_lines)) if log_lines[i].startswith(_STACKS_HEADER)]
+    if len(start) == 0:
+        return None
+    stacks = []
+    for line in log_lines[start[0]:]:
+        if (
+            line.startswith("====")
+            or line.startswith("Timeout")
+            or line.startswith("Thread")
+            or line.startswith("Current thread")
+            or is_package_frame(line)
+        ):
+            stacks.append(line)
+    return stacks
 
 
 def failed_logs(lines):
@@ -93,7 +133,10 @@ def main(argv):
                 continue
             with open(log_file_name, "r", errors="replace") as f:
                 log_lines = f.read().splitlines()
-            if len(log_lines) > MAX_LOG_LINES + 1:
+            stacks = compact_stacks(log_lines)
+            if stacks is not None:
+                log_lines = [log_lines[0], "..."] + stacks
+            elif len(log_lines) > MAX_LOG_LINES + 1:
                 log_lines = [log_lines[0], "..."] + log_lines[-MAX_LOG_LINES:]
             text = "\n".join(log_lines)
             annotate(os.path.basename(log_file_name), text)
